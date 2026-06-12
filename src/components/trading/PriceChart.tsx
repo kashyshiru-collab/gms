@@ -17,10 +17,10 @@ export type Candle = { t: number; o: number; h: number; l: number; c: number };
 type IndicatorKey = "ema20" | "ema50" | "sma200" | "bb";
 type IndicatorDef = { key: IndicatorKey; label: string; color: string };
 const INDICATORS: IndicatorDef[] = [
-  { key: "ema20",  label: "EMA 20",  color: "#22d3ee" },
-  { key: "ema50",  label: "EMA 50",  color: "#f59e0b" },
+  { key: "ema20", label: "EMA 20", color: "#22d3ee" },
+  { key: "ema50", label: "EMA 50", color: "#f59e0b" },
   { key: "sma200", label: "SMA 200", color: "#a78bfa" },
-  { key: "bb",     label: "BB(20,2)",color: "#94a3b8" },
+  { key: "bb", label: "BB(20,2)", color: "#94a3b8" },
 ];
 
 function sma(values: number[], period: number): (number | undefined)[] {
@@ -65,13 +65,7 @@ function bollinger(values: number[], period = 20, mult = 2) {
   return { mid, upper, lower };
 }
 
-export function PriceChart({
-  data,
-  livePrice,
-}: {
-  data: Candle[];
-  livePrice?: number;
-}) {
+export function PriceChart({ data, livePrice }: { data: Candle[]; livePrice?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -86,7 +80,10 @@ export function PriceChart({
   const bbMidRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   const [active, setActive] = useState<Record<IndicatorKey, boolean>>({
-    ema20: true, ema50: true, sma200: false, bb: false,
+    ema20: true,
+    ema50: true,
+    sma200: false,
+    bb: false,
   });
 
   // Build chart once
@@ -119,14 +116,57 @@ export function PriceChart({
     chartRef.current = chart;
     seriesRef.current = series;
 
-    ema20Ref.current = chart.addSeries(LineSeries, { color: "#22d3ee", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-    ema50Ref.current = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-    sma200Ref.current = chart.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-    bbUpRef.current = chart.addSeries(LineSeries, { color: "#94a3b8", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-    bbLoRef.current = chart.addSeries(LineSeries, { color: "#94a3b8", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-    bbMidRef.current = chart.addSeries(LineSeries, { color: "#64748b", lineWidth: 1, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false });
+    ema20Ref.current = chart.addSeries(LineSeries, {
+      color: "#22d3ee",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    ema50Ref.current = chart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    sma200Ref.current = chart.addSeries(LineSeries, {
+      color: "#a78bfa",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    bbUpRef.current = chart.addSeries(LineSeries, {
+      color: "#94a3b8",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    bbLoRef.current = chart.addSeries(LineSeries, {
+      color: "#94a3b8",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    bbMidRef.current = chart.addSeries(LineSeries, {
+      color: "#64748b",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const resize = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      chart.resize(Math.max(1, el.clientWidth), Math.max(1, el.clientHeight));
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(containerRef.current);
+    requestAnimationFrame(resize);
 
     return () => {
+      observer.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -140,7 +180,10 @@ export function PriceChart({
     if (!seriesRef.current || !data?.length) return;
     const formatted = data.map((c) => ({
       time: Math.floor(c.t / 1000) as UTCTimestamp,
-      open: c.o, high: c.h, low: c.l, close: c.c,
+      open: c.o,
+      high: c.h,
+      low: c.l,
+      close: c.c,
     }));
     seriesRef.current.setData(formatted);
     lastCandleRef.current = data[data.length - 1] ?? null;
@@ -153,8 +196,9 @@ export function PriceChart({
     const bb = bollinger(closes, 20, 2);
 
     const toLine = (arr: (number | undefined)[]) =>
-      arr.map((v, i) => (v === undefined ? null : { time: times[i], value: v }))
-         .filter(Boolean) as { time: UTCTimestamp; value: number }[];
+      arr
+        .map((v, i) => (v === undefined ? null : { time: times[i], value: v }))
+        .filter(Boolean) as { time: UTCTimestamp; value: number }[];
 
     ema20Ref.current?.setData(active.ema20 ? toLine(e20) : []);
     ema50Ref.current?.setData(active.ema50 ? toLine(e50) : []);
@@ -192,7 +236,9 @@ export function PriceChart({
   return (
     <div className="h-full w-full flex flex-col">
       <div className="flex items-center gap-1 px-2 py-1 border-b border-border/50 overflow-x-auto">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Indicators</span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">
+          Indicators
+        </span>
         {INDICATORS.map((ind) => {
           const on = active[ind.key];
           return (
@@ -201,17 +247,22 @@ export function PriceChart({
               type="button"
               onClick={() => setActive((s) => ({ ...s, [ind.key]: !s[ind.key] }))}
               className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                on ? "border-transparent text-foreground" : "border-border/60 text-muted-foreground hover:text-foreground"
+                on
+                  ? "border-transparent text-foreground"
+                  : "border-border/60 text-muted-foreground hover:text-foreground"
               }`}
               style={on ? { backgroundColor: ind.color + "33", borderColor: ind.color } : undefined}
             >
-              <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ backgroundColor: ind.color }} />
+              <span
+                className="inline-block w-2 h-2 rounded-full mr-1 align-middle"
+                style={{ backgroundColor: ind.color }}
+              />
               {ind.label}
             </button>
           );
         })}
       </div>
-      <div ref={containerRef} className="flex-1 w-full" />
+      <div ref={containerRef} className="min-h-[420px] flex-1 w-full" />
     </div>
   );
 }

@@ -8,32 +8,149 @@ export type PairDef = {
   label: string;
   kind: "fx" | "synthetic";
   category: Category;
-  yahoo?: string;            // Yahoo Finance symbol for real data
+  yahoo?: string; // Yahoo Finance symbol for real data
   seedOffset?: number;
-  vol?: number;              // per-second volatility (fraction)
+  vol?: number; // per-second volatility (fraction)
   basePrice?: number;
   decimals: number;
 };
 
 export const PAIRS: PairDef[] = [
   // Forex majors — real data via Yahoo
-  { symbol: "EURUSD", label: "Euro / US Dollar",            kind: "fx", category: "forex", yahoo: "EURUSD=X", decimals: 5 },
-  { symbol: "GBPUSD", label: "British Pound / US Dollar",   kind: "fx", category: "forex", yahoo: "GBPUSD=X", decimals: 5 },
-  { symbol: "USDJPY", label: "US Dollar / Japanese Yen",    kind: "fx", category: "forex", yahoo: "JPY=X",    decimals: 3 },
-  { symbol: "USDKES", label: "US Dollar / Kenyan Shilling", kind: "fx", category: "forex", yahoo: "KES=X",    decimals: 3 },
-  { symbol: "AUDUSD", label: "Australian Dollar / US Dollar", kind: "fx", category: "forex", yahoo: "AUDUSD=X", decimals: 5 },
-  { symbol: "USDCHF", label: "US Dollar / Swiss Franc",     kind: "fx", category: "forex", yahoo: "CHF=X",    decimals: 5 },
+  {
+    symbol: "EURUSD",
+    label: "Euro / US Dollar",
+    kind: "fx",
+    category: "forex",
+    yahoo: "EURUSD=X",
+    decimals: 5,
+  },
+  {
+    symbol: "GBPUSD",
+    label: "British Pound / US Dollar",
+    kind: "fx",
+    category: "forex",
+    yahoo: "GBPUSD=X",
+    decimals: 5,
+  },
+  {
+    symbol: "USDJPY",
+    label: "US Dollar / Japanese Yen",
+    kind: "fx",
+    category: "forex",
+    yahoo: "JPY=X",
+    decimals: 3,
+  },
+  {
+    symbol: "USDKES",
+    label: "US Dollar / Kenyan Shilling",
+    kind: "fx",
+    category: "forex",
+    yahoo: "KES=X",
+    decimals: 3,
+  },
+  {
+    symbol: "AUDUSD",
+    label: "Australian Dollar / US Dollar",
+    kind: "fx",
+    category: "forex",
+    yahoo: "AUDUSD=X",
+    decimals: 5,
+  },
+  {
+    symbol: "USDCHF",
+    label: "US Dollar / Swiss Franc",
+    kind: "fx",
+    category: "forex",
+    yahoo: "CHF=X",
+    decimals: 5,
+  },
   // Metals — real spot via Yahoo
-  { symbol: "XAUUSD", label: "Gold / US Dollar",     kind: "fx", category: "metals", yahoo: "XAUUSD=X", decimals: 3 },
-  { symbol: "XAGUSD", label: "Silver / US Dollar",   kind: "fx", category: "metals", yahoo: "XAGUSD=X", decimals: 4 },
-  { symbol: "XPTUSD", label: "Platinum / US Dollar", kind: "fx", category: "metals", yahoo: "XPTUSD=X", decimals: 3 },
+  {
+    symbol: "XAUUSD",
+    label: "Gold / US Dollar",
+    kind: "fx",
+    category: "metals",
+    yahoo: "XAUUSD=X",
+    decimals: 3,
+  },
+  {
+    symbol: "XAGUSD",
+    label: "Silver / US Dollar",
+    kind: "fx",
+    category: "metals",
+    yahoo: "XAGUSD=X",
+    decimals: 4,
+  },
+  {
+    symbol: "XPTUSD",
+    label: "Platinum / US Dollar",
+    kind: "fx",
+    category: "metals",
+    yahoo: "XPTUSD=X",
+    decimals: 3,
+  },
   // Derived — Deriv-style synthetics (random walk)
-  { symbol: "VOL10",   label: "Volatility 10 Index",  kind: "synthetic", category: "synthetic", seedOffset: 1011, vol: 0.0006, basePrice: 1000, decimals: 5 },
-  { symbol: "VOL25",   label: "Volatility 25 Index",  kind: "synthetic", category: "synthetic", seedOffset: 2025, vol: 0.0015, basePrice: 1000, decimals: 5 },
-  { symbol: "VOL50",   label: "Volatility 50 Index",  kind: "synthetic", category: "synthetic", seedOffset: 3050, vol: 0.0030, basePrice: 1000, decimals: 5 },
-  { symbol: "VOL100",  label: "Volatility 100 Index", kind: "synthetic", category: "synthetic", seedOffset: 4100, vol: 0.0060, basePrice: 1000, decimals: 5 },
-  { symbol: "BOOM500", label: "Boom 500 Index",       kind: "synthetic", category: "synthetic", seedOffset: 5500, vol: 0.0020, basePrice: 9500, decimals: 4 },
-  { symbol: "CRASH500",label: "Crash 500 Index",      kind: "synthetic", category: "synthetic", seedOffset: 5501, vol: 0.0020, basePrice: 8500, decimals: 4 },
+  {
+    symbol: "VOL10",
+    label: "Volatility 10 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 1011,
+    vol: 0.0006,
+    basePrice: 1000,
+    decimals: 5,
+  },
+  {
+    symbol: "VOL25",
+    label: "Volatility 25 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 2025,
+    vol: 0.0015,
+    basePrice: 1000,
+    decimals: 5,
+  },
+  {
+    symbol: "VOL50",
+    label: "Volatility 50 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 3050,
+    vol: 0.003,
+    basePrice: 1000,
+    decimals: 5,
+  },
+  {
+    symbol: "VOL100",
+    label: "Volatility 100 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 4100,
+    vol: 0.006,
+    basePrice: 1000,
+    decimals: 5,
+  },
+  {
+    symbol: "BOOM500",
+    label: "Boom 500 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 5500,
+    vol: 0.002,
+    basePrice: 9500,
+    decimals: 4,
+  },
+  {
+    symbol: "CRASH500",
+    label: "Crash 500 Index",
+    kind: "synthetic",
+    category: "synthetic",
+    seedOffset: 5501,
+    vol: 0.002,
+    basePrice: 8500,
+    decimals: 4,
+  },
 ];
 
 export function findPair(symbol: string): PairDef | undefined {
@@ -42,6 +159,21 @@ export function findPair(symbol: string): PairDef | undefined {
 
 // ---------- Yahoo Finance OHLC ----------
 type YBar = { t: number; o: number; h: number; l: number; c: number };
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      timestamp?: number[];
+      indicators?: {
+        quote?: Array<{
+          open?: Array<number | null>;
+          high?: Array<number | null>;
+          low?: Array<number | null>;
+          close?: Array<number | null>;
+        }>;
+      };
+    }>;
+  };
+};
 const yCache = new Map<string, { at: number; bars: YBar[] }>();
 
 async function fetchYahoo(symbol: string, interval: string, range: string): Promise<YBar[]> {
@@ -55,14 +187,17 @@ async function fetchYahoo(symbol: string, interval: string, range: string): Prom
     headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`Yahoo ${symbol} ${res.status}`);
-  const json: any = await res.json();
+  const json = (await res.json()) as YahooChartResponse;
   const r = json?.chart?.result?.[0];
   if (!r) throw new Error("Yahoo: empty result");
   const ts: number[] = r.timestamp ?? [];
   const q = r.indicators?.quote?.[0] ?? {};
   const bars: YBar[] = [];
   for (let i = 0; i < ts.length; i++) {
-    const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+    const o = q.open?.[i],
+      h = q.high?.[i],
+      l = q.low?.[i],
+      c = q.close?.[i];
     if (o == null || h == null || l == null || c == null) continue;
     bars.push({ t: ts[i] * 1000, o, h, l, c });
   }
@@ -77,7 +212,10 @@ async function fxPriceAt(pair: PairDef, atMs: number): Promise<number> {
   // Find the bar covering atMs (or the latest if in the future)
   let bar = bars[bars.length - 1];
   for (let i = bars.length - 1; i >= 0; i--) {
-    if (bars[i].t <= atMs) { bar = bars[i]; break; }
+    if (bars[i].t <= atMs) {
+      bar = bars[i];
+      break;
+    }
   }
   // Sub-minute jitter so the live tick visibly moves between minute closes
   const tick = Math.floor(atMs / 1000);
@@ -187,17 +325,25 @@ export type Override = {
 let cachedOverrides: { at: number; rows: Override[] } | null = null;
 async function loadOverrides(): Promise<Override[]> {
   if (cachedOverrides && Date.now() - cachedOverrides.at < 3_000) return cachedOverrides.rows;
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { data } = await supabaseAdmin
-    .from("market_overrides")
-    .select("symbol, start_at, end_at, revert_seconds, target_price, start_price, active")
-    .eq("active", true)
-    .gte("end_at", cutoff)
-    .order("created_at", { ascending: false });
-  const rows = (data ?? []) as Override[];
-  cachedOverrides = { at: Date.now(), rows };
-  return rows;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("market_overrides")
+      .select("symbol, start_at, end_at, revert_seconds, target_price, start_price, active")
+      .eq("active", true)
+      .gte("end_at", cutoff)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const rows = (data ?? []) as Override[];
+    cachedOverrides = { at: Date.now(), rows };
+    return rows;
+  } catch {
+    // Charts should still render natural market prices when admin overrides
+    // are unavailable locally or before the database schema is fully applied.
+    cachedOverrides = { at: Date.now(), rows: [] };
+    return [];
+  }
 }
 
 export function invalidateOverrideCache() {
@@ -256,14 +402,14 @@ export async function getQuoteNow(symbol: string) {
 // For FX/metals: pull real OHLC from Yahoo at the right interval.
 // For synthetics: build candles from getPriceAt samples.
 const YAHOO_INTERVAL: Record<number, { interval: string; range: string }> = {
-  15_000:        { interval: "1m",  range: "5d" },
-  60_000:        { interval: "1m",  range: "5d" },
-  300_000:       { interval: "5m",  range: "1mo" },
-  900_000:       { interval: "15m", range: "1mo" },
-  3_600_000:     { interval: "60m", range: "2y" },
-  14_400_000:    { interval: "60m", range: "2y" },
-  86_400_000:    { interval: "1d",  range: "max" },
-  604_800_000:   { interval: "1wk", range: "max" },
+  15_000: { interval: "1m", range: "5d" },
+  60_000: { interval: "1m", range: "5d" },
+  300_000: { interval: "5m", range: "1mo" },
+  900_000: { interval: "15m", range: "1mo" },
+  3_600_000: { interval: "60m", range: "2y" },
+  14_400_000: { interval: "60m", range: "2y" },
+  86_400_000: { interval: "1d", range: "max" },
+  604_800_000: { interval: "1wk", range: "max" },
   2_592_000_000: { interval: "1mo", range: "max" },
 };
 
@@ -303,14 +449,16 @@ export async function buildCandles(symbol: string, stepMs: number, count: number
     const tEnd = now - (i - 1) * stepMs;
     const tStart = tEnd - stepMs;
     const samples = await Promise.all(
-      Array.from({ length: subN + 1 }, (_, k) =>
-        getPriceAt(symbol, tStart + (stepMs * k) / subN),
-      ),
+      Array.from({ length: subN + 1 }, (_, k) => getPriceAt(symbol, tStart + (stepMs * k) / subN)),
     );
     const o = samples[0];
     const c = samples[samples.length - 1];
-    let h = o, l = o;
-    for (const s of samples) { if (s > h) h = s; if (s < l) l = s; }
+    let h = o,
+      l = o;
+    for (const s of samples) {
+      if (s > h) h = s;
+      if (s < l) l = s;
+    }
     out.push({ t: tEnd, o, h, l, c });
   }
   return out;

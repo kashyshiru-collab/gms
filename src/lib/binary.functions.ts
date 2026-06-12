@@ -11,7 +11,7 @@ export const openBinaryTrade = createServerFn({ method: "POST" })
       symbol: z.string().min(3).max(10),
       direction: z.enum(["up", "down"]),
       stake: z.number().positive().max(1_000_000),
-      duration: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(120), z.literal(300)]),
+      duration: z.number().int().min(1).max(300),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -38,7 +38,7 @@ export const openDigitTrade = createServerFn({ method: "POST" })
       prediction: z.enum(["up", "down", "matches", "differs", "even", "odd", "over", "under"]),
       barrier: z.number().int().min(0).max(9).nullable().optional(),
       stake: z.number().positive().max(1_000_000),
-      duration: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(120), z.literal(300)]),
+      duration: z.number().int().min(1).max(300),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {

@@ -41,7 +41,7 @@ function Dashboard() {
   const [category, setCategory] = useState<"synthetic" | "forex">("synthetic");
   const [symbol, setSymbol] = useState("VOL10");
   const [stake, setStake] = useState("100");
-  const [interval, setInterval] = useState<"15s" | "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w" | "1M">("1m");
+  const [derivedTicks, setDerivedTicks] = useState(5);
   const [expanded, setExpanded] = useState(false);
   const [marketsOpen, setMarketsOpen] = useState(false);
 
@@ -49,10 +49,10 @@ function Dashboard() {
 
   const quotesQ = useQuery({ queryKey: ["quotes"], queryFn: () => quotesFn(), refetchInterval: 2_000 });
   const candlesQ = useQuery({
-    queryKey: ["candles", symbol, interval],
-    queryFn: () => candlesFn({ data: { symbol, interval: interval as any } }),
+    queryKey: ["candles", symbol, "1m"],
+    queryFn: () => candlesFn({ data: { symbol, interval: "1m" } }),
     enabled: !isDerived,
-    refetchInterval: isDerived ? false : interval === "15s" ? 5_000 : interval === "1m" ? 10_000 : interval === "5m" || interval === "15m" ? 30_000 : 120_000,
+    refetchInterval: isDerived ? false : 10_000,
   });
   const dashQ = useQuery({ queryKey: ["dash"], queryFn: () => dashFn(), refetchInterval: 8_000 });
 
@@ -211,17 +211,11 @@ function Dashboard() {
             </div>
 
             <div className="flex items-center gap-1 overflow-x-auto">
-              {!isDerived && (["15s", "1m", "5m", "15m", "1h", "4h", "1d", "1w", "1M"] as const).map((iv) => (
-                <button
-                  key={iv}
-                  onClick={() => setInterval(iv)}
-                  className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                    interval === iv
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >{iv}</button>
-              ))}
+              {!isDerived && (
+                <span className="px-2 py-1 text-xs rounded-md bg-primary text-primary-foreground font-medium">
+                  1m
+                </span>
+              )}
               <button
                 onClick={() => setExpanded((v) => !v)}
                 className="ml-1 p-1.5 rounded-md text-muted-foreground hover:bg-muted"
@@ -237,7 +231,7 @@ function Dashboard() {
           </div>
           <div className={`flex-1 p-2 ${expanded ? "min-h-[70vh]" : ""}`}>
             {isDerived ? (
-              <TickChart symbol={symbol} />
+              <TickChart symbol={symbol} windowTicks={derivedTicks} />
             ) : candlesQ.data ? (
               <PriceChart data={candlesQ.data.candles} livePrice={selectedQuote?.price} />
             ) : (
@@ -266,7 +260,13 @@ function Dashboard() {
               positions={dashQ.data?.positions ?? []}
             />
           ) : (
-            <DerivedPanel symbol={symbol} stake={stake} setStake={setStake} />
+            <DerivedPanel
+              symbol={symbol}
+              stake={stake}
+              setStake={setStake}
+              ticks={derivedTicks}
+              setTicks={setDerivedTicks}
+            />
           )}
         </aside>
       </main>
@@ -644,4 +644,3 @@ function SecretAdminLogo({ isAdmin }: { isAdmin: boolean }) {
     </button>
   );
 }
-

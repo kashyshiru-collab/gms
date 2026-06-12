@@ -28,6 +28,24 @@ export const getTick = createServerFn({ method: "POST" })
     return { symbol: data.symbol, price, decimals: pair.decimals, at: Date.now() };
   });
 
+export const getTicks = createServerFn({ method: "POST" })
+  .inputValidator((d: { symbol: string; seconds?: number }) => d)
+  .handler(async ({ data }) => {
+    const { getPriceAt } = await import("./pricing.server");
+    const pair = findPair(data.symbol);
+    if (!pair) throw new Error("Unknown symbol");
+    const seconds = Math.max(2, Math.min(600, Math.floor(data.seconds ?? 180)));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const ticks = await Promise.all(
+      Array.from({ length: seconds + 1 }, async (_, i) => {
+        const time = nowSec - seconds + i;
+        const value = await getPriceAt(data.symbol, time * 1000);
+        return { time, value };
+      }),
+    );
+    return { symbol: data.symbol, decimals: pair.decimals, ticks };
+  });
+
 export const getQuotes = createServerFn({ method: "GET" }).handler(async () => {
   const { getPriceAt } = await import("./pricing.server");
   const now = Date.now();

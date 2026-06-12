@@ -33,36 +33,34 @@ export function DerivedPanel({
   symbol,
   stake,
   setStake,
+  ticks,
+  setTicks,
 }: {
   symbol: string;
   stake: string;
   setStake: (v: string) => void;
+  ticks: number;
+  setTicks: (v: number) => void;
 }) {
   const qc = useQueryClient();
   const openFn = useServerFn(openDigitTrade);
   const listFn = useServerFn(getActiveBinaryTrades);
 
   const [groupIdx, setGroupIdx] = useState(1); // default Over/Under like screenshot
-  const [ticks, setTicks] = useState(5);
   const [barrier, setBarrier] = useState(5);
   const [tab, setTab] = useState<"stake" | "payout">("stake");
 
   const group = GROUPS[groupIdx];
 
-  // tick -> seconds (1 tick ≈ 2s)
+  // Keep digit contracts aligned with the chart's 1Hz tick stream.
   const duration = useMemo(() => {
-    const s = ticks * 2;
-    if (s <= 15) return 15;
-    if (s <= 30) return 30;
-    if (s <= 60) return 60;
-    if (s <= 120) return 120;
-    return 300;
-  }, [ticks]) as 15 | 30 | 60 | 120 | 300;
+    return Math.max(1, ticks);
+  }, [ticks]);
 
   const tradesQ = useQuery({
     queryKey: ["binary-trades"],
     queryFn: () => listFn(),
-    refetchInterval: 3_000,
+    refetchInterval: 1_000,
   });
 
   // Auto-resolve the current user's expired trades and toast the outcome.
@@ -93,7 +91,7 @@ export function DerivedPanel({
         // ignore
       }
     };
-    const id = setInterval(tick, 2_000);
+    const id = setInterval(tick, 500);
     tick();
     return () => { alive = false; clearInterval(id); };
   }, [resolveFn, qc]);

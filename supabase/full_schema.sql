@@ -1144,7 +1144,7 @@ BEGIN
   IF p_contract NOT IN ('rise_fall','matches','differs','even','odd','over','under') THEN
     RAISE EXCEPTION 'Invalid contract'; END IF;
   IF p_stake <= 0 THEN RAISE EXCEPTION 'Stake must be positive'; END IF;
-  IF p_duration NOT IN (15, 30, 60, 120, 300) THEN RAISE EXCEPTION 'Invalid duration'; END IF;
+  IF p_duration < 1 OR p_duration > 300 THEN RAISE EXCEPTION 'Invalid duration'; END IF;
 
   SELECT balance_kes INTO v_balance FROM public.wallets WHERE user_id = v_user FOR UPDATE;
   IF v_balance IS NULL THEN RAISE EXCEPTION 'Wallet not found'; END IF;
@@ -1268,7 +1268,7 @@ BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_direction NOT IN ('up','down') THEN RAISE EXCEPTION 'Invalid direction'; END IF;
   IF p_stake <= 0 THEN RAISE EXCEPTION 'Stake must be positive'; END IF;
-  IF p_duration NOT IN (15, 30, 60, 120, 300) THEN RAISE EXCEPTION 'Invalid duration'; END IF;
+  IF p_duration < 1 OR p_duration > 300 THEN RAISE EXCEPTION 'Invalid duration'; END IF;
   SELECT balance_kes INTO v_balance FROM public.wallets WHERE user_id = v_user FOR UPDATE;
   IF v_balance IS NULL THEN RAISE EXCEPTION 'Wallet not found'; END IF;
   IF v_balance < p_stake THEN RAISE EXCEPTION 'Insufficient wallet balance'; END IF;

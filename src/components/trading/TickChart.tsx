@@ -14,8 +14,9 @@ import {
   ColorType,
   CrosshairMode,
 } from "lightweight-charts";
-import { getTick } from "@/lib/forex.functions";
+import { getTick, getTicks } from "@/lib/forex.functions";
 import { getActiveBinaryTrades } from "@/lib/binary.functions";
+import { PAIRS } from "@/lib/pricing.shared";
 
 /**
  * Deriv-style live tick chart. Polls a single price at 1Hz, plots each
@@ -26,8 +27,84 @@ import { getActiveBinaryTrades } from "@/lib/binary.functions";
 // Module-level cache so charts stay continuous when the user switches symbols.
 const tickCache = new Map<string, { ticks: { time: UTCTimestamp; value: number }[]; t: number }>();
 const tradeMarkCache = new Map<string, Map<string, { time: UTCTimestamp; status: string }>>();
+const warmSymbols = PAIRS.filter((p) => p.category === "synthetic").map((p) => p.symbol);
+let warmTimer: ReturnType<typeof setTimeout> | null = null;
+let warmRefCount = 0;
+type MarkerTrade = { id: string; status: string };
 
-export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowSize?: number }) {
+function mergeCachedTick(symbol: string, point: { time: UTCTimestamp; value: number }) {
+  const cached = tickCache.get(symbol);
+  const arr = cached?.ticks.slice() ?? [];
+  if (arr[arr.length - 1]?.time === point.time) arr[arr.length - 1] = point;
+  else if (!arr.length || (arr[arr.length - 1].time as number) < (point.time as number)) arr.push(point);
+  if (arr.length > 600) arr.splice(0, arr.length - 600);
+  tickCache.set(symbol, { ticks: arr, t: point.time as number });
+}
+
+function startSyntheticWarmFeed(
+  getTickFn: ReturnType<typeof useServerFn<typeof getTick>>,
+  getTicksFn: ReturnType<typeof useServerFn<typeof getTicks>>,
+) {
+  warmRefCount += 1;
+  if (warmTimer) {
+    return () => {
+      warmRefCount = Math.max(0, warmRefCount - 1);
+      if (warmRefCount === 0 && warmTimer) {
+        clearTimeout(warmTimer);
+        warmTimer = null;
+      }
+    };
+  }
+
+  let stopped = false;
+  const backfill = async () => {
+    await Promise.all(
+      warmSymbols.map(async (symbol) => {
+        if (tickCache.has(symbol)) return;
+        try {
+          const r = await getTicksFn({ data: { symbol, seconds: 180 } });
+          const ticks = r.ticks.map((p) => ({ time: p.time as UTCTimestamp, value: p.value }));
+          tickCache.set(symbol, { ticks, t: ticks[ticks.length - 1]?.time ?? Math.floor(Date.now() / 1000) });
+        } catch {
+          // A visible chart can still backfill its own symbol if this warm pass fails.
+        }
+      }),
+    );
+  };
+
+  const pump = async () => {
+    await Promise.all(
+      warmSymbols.map(async (symbol) => {
+        try {
+          const r = await getTickFn({ data: { symbol } });
+          const cached = tickCache.get(symbol);
+          const time = Math.max(Math.floor(r.at / 1000), (cached?.t ?? 0) + 1);
+          mergeCachedTick(symbol, { time: time as UTCTimestamp, value: r.price });
+        } catch {
+          // Keep the existing cache and try again on the next beat.
+        }
+      }),
+    );
+    if (!stopped) warmTimer = setTimeout(pump, 1_000);
+  };
+
+  backfill().finally(() => {
+    if (!stopped) void pump();
+  });
+
+  return () => {
+    warmRefCount = Math.max(0, warmRefCount - 1);
+    if (warmRefCount === 0) {
+      stopped = true;
+      if (warmTimer) {
+        clearTimeout(warmTimer);
+        warmTimer = null;
+      }
+    }
+  };
+}
+
+export function TickChart({ symbol, windowTicks = 60 }: { symbol: string; windowTicks?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
@@ -35,6 +112,7 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
   const ticksRef = useRef<{ time: UTCTimestamp; value: number }[]>([]);
   const tRef = useRef<number>(Math.floor(Date.now() / 1000));
   const getTickFn = useServerFn(getTick);
+  const getTicksFn = useServerFn(getTicks);
   const listFn = useServerFn(getActiveBinaryTrades);
 
   // tradeId -> { time, status }
@@ -43,8 +121,10 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
   const tradesQ = useQuery({
     queryKey: ["binary-trades"],
     queryFn: () => listFn(),
-    refetchInterval: 2_000,
+    refetchInterval: 1_000,
   });
+
+  useEffect(() => startSyntheticWarmFeed(getTickFn, getTicksFn), [getTickFn, getTicksFn]);
 
   // Build chart once
   useEffect(() => {
@@ -62,7 +142,12 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#334155", scaleMargins: { top: 0.15, bottom: 0.15 } },
-      timeScale: { borderColor: "#334155", timeVisible: true, secondsVisible: true, rightOffset: 4 },
+      timeScale: {
+        borderColor: "#334155",
+        timeVisible: true,
+        secondsVisible: true,
+        rightOffset: 4,
+      },
       autoSize: true,
       handleScroll: false,
       handleScale: false,
@@ -84,7 +169,16 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
     chartRef.current = chart;
     seriesRef.current = series;
     markersApiRef.current = createSeriesMarkers(series, []);
+    const resize = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      chart.resize(Math.max(1, el.clientWidth), Math.max(1, el.clientHeight));
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(containerRef.current);
+    requestAnimationFrame(resize);
     return () => {
+      observer.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -92,7 +186,20 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
     };
   }, []);
 
-  // Restore (or start) per-symbol history on symbol change — chart stays continuous.
+  const setVisibleWindow = () => {
+    const arr = ticksRef.current;
+    if (arr.length === 0) return;
+    const to = (arr[arr.length - 1].time as number) + 1;
+    const visibleSeconds = Math.max(2, windowTicks * 2);
+    const from = Math.max(arr[0].time as number, to - visibleSeconds);
+    chartRef.current?.timeScale().setVisibleRange({
+      from: from as UTCTimestamp,
+      to: to as UTCTimestamp,
+    });
+  };
+
+  // Restore per-symbol history immediately, then backfill from wall-clock time
+  // so symbols keep moving even while their chart is not mounted.
   useEffect(() => {
     const cached = tickCache.get(symbol);
     if (cached && cached.ticks.length) {
@@ -106,13 +213,32 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
     if (!tradeMarkCache.has(symbol)) tradeMarkCache.set(symbol, tradeMarksRef.current);
     seriesRef.current?.setData(ticksRef.current);
     markersApiRef.current?.setMarkers([]);
-    const arr = ticksRef.current;
-    if (arr.length > 1) {
-      const from = arr[Math.max(0, arr.length - windowSize)].time;
-      const to = (arr[arr.length - 1].time as number) + 5;
-      chartRef.current?.timeScale().setVisibleRange({ from, to: to as UTCTimestamp });
+
+    setVisibleWindow();
+    let alive = true;
+    async function backfill() {
+      try {
+        const historySeconds = Math.max(180, windowTicks * 8);
+        const r = await getTicksFn({ data: { symbol, seconds: historySeconds } });
+        if (!alive) return;
+        const ticks = r.ticks.map((p) => ({
+          time: p.time as UTCTimestamp,
+          value: p.value,
+        }));
+        ticksRef.current = ticks;
+        tRef.current = ticks[ticks.length - 1]?.time ?? Math.floor(Date.now() / 1000);
+        tickCache.set(symbol, { ticks: ticks.slice(), t: tRef.current });
+        seriesRef.current?.setData(ticks);
+        setVisibleWindow();
+      } catch {
+        // keep cached data if backfill has a network/server blip
+      }
     }
-  }, [symbol, windowSize]);
+    backfill();
+    return () => {
+      alive = false;
+    };
+  }, [symbol, windowTicks, getTicksFn]);
 
   // Poll ticks
   useEffect(() => {
@@ -122,18 +248,16 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
       try {
         const r = await getTickFn({ data: { symbol } });
         if (!alive) return;
-        tRef.current += 1;
-        const point = { time: tRef.current as UTCTimestamp, value: r.price };
+        const time = Math.max(Math.floor(r.at / 1000), tRef.current + 1);
+        tRef.current = time;
+        const point = { time: time as UTCTimestamp, value: r.price };
         const arr = ticksRef.current;
-        arr.push(point);
+        if (arr[arr.length - 1]?.time === point.time) arr[arr.length - 1] = point;
+        else arr.push(point);
         if (arr.length > 600) arr.splice(0, arr.length - 600);
         tickCache.set(symbol, { ticks: arr.slice(), t: tRef.current });
         seriesRef.current?.setData(arr);
-        if (arr.length > 1) {
-          const from = arr[Math.max(0, arr.length - windowSize)].time;
-          const to = (arr[arr.length - 1].time as number) + 5;
-          chartRef.current?.timeScale().setVisibleRange({ from, to: to as UTCTimestamp });
-        }
+        setVisibleWindow();
       } catch {
         // ignore
       }
@@ -144,16 +268,17 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
       alive = false;
       if (timer) clearTimeout(timer);
     };
-  }, [symbol, windowSize, getTickFn]);
+  }, [symbol, windowTicks, getTickFn]);
 
   // Sync markers from trade list
   useEffect(() => {
     const trades = tradesQ.data ?? [];
     const marks = tradeMarksRef.current;
     const arr = ticksRef.current;
-    const nowTickTime = (arr[arr.length - 1]?.time ?? (tRef.current as UTCTimestamp)) as UTCTimestamp;
+    const nowTickTime = (arr[arr.length - 1]?.time ??
+      (tRef.current as UTCTimestamp)) as UTCTimestamp;
 
-    for (const t of trades as any[]) {
+    for (const t of trades as MarkerTrade[]) {
       const existing = marks.get(t.id);
       if (!existing) {
         // New trade — anchor to the latest tick we have.
@@ -176,7 +301,10 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
           position: "inBar" as const,
           color,
           shape: (isOpen ? "circle" : won ? "arrowUp" : lost ? "arrowDown" : "square") as
-            | "circle" | "arrowUp" | "arrowDown" | "square",
+            | "circle"
+            | "arrowUp"
+            | "arrowDown"
+            | "square",
           text: isOpen ? "•" : won ? "W" : lost ? "L" : "",
         };
       })
@@ -185,5 +313,5 @@ export function TickChart({ symbol, windowSize = 60 }: { symbol: string; windowS
     markersApiRef.current?.setMarkers(list);
   }, [tradesQ.data]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return <div ref={containerRef} className="h-full min-h-[420px] w-full" />;
 }
