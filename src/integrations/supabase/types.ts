@@ -187,11 +187,14 @@ export type Database = {
           created_at: string
           email: string | null
           force_loss: boolean
+          first_name: string | null
           full_name: string | null
           id: string
           is_burned: boolean
           phone: string | null
           referral_code: string | null
+          second_name: string | null
+          currency: string
           updated_at: string
           warnings_count: number
         }
@@ -199,11 +202,14 @@ export type Database = {
           created_at?: string
           email?: string | null
           force_loss?: boolean
+          first_name?: string | null
           full_name?: string | null
           id: string
           is_burned?: boolean
           phone?: string | null
           referral_code?: string | null
+          second_name?: string | null
+          currency?: string
           updated_at?: string
           warnings_count?: number
         }
@@ -211,11 +217,14 @@ export type Database = {
           created_at?: string
           email?: string | null
           force_loss?: boolean
+          first_name?: string | null
           full_name?: string | null
           id?: string
           is_burned?: boolean
           phone?: string | null
           referral_code?: string | null
+          second_name?: string | null
+          currency?: string
           updated_at?: string
           warnings_count?: number
         }

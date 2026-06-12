@@ -10,8 +10,11 @@ export const createPasswordAccount = createServerFn({ method: "POST" })
       .object({
         email: z.string().email(),
         password: z.string().min(6),
+        firstName: z.string().min(1).max(60).optional(),
+        secondName: z.string().min(1).max(60).optional(),
         fullName: z.string().min(2).max(120),
         phone: z.string().min(9).max(20),
+        currency: z.string().min(3).max(3).optional(),
       })
       .parse(d),
   )
@@ -24,8 +27,11 @@ export const createPasswordAccount = createServerFn({ method: "POST" })
       password: data.password,
       email_confirm: true,
       user_metadata: {
+        first_name: data.firstName?.trim() ?? data.fullName.trim().split(/\s+/)[0] ?? null,
+        second_name: data.secondName?.trim() ?? null,
         full_name: data.fullName.trim(),
         phone: data.phone.trim(),
+        currency: data.currency ?? "KES",
       },
     });
 
@@ -44,8 +50,11 @@ export const createPasswordAccount = createServerFn({ method: "POST" })
       {
         id: userId,
         email,
+        first_name: data.firstName?.trim() ?? null,
+        second_name: data.secondName?.trim() ?? null,
         full_name: data.fullName.trim(),
         phone: data.phone.trim(),
+        currency: data.currency ?? "KES",
         referral_code: (codeRow as unknown as string) ?? null,
       },
       { onConflict: "id" },
@@ -88,15 +97,28 @@ export const ensureMyAccount = createServerFn({ method: "POST" })
       await supabaseAdmin.from("profiles").insert({
         id: userId,
         email,
+        first_name: meta.first_name ?? null,
+        second_name: meta.second_name ?? null,
         full_name: meta.full_name ?? meta.name ?? null,
         phone: meta.phone ?? null,
+        currency: meta.currency ?? "KES",
         referral_code: (codeRow as unknown as string) ?? null,
       });
     } else {
       // Backfill missing fields if user signed up before metadata was captured.
-      const patch: { full_name?: string; phone?: string; email?: string } = {};
+      const patch: {
+        first_name?: string;
+        second_name?: string;
+        full_name?: string;
+        phone?: string;
+        email?: string;
+        currency?: string;
+      } = {};
+      if (meta.first_name) patch.first_name = String(meta.first_name);
+      if (meta.second_name) patch.second_name = String(meta.second_name);
       if (meta.full_name) patch.full_name = String(meta.full_name);
       if (meta.phone) patch.phone = String(meta.phone);
+      if (meta.currency) patch.currency = String(meta.currency);
       if (email) patch.email = email;
       if (Object.keys(patch).length) {
         await supabaseAdmin.from("profiles").update(patch).eq("id", userId);
