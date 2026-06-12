@@ -313,5 +313,5 @@ export function TickChart({ symbol, windowTicks = 60 }: { symbol: string; window
     markersApiRef.current?.setMarkers(list);
   }, [tradesQ.data]);
 
-  return <div ref={containerRef} className="h-full min-h-[420px] w-full" />;
+  return <div ref={containerRef} className="h-full min-h-0 w-full" />;
 }

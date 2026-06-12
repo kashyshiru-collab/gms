@@ -4,6 +4,68 @@ import { z } from "zod";
 
 const ADMIN_EMAILS = new Set(["gregtory03@gmail.com"]);
 
+async function attachReferrerFromMetadata(
+  supabaseAdmin: any,
+  userId: string,
+  rawCode: unknown,
+) {
+  const code = String(rawCode ?? "").trim().toUpperCase();
+  if (!code) return;
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("referrals")
+    .select("id")
+    .eq("referred_id", userId)
+    .limit(1);
+  if (existingError) throw new Error(existingError.message);
+  if ((existing ?? []).length > 0) return;
+
+  const { data: referrer, error: referrerError } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("referral_code", code)
+    .maybeSingle();
+  if (referrerError) throw new Error(referrerError.message);
+  if (!referrer || referrer.id === userId) return;
+
+  const { data: agentRole, error: roleError } = await supabaseAdmin
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", referrer.id)
+    .eq("role", "agent")
+    .maybeSingle();
+  if (roleError) throw new Error(roleError.message);
+  if (!agentRole) return;
+
+  await supabaseAdmin
+    .from("referrals")
+    .insert({ referrer_id: referrer.id, referred_id: userId, level: 1 });
+
+  const { data: l2 } = await supabaseAdmin
+    .from("referrals")
+    .select("referrer_id")
+    .eq("referred_id", referrer.id)
+    .eq("level", 1)
+    .maybeSingle();
+  if (!l2?.referrer_id || l2.referrer_id === userId) return;
+
+  await supabaseAdmin
+    .from("referrals")
+    .insert({ referrer_id: l2.referrer_id, referred_id: userId, level: 2 });
+
+  const { data: l3 } = await supabaseAdmin
+    .from("referrals")
+    .select("referrer_id")
+    .eq("referred_id", l2.referrer_id)
+    .eq("level", 1)
+    .maybeSingle();
+  if (!l3?.referrer_id || l3.referrer_id === userId) return;
+
+  await supabaseAdmin
+    .from("referrals")
+    .insert({ referrer_id: l3.referrer_id, referred_id: userId, level: 3 });
+}
+
 export const createPasswordAccount = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
@@ -32,6 +94,7 @@ export const createPasswordAccount = createServerFn({ method: "POST" })
         full_name: data.fullName.trim(),
         phone: data.phone.trim(),
         currency: data.currency ?? "KES",
+        referral_code: null,
       },
     });
 
@@ -138,6 +201,8 @@ export const ensureMyAccount = createServerFn({ method: "POST" })
         .from("user_roles")
         .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
     }
+
+    await attachReferrerFromMetadata(supabaseAdmin, userId, meta.referral_code);
 
     return { ok: true };
   });

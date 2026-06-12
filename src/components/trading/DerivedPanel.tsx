@@ -5,7 +5,7 @@ import { openDigitTrade, getActiveBinaryTrades, resolveMyDueBinaryTrades, PAYOUT
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Info, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Info, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
 
 type ContractGroup = "rise_fall" | "over_under" | "even_odd";
 
@@ -33,18 +33,21 @@ export function DerivedPanel({
   setStake,
   ticks,
   setTicks,
+  groupIdx,
+  setGroupIdx,
 }: {
   symbol: string;
   stake: string;
   setStake: (v: string) => void;
   ticks: number;
   setTicks: (v: number) => void;
+  groupIdx: number;
+  setGroupIdx: (v: number) => void;
 }) {
   const qc = useQueryClient();
   const openFn = useServerFn(openDigitTrade);
   const listFn = useServerFn(getActiveBinaryTrades);
 
-  const [groupIdx, setGroupIdx] = useState(1); // default Over/Under like screenshot
   const [barrier, setBarrier] = useState(5);
   const [tab, setTab] = useState<"stake" | "payout">("stake");
 
@@ -149,35 +152,39 @@ export function DerivedPanel({
 
   return (
     <div className="space-y-3">
-      {/* Learn about this trade type */}
-      <a href="#" className="text-[11px] text-primary underline underline-offset-2 inline-block">
-        Learn about this trade type
-      </a>
-
-      {/* Contract group selector */}
-      <div className="rounded-lg border border-border bg-card/60 p-2">
-        <div className="flex items-center gap-1">
+      <div className="hidden rounded-lg border border-border bg-card/60 p-1 lg:grid lg:grid-cols-3 lg:gap-1">
+        {GROUPS.map((item, index) => (
           <button
-            onClick={() => setGroupIdx((i) => (i - 1 + GROUPS.length) % GROUPS.length)}
-            className="p-1.5 rounded hover:bg-muted text-muted-foreground"
-            aria-label="Previous"
-          ><ChevronLeft className="h-4 w-4" /></button>
-          <div className="flex-1 flex items-center gap-2 px-1">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-bull/15 text-bull">
-              <TrendingUp className="h-4 w-4" />
-            </span>
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-bear/15 text-bear">
-              <TrendingDown className="h-4 w-4" />
-            </span>
-            <span className="font-semibold text-sm ml-1">{group.label}</span>
-          </div>
-          <button
-            onClick={() => setGroupIdx((i) => (i + 1) % GROUPS.length)}
-            className="p-1.5 rounded hover:bg-muted text-muted-foreground"
-            aria-label="Next"
-          ><ChevronRight className="h-4 w-4" /></button>
-        </div>
+            key={item.id}
+            onClick={() => setGroupIdx(index)}
+            className={`rounded-md px-2 py-2 text-xs font-semibold transition ${
+              groupIdx === index ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
+
+      {/* Last digit prediction */}
+      {showBarrier && (
+        <div className="rounded-lg border border-border bg-card/60 p-3">
+          <div className="text-center text-sm font-medium mb-2">Last Digit Prediction</div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {Array.from({ length: 10 }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setBarrier(i)}
+                className={`py-2 text-sm rounded-md border transition ${
+                  barrier === i
+                    ? "bg-muted border-foreground/40 text-foreground font-bold"
+                    : "bg-card border-border text-foreground hover:bg-muted/60"
+                }`}
+              >{i}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Ticks */}
       <div className="rounded-lg border border-border bg-card/60 p-3">
@@ -207,26 +214,6 @@ export function DerivedPanel({
         </div>
         <div className="mt-3 text-center font-semibold text-sm">{ticks} Ticks</div>
       </div>
-
-      {/* Last digit prediction */}
-      {showBarrier && (
-        <div className="rounded-lg border border-border bg-card/60 p-3">
-          <div className="text-center text-sm font-medium mb-2">Last Digit Prediction</div>
-          <div className="grid grid-cols-5 gap-1.5">
-            {Array.from({ length: 10 }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setBarrier(i)}
-                className={`py-2 text-sm rounded-md border transition ${
-                  barrier === i
-                    ? "bg-muted border-foreground/40 text-foreground font-bold"
-                    : "bg-card border-border text-foreground hover:bg-muted/60"
-                }`}
-              >{i}</button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Stake / Payout tabs */}
       <div className="rounded-lg border border-border bg-card/60 overflow-hidden">
@@ -259,10 +246,6 @@ export function DerivedPanel({
             className="h-9 w-9 rounded-md border border-border hover:bg-muted text-muted-foreground flex items-center justify-center"
             aria-label="increase"
           ><Plus className="h-4 w-4" /></button>
-          <div className="h-9 px-2.5 rounded-md border border-border flex items-center gap-1.5 text-xs font-semibold">
-            <ChevronLeft className="h-3 w-3 text-muted-foreground" />
-            KES
-          </div>
         </div>
       </div>
 

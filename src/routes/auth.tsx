@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { attachReferrerByCode } from "@/lib/referrals.functions";
 import { ensureMyAccount } from "@/lib/account.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +13,13 @@ const currencies = ["KES", "USD", "EUR", "GBP", "UGX", "TZS"];
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Log in - GMX Trader" }] }),
-  validateSearch: z.object({ ref: z.string().optional() }),
+  validateSearch: z.object({ ref: z.string().optional(), verified: z.string().optional() }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { ref } = Route.useSearch();
-  const attachFn = useServerFn(attachReferrerByCode);
+  const { ref, verified } = Route.useSearch();
   const ensureFn = useServerFn(ensureMyAccount);
   const [mode, setMode] = useState<"signin" | "signup">(ref ? "signup" : "signin");
   const [email, setEmail] = useState("");
@@ -31,14 +29,8 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [currency, setCurrency] = useState("KES");
   const [referralCode, setReferralCode] = useState(ref ?? "");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyCooldown, setVerifyCooldown] = useState(0);
   const submitLockRef = useRef(false);
-  const verifyLockRef = useRef(false);
   const configError = getSupabaseConfigError();
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -46,6 +38,14 @@ function AuthPage() {
 
   useEffect(() => {
     if (configError) return;
+    if (verified) {
+      setMode("signin");
+      supabase.auth.signOut().catch((error) => {
+        console.error("Post-verification sign out failed", error);
+      });
+      toast.success("Email verified. Please log in to continue.");
+      return;
+    }
     supabase.auth
       .getSession()
       .then(({ data }) => {
@@ -54,7 +54,7 @@ function AuthPage() {
       .catch((error) => {
         console.error("Session check failed", error);
       });
-  }, [configError, navigate]);
+  }, [configError, navigate, verified]);
 
   useEffect(() => {
     if (ref) {
@@ -63,99 +63,12 @@ function AuthPage() {
     }
   }, [ref]);
 
-  useEffect(() => {
-    if (verifyCooldown <= 0) return;
-    const id = window.setInterval(() => {
-      setVerifyCooldown((value) => Math.max(0, value - 1));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [verifyCooldown]);
-
-  function resetVerification(nextMode = mode) {
-    setOtp("");
-    setOtpSent(false);
-    setEmailVerified(false);
-    setVerifyCooldown(0);
+  function resetSignupFields(nextMode = mode) {
     if (nextMode === "signin") {
       setFirstName("");
       setSecondName("");
       setPhone("");
       setCurrency("KES");
-    }
-  }
-
-  async function sendVerificationCode() {
-    if (verifyLockRef.current) return;
-    if (configError) {
-      toast.error(configError);
-      return;
-    }
-    if (!normalizedEmail) {
-      toast.error("Enter your email first.");
-      return;
-    }
-    if (password.length < 6) {
-      toast.error("Enter a password of at least 6 characters before verifying your email.");
-      return;
-    }
-    if (verifyCooldown > 0) {
-      toast.message(`Wait ${verifyCooldown}s before sending another code.`);
-      return;
-    }
-    verifyLockRef.current = true;
-    setVerifyLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          emailRedirectTo: undefined,
-          data: {
-            first_name: firstName.trim(),
-            second_name: secondName.trim(),
-            full_name: fullName,
-            phone: phone.trim(),
-            currency,
-          },
-        },
-      });
-      if (error) throw error;
-      setOtpSent(true);
-      setEmailVerified(false);
-      setVerifyCooldown(30);
-      toast.success("Verification code sent to your email.");
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Could not send verification code.";
-      toast.error(message);
-    } finally {
-      setVerifyLoading(false);
-      verifyLockRef.current = false;
-    }
-  }
-
-  async function verifyEmailCode() {
-    if (verifyLockRef.current) return;
-    if (!otp.trim()) {
-      toast.error("Paste the verification code from your email.");
-      return;
-    }
-    verifyLockRef.current = true;
-    setVerifyLoading(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: normalizedEmail,
-        token: otp.trim(),
-        type: "signup",
-      });
-      if (error) throw error;
-      setEmailVerified(true);
-      toast.success("Email verified. You can submit your details now.");
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid verification code.";
-      toast.error(message);
-    } finally {
-      setVerifyLoading(false);
-      verifyLockRef.current = false;
     }
   }
 
@@ -173,36 +86,29 @@ function AuthPage() {
         if (password.length < 6) {
           throw new Error("Password must be at least 6 characters.");
         }
-        if (!emailVerified) {
-          throw new Error("Please verify your email before submitting details.");
-        }
 
-        const { error: updateError } = await supabase.auth.updateUser({
+        const redirectTo =
+          typeof window !== "undefined" ? `${window.location.origin}/auth?verified=1` : undefined;
+        const { error } = await supabase.auth.signUp({
+          email: normalizedEmail,
           password,
-          data: {
-            first_name: firstName.trim(),
-            second_name: secondName.trim(),
-            full_name: fullName,
-            phone: phone.trim(),
-            currency,
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              first_name: firstName.trim(),
+              second_name: secondName.trim(),
+              full_name: fullName,
+              phone: phone.trim(),
+              currency,
+              referral_code: referralCode.trim().toUpperCase() || null,
+            },
           },
         });
-        if (updateError) throw updateError;
-
-        try {
-          await ensureFn();
-        } catch (e) {
-          console.warn("ensureMyAccount failed", e);
-        }
-        const code = referralCode.trim();
-        if (code) {
-          try {
-            await attachFn({ data: { code } });
-          } catch (e) {
-            console.warn("attach referrer failed", e);
-          }
-        }
-        toast.success("Account created. You're logged in.");
+        if (error) throw error;
+        await supabase.auth.signOut();
+        toast.success("Account created. Check your email, verify the link, then log in.");
+        setMode("signin");
+        setPassword("");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: normalizedEmail,
@@ -215,8 +121,8 @@ function AuthPage() {
           console.warn("ensureMyAccount failed", e);
         }
         toast.success("Welcome back");
+        navigate({ to: "/dashboard" });
       }
-      navigate({ to: "/dashboard" });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -240,7 +146,9 @@ function AuthPage() {
         </div>
         <h1 className="text-2xl font-bold">{mode === "signin" ? "Log in" : "Create account"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin" ? "Welcome back." : "Verify your email, then submit your details."}
+          {mode === "signin"
+            ? "Welcome back."
+            : "Submit your details, then verify the link sent to your email."}
         </p>
         {configError && (
           <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -315,64 +223,14 @@ function AuthPage() {
 
           <div>
             <Label htmlFor="email">Email</Label>
-            <div className="flex gap-2">
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (mode === "signup") resetVerification("signup");
-                }}
-                required
-              />
-              {mode === "signup" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 shrink-0"
-                  onClick={sendVerificationCode}
-                  disabled={verifyLoading || verifyCooldown > 0 || !normalizedEmail}
-                >
-                  {verifyLoading && !otpSent
-                    ? "Sending"
-                    : emailVerified
-                      ? "Verified"
-                      : verifyCooldown > 0
-                        ? `${verifyCooldown}s`
-                        : "Verify email"}
-                </Button>
-              )}
-            </div>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
-
-          {mode === "signup" && otpSent && !emailVerified && (
-            <div>
-              <Label htmlFor="otp">Email code</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="Paste code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="h-9 shrink-0"
-                  onClick={verifyEmailCode}
-                  disabled={verifyLoading}
-                >
-                  {verifyLoading ? "Checking" : "Confirm"}
-                </Button>
-              </div>
-            </div>
-          )}
 
           <div>
             <Label htmlFor="password">Password</Label>
@@ -385,12 +243,8 @@ function AuthPage() {
               minLength={6}
             />
           </div>
-          <Button
-            type="submit"
-            disabled={loading || (mode === "signup" && !emailVerified)}
-            className="w-full"
-          >
-            {loading ? "Please wait..." : mode === "signin" ? "Log in" : "Submit details"}
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? "Please wait..." : mode === "signin" ? "Log in" : "Create account"}
           </Button>
         </form>
 
@@ -398,7 +252,7 @@ function AuthPage() {
           onClick={() => {
             const nextMode = mode === "signin" ? "signup" : "signin";
             setMode(nextMode);
-            resetVerification(nextMode);
+            resetSignupFields(nextMode);
           }}
           className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground"
         >

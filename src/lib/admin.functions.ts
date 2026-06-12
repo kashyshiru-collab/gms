@@ -35,6 +35,24 @@ type TxRow = {
   created_at: string;
 };
 
+type BinaryTradeRow = {
+  id: string;
+  user_id: string;
+  pair: string;
+  direction: string;
+  contract_type: string;
+  barrier_digit: number | null;
+  stake_kes: number | string;
+  payout_kes: number | string;
+  status: string;
+  entry_price: number | string;
+  exit_price: number | string | null;
+  duration_seconds: number;
+  opened_at: string;
+  expires_at: string;
+  resolved_at: string | null;
+};
+
 type AgentActivityPeriod = "day" | "week" | "month" | "all";
 
 async function assertAdmin(userId: string) {
@@ -543,6 +561,68 @@ export const getFinancialReport = createServerFn({ method: "GET" })
       transactions: transactions.map((tx) => ({
         ...tx,
         profile: profilesById.get(tx.user_id) ?? null,
+      })),
+    };
+  });
+
+export const getAdminTradesReport = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: tradesData, error: tradesError } = await supabaseAdmin
+      .from("binary_trades")
+      .select(
+        "id, user_id, pair, direction, contract_type, barrier_digit, stake_kes, payout_kes, status, entry_price, exit_price, duration_seconds, opened_at, expires_at, resolved_at",
+      )
+      .order("opened_at", { ascending: false })
+      .limit(250);
+    if (tradesError) throw new Error(tradesError.message);
+
+    const trades = (tradesData ?? []) as BinaryTradeRow[];
+    const userIds = Array.from(new Set(trades.map((trade) => trade.user_id)));
+    const profilesRes = userIds.length
+      ? await supabaseAdmin
+          .from("profiles")
+          .select("id, email, full_name, phone")
+          .in("id", userIds)
+      : { data: [], error: null };
+    if (profilesRes.error) throw new Error(profilesRes.error.message);
+
+    const profilesById = new Map(
+      ((profilesRes.data ?? []) as Pick<ProfileRow, "id" | "email" | "full_name" | "phone">[]).map(
+        (profile) => [profile.id, profile],
+      ),
+    );
+
+    const openTrades = trades.filter((trade) => trade.status === "open");
+    const buyLike = openTrades.filter((trade) =>
+      ["up", "even", "over"].includes(trade.direction),
+    ).length;
+    const sellLike = Math.max(openTrades.length - buyLike, 0);
+    const stakeOpen = openTrades.reduce((sum, trade) => sum + Number(trade.stake_kes ?? 0), 0);
+    const resolved = trades.filter((trade) => trade.status !== "open");
+    const stakeResolved = resolved.reduce((sum, trade) => sum + Number(trade.stake_kes ?? 0), 0);
+    const payoutResolved = resolved.reduce((sum, trade) => sum + Number(trade.payout_kes ?? 0), 0);
+
+    return {
+      summary: {
+        total: trades.length,
+        open: openTrades.length,
+        won: trades.filter((trade) => trade.status === "won").length,
+        lost: trades.filter((trade) => trade.status === "lost").length,
+        refunded: trades.filter((trade) => trade.status === "refund").length,
+        buyPct: openTrades.length ? Math.round((buyLike / openTrades.length) * 100) : 0,
+        sellPct: openTrades.length ? Math.round((sellLike / openTrades.length) * 100) : 0,
+        stakeOpen,
+        stakeResolved,
+        payoutResolved,
+        netRetained: stakeResolved - payoutResolved,
+      },
+      trades: trades.map((trade) => ({
+        ...trade,
+        profile: profilesById.get(trade.user_id) ?? null,
       })),
     };
   });

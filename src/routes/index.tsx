@@ -145,7 +145,7 @@ function Landing() {
               {
                 n: "01",
                 t: "Create an account",
-                d: "Enter your details, verify your email code, and set your password.",
+                d: "Enter your details, open the email confirmation link, then log in.",
               },
               {
                 n: "02",

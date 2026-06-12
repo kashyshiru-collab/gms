@@ -8,6 +8,7 @@ import {
   creditAgentWallet,
   elevateClientToAgent,
   getAdminOverview,
+  getAdminTradesReport,
   getAgentActivityReport,
   getFinancialReport,
   listAdminPeople,
@@ -76,6 +77,29 @@ type AdminOverview = {
   agentCount?: number;
   payheroWallet?: unknown;
   payheroError?: string | null;
+};
+
+type AdminTrade = {
+  id: string;
+  user_id: string;
+  pair: string;
+  direction: string;
+  contract_type: string;
+  barrier_digit: number | null;
+  stake_kes: number | string;
+  payout_kes: number | string;
+  status: string;
+  entry_price: number | string;
+  exit_price: number | string | null;
+  duration_seconds: number;
+  opened_at: string;
+  expires_at: string;
+  resolved_at: string | null;
+  profile?: {
+    email: string | null;
+    full_name: string | null;
+    phone: string | null;
+  } | null;
 };
 
 type ActivityPeriod = "day" | "week" | "month" | "all";
@@ -155,6 +179,7 @@ function AdminPage() {
               <TabsTrigger value="agents">Agents</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="finance">Finance</TabsTrigger>
+              <TabsTrigger value="trades">Trades</TabsTrigger>
               <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
               <TabsTrigger value="markets">Markets</TabsTrigger>
             </TabsList>
@@ -178,6 +203,9 @@ function AdminPage() {
                 [...(peopleQ.data?.clients ?? []), ...(peopleQ.data?.agents ?? [])] as Person[]
               }
             />
+          </TabsContent>
+          <TabsContent value="trades">
+            <TradesPanel />
           </TabsContent>
           <TabsContent value="withdrawals">
             <WithdrawalQueue />
@@ -572,6 +600,112 @@ function AdminPage() {
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       No transactions found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function TradesPanel() {
+    const tradesFn = useServerFn(getAdminTradesReport);
+    const tradesQ = useQuery({
+      queryKey: ["admin-trades"],
+      queryFn: () => tradesFn(),
+      refetchInterval: 2_000,
+      retry: false,
+    });
+    const summary = tradesQ.data?.summary;
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <Metric icon={Banknote} label="Open stake" value={fmtKES(summary?.stakeOpen ?? 0)} />
+          <Metric icon={ArrowDownToLine} label="Live buy side" value={`${summary?.buyPct ?? 0}%`} />
+          <Metric icon={Landmark} label="Live sell side" value={`${summary?.sellPct ?? 0}%`} />
+          <Metric icon={Shield} label="Resolved retained" value={fmtKES(summary?.netRetained ?? 0)} />
+          <Metric
+            icon={CalendarDays}
+            label="Open / won / lost"
+            value={`${summary?.open ?? 0} / ${summary?.won ?? 0} / ${summary?.lost ?? 0}`}
+          />
+        </div>
+
+        <Card className="overflow-hidden">
+          <div className="border-b border-border px-5 py-3 font-semibold">
+            Live and recent trades
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead className="bg-muted/40 text-xs text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left">Time</th>
+                  <th className="p-3 text-left">Client</th>
+                  <th className="p-3 text-left">Market</th>
+                  <th className="p-3 text-left">Contract</th>
+                  <th className="p-3 text-right">Stake</th>
+                  <th className="p-3 text-right">Payout</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-right">Entry</th>
+                  <th className="p-3 text-right">Exit</th>
+                  <th className="p-3 text-left">Expiry</th>
+                </tr>
+              </thead>
+              <tbody>
+                {((tradesQ.data?.trades ?? []) as AdminTrade[]).map((trade) => (
+                  <tr key={trade.id} className="border-b border-border/60">
+                    <td className="p-3 text-muted-foreground">
+                      {new Date(trade.opened_at).toLocaleString()}
+                    </td>
+                    <td className="p-3">
+                      <div className="font-medium">
+                        {trade.profile?.full_name ?? trade.profile?.email ?? trade.user_id.slice(0, 8)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{trade.profile?.phone ?? ""}</div>
+                    </td>
+                    <td className="p-3 font-medium">{trade.pair}</td>
+                    <td className="p-3">
+                      <div className="font-medium">
+                        {trade.contract_type.replace("_", "/")} · {trade.direction}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {trade.barrier_digit == null ? `${trade.duration_seconds}s` : `barrier ${trade.barrier_digit} · ${trade.duration_seconds}s`}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right tabular">{fmtKES(Number(trade.stake_kes))}</td>
+                    <td className="p-3 text-right tabular">{fmtKES(Number(trade.payout_kes))}</td>
+                    <td className="p-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          trade.status === "won"
+                            ? "bg-bull/20 text-bull"
+                            : trade.status === "lost"
+                              ? "bg-bear/20 text-bear"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {trade.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-mono">
+                      {Number(trade.entry_price).toFixed(5)}
+                    </td>
+                    <td className="p-3 text-right font-mono">
+                      {trade.exit_price == null ? "-" : Number(trade.exit_price).toFixed(5)}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {new Date(trade.expires_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+                {(tradesQ.data?.trades ?? []).length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                      No trades found.
                     </td>
                   </tr>
                 )}

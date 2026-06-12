@@ -74,6 +74,7 @@ function Dashboard() {
   const [symbol, setSymbol] = useState("VOL10");
   const [stake, setStake] = useState("100");
   const [derivedTicks, setDerivedTicks] = useState(5);
+  const [derivedGroupIdx, setDerivedGroupIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [marketsOpen, setMarketsOpen] = useState(false);
 
@@ -196,12 +197,13 @@ function Dashboard() {
         {/* Chart + market selector */}
         <section className="flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
           {isDerived && (
-            <div className="grid grid-cols-3 gap-1 border-b border-border bg-background/50 p-2 md:hidden">
-              {["Rise/Fall", "Even/Odd", "Over/Under"].map((label) => (
+            <div className="grid grid-cols-3 gap-1 border-b border-border bg-background/50 p-2 lg:hidden">
+              {["Rise/Fall", "Over/Under", "Even/Odd"].map((label, index) => (
                 <button
                   key={label}
+                  onClick={() => setDerivedGroupIdx(index)}
                   className={`rounded-md px-2 py-3 text-center text-sm font-semibold ${
-                    label === "Rise/Fall"
+                    derivedGroupIdx === index
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground"
                   }`}
@@ -341,7 +343,11 @@ function Dashboard() {
               </button>
             </div>
           </div>
-          <div className={`h-[260px] p-2 md:h-auto md:flex-1 ${expanded ? "min-h-[70vh]" : ""}`}>
+          <div
+            className={`h-[210px] p-2 sm:h-[240px] md:h-auto md:flex-1 ${
+              expanded ? "min-h-[70vh]" : ""
+            }`}
+          >
             {isDerived ? (
               <TickChart symbol={symbol} windowTicks={derivedTicks} />
             ) : candlesQ.data ? (
@@ -380,6 +386,8 @@ function Dashboard() {
               setStake={setStake}
               ticks={derivedTicks}
               setTicks={setDerivedTicks}
+              groupIdx={derivedGroupIdx}
+              setGroupIdx={setDerivedGroupIdx}
             />
           )}
         </aside>
