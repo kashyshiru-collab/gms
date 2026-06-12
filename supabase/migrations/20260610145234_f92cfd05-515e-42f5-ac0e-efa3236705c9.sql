@@ -38,7 +38,7 @@ CREATE TRIGGER trg_wr_touch
 
 -- Atomic: lock wallet, check, debit, create pending request
 CREATE OR REPLACE FUNCTION public.request_withdrawal(p_amount numeric, p_phone text)
-RETURNS withdrawal_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS public.withdrawal_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_user uuid := auth.uid();
   v_balance numeric;
@@ -70,9 +70,12 @@ BEGIN
   RETURN v_req;
 END; $$;
 
+REVOKE EXECUTE ON FUNCTION public.request_withdrawal(numeric, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.request_withdrawal(numeric, text) TO authenticated;
+
 -- Refund: admin-only / service-only path (called by server fn after assertAdmin or after payout failure)
 CREATE OR REPLACE FUNCTION public.refund_withdrawal(p_request_id uuid, p_reason text)
-RETURNS withdrawal_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS public.withdrawal_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_req public.withdrawal_requests;
 BEGIN

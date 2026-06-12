@@ -16,11 +16,36 @@ GRANT SELECT ON public.activity_events TO anon, authenticated;
 GRANT ALL ON public.activity_events TO service_role;
 ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "anyone can read activity" ON public.activity_events
-  FOR SELECT TO anon, authenticated USING (true);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies p
+    JOIN pg_class c ON p.polrelid = c.oid
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE p.polname = 'anyone can read activity'
+      AND n.nspname = 'public'
+      AND c.relname = 'activity_events'
+  ) THEN
+    CREATE POLICY "anyone can read activity" ON public.activity_events
+      FOR SELECT TO anon, authenticated USING (true);
+  END IF;
+END $$;
 
 -- 2. Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_events;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication p
+    JOIN pg_publication_rel r ON p.oid = r.prpubid
+    JOIN pg_class c ON r.prrelid = c.oid
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE p.pubname = 'supabase_realtime'
+      AND n.nspname = 'public'
+      AND c.relname = 'activity_events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_events;
+  END IF;
+END $$;
 
 -- 3. Helper: mask a display name from a profile
 CREATE OR REPLACE FUNCTION public.mask_display_name(p_user uuid)

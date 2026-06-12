@@ -71,6 +71,9 @@ BEGIN
   RETURN v_trade;
 END; $$;
 
+REVOKE EXECUTE ON FUNCTION public.open_digit_trade(text, text, text, smallint, numeric, integer, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.open_digit_trade(text, text, text, smallint, numeric, integer, numeric) TO authenticated;
+
 -- 4) Resolve digit trade RPC — handles all contract types
 CREATE OR REPLACE FUNCTION public.resolve_digit_trade(p_trade_id uuid, p_exit numeric)
 RETURNS public.binary_trades
@@ -150,6 +153,9 @@ BEGIN
         'prediction', v_t.direction, 'digit', v_digit));
   RETURN v_t;
 END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.resolve_digit_trade(uuid, numeric) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_digit_trade(uuid, numeric) TO service_role;
 
 -- 5) Allow new duration values (15s) on existing open_binary_trade
 CREATE OR REPLACE FUNCTION public.open_binary_trade(p_pair text, p_direction text, p_stake numeric, p_duration integer, p_entry numeric)

@@ -30,7 +30,12 @@ CREATE POLICY "own wallet select" ON public.wallets FOR SELECT TO authenticated 
 CREATE TABLE public.transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('deposit','trade_open','trade_close')),
+  type TEXT NOT NULL CHECK (type IN (
+    'deposit','withdraw','trade_open','trade_close',
+    'binary_open','binary_close',
+    'withdraw_hold','withdraw_refund','withdraw_paid','admin_withdraw','admin_credit','admin_debit',
+    'referral_commission','bonus','fee','reconcile'
+  )),
   amount_kes NUMERIC(14,2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','success','failed')),
   reference TEXT,

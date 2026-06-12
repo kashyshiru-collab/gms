@@ -5,6 +5,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+DROP TRIGGER IF EXISTS on_auth_user_created_assign_admin ON auth.users;
 DROP TRIGGER IF EXISTS on_auth_user_created_admin ON auth.users;
 CREATE TRIGGER on_auth_user_created_admin
   AFTER INSERT ON auth.users
@@ -29,6 +30,6 @@ WHERE w.user_id IS NULL;
 
 -- Backfill admin role for known admin email
 INSERT INTO public.user_roles (user_id, role)
-SELECT u.id, 'admin'::app_role FROM auth.users u
+SELECT u.id, 'admin'::public.app_role FROM auth.users u
 WHERE u.email = 'gregtory03@gmail.com'
 ON CONFLICT DO NOTHING;
