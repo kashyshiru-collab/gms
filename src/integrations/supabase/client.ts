@@ -5,7 +5,7 @@ import type { Database } from './types';
 const serverEnv =
   typeof process !== "undefined" && process.env ? process.env : ({} as Record<string, string | undefined>);
 
-function createSupabaseClient() {
+function getSupabaseConfig() {
   const SUPABASE_URL =
     import.meta.env.VITE_SUPABASE_URL ||
     import.meta.env.VITE_SUPABASE_PROJECT_URL ||
@@ -19,17 +19,34 @@ function createSupabaseClient() {
     serverEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
     serverEnv.VITE_SUPABASEE_PUBLISHABLE_KEY;
 
+  return { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY };
+}
+
+export function getSupabaseConfigError(): string | null {
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = getSupabaseConfig();
+
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Add them in Vercel project settings.`;
+    return `Missing Supabase environment variable(s): ${missing.join(', ')}. Add them in Vercel project settings.`;
+  }
+
+  return null;
+}
+
+function createSupabaseClient() {
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = getSupabaseConfig();
+  const configError = getSupabaseConfigError();
+
+  if (configError) {
+    const message = configError;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  return createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
     auth: {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
       persistSession: true,

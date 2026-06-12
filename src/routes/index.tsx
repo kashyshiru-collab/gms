@@ -27,9 +27,9 @@ function Landing() {
             <a href="#how" className="hover:text-foreground">How it works</a>
             <a href="#trust" className="hover:text-foreground">Why us</a>
           </nav>
-          <Link to="/auth" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+          <a href="/auth" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
             Sign in
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -46,9 +46,9 @@ function Landing() {
             Live prices on EUR/USD, GBP/USD, USD/KES and more. Top up via M-Pesa STK push, open buy/sell or 60‑second binary trades, withdraw straight to your phone.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/auth" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90">
+            <a href="/auth" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90">
               Start trading <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
             <a href="#how" className="inline-flex items-center rounded-md border border-border bg-card px-5 py-3 text-sm font-medium hover:bg-accent">
               How it works
             </a>
@@ -118,9 +118,9 @@ function Landing() {
           <div className="rounded-2xl border border-border bg-card p-10">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Ready to place your first trade?</h2>
             <p className="mt-3 text-muted-foreground">Sign up free. Start with KES 10. No card, no waiting.</p>
-            <Link to="/auth" className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90">
+            <a href="/auth" className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90">
               Open my account <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
           </div>
         </section>
       </main>
