@@ -86,6 +86,10 @@ function AuthPage() {
       toast.error("Enter your email first.");
       return;
     }
+    if (password.length < 6) {
+      toast.error("Enter a password of at least 6 characters before verifying your email.");
+      return;
+    }
     if (verifyCooldown > 0) {
       toast.message(`Wait ${verifyCooldown}s before sending another code.`);
       return;
@@ -93,10 +97,11 @@ function AuthPage() {
     verifyLockRef.current = true;
     setVerifyLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
+        password,
         options: {
-          shouldCreateUser: true,
+          emailRedirectTo: undefined,
           data: {
             first_name: firstName.trim(),
             second_name: secondName.trim(),
@@ -132,7 +137,7 @@ function AuthPage() {
       const { error } = await supabase.auth.verifyOtp({
         email: normalizedEmail,
         token: otp.trim(),
-        type: "email",
+        type: "signup",
       });
       if (error) throw error;
       setEmailVerified(true);
@@ -212,7 +217,13 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center gap-2">
-          <img src="/gmx-logo.png" alt="GMX Trader" width={32} height={32} className="h-8 w-8 rounded-md" />
+          <img
+            src="/gmx-logo.png"
+            alt="GMX Trader"
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-md"
+          />
           <span className="font-semibold tracking-tight">GMX Trader</span>
         </div>
         <h1 className="text-2xl font-bold">{mode === "signin" ? "Log in" : "Create account"}</h1>
@@ -226,8 +237,8 @@ function AuthPage() {
         )}
         {ref && mode === "signup" && (
           <div className="mt-3 rounded-md border border-bull/40 bg-bull/10 px-3 py-2 text-xs">
-            Invited by code <span className="font-mono font-semibold">{ref.toUpperCase()}</span> - you'll be linked to
-            their team.
+            Invited by code <span className="font-mono font-semibold">{ref.toUpperCase()}</span> -
+            you'll be linked to their team.
           </div>
         )}
 
@@ -236,11 +247,21 @@ function AuthPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="first-name">First name</Label>
-                <Input id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                <Input
+                  id="first-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="second-name">Second name</Label>
-                <Input id="second-name" value={secondName} onChange={(e) => setSecondName(e.target.value)} required />
+                <Input
+                  id="second-name"
+                  value={secondName}
+                  onChange={(e) => setSecondName(e.target.value)}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="phone">Number</Label>
@@ -342,7 +363,11 @@ function AuthPage() {
               minLength={6}
             />
           </div>
-          <Button type="submit" disabled={loading || (mode === "signup" && !emailVerified)} className="w-full">
+          <Button
+            type="submit"
+            disabled={loading || (mode === "signup" && !emailVerified)}
+            className="w-full"
+          >
             {loading ? "Please wait..." : mode === "signin" ? "Log in" : "Submit details"}
           </Button>
         </form>
