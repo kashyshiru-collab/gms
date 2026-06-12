@@ -1,7 +1,68 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
 
 const ADMIN_EMAILS = new Set(["gregtory03@gmail.com"]);
+
+export const createPasswordAccount = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        fullName: z.string().min(2).max(120),
+        phone: z.string().min(9).max(20),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = data.email.trim().toLowerCase();
+
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: data.fullName.trim(),
+        phone: data.phone.trim(),
+      },
+    });
+
+    if (error) {
+      if (/already|registered|exists/i.test(error.message)) {
+        throw new Error("An account with this email already exists. Please sign in.");
+      }
+      throw new Error(error.message);
+    }
+
+    const userId = created.user?.id;
+    if (!userId) throw new Error("Account was not created. Please try again.");
+
+    const { data: codeRow } = await supabaseAdmin.rpc("gen_referral_code");
+    await supabaseAdmin.from("profiles").upsert(
+      {
+        id: userId,
+        email,
+        full_name: data.fullName.trim(),
+        phone: data.phone.trim(),
+        referral_code: (codeRow as unknown as string) ?? null,
+      },
+      { onConflict: "id" },
+    );
+
+    await supabaseAdmin
+      .from("wallets")
+      .upsert({ user_id: userId, balance_kes: 0 }, { onConflict: "user_id" });
+
+    if (ADMIN_EMAILS.has(email)) {
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    }
+
+    return { ok: true };
+  });
 
 /**
  * Ensures the signed-in user has a public.profiles row, a public.wallets row,

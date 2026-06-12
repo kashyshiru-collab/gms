@@ -2,19 +2,22 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+const serverEnv =
+  typeof process !== "undefined" && process.env ? process.env : ({} as Record<string, string | undefined>);
+
 function createSupabaseClient() {
   const SUPABASE_URL =
     import.meta.env.VITE_SUPABASE_URL ||
     import.meta.env.VITE_SUPABASE_PROJECT_URL ||
-    process.env.SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL ||
-    process.env.VITE_SUPABASE_PROJECT_URL;
+    serverEnv.SUPABASE_URL ||
+    serverEnv.VITE_SUPABASE_URL ||
+    serverEnv.VITE_SUPABASE_PROJECT_URL;
   const SUPABASE_PUBLISHABLE_KEY =
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     import.meta.env.VITE_SUPABASEE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.VITE_SUPABASEE_PUBLISHABLE_KEY;
+    serverEnv.SUPABASE_PUBLISHABLE_KEY ||
+    serverEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    serverEnv.VITE_SUPABASEE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [

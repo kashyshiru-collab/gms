@@ -46,6 +46,17 @@ function AuthedShell() {
   });
 
   useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      qc.invalidateQueries();
+    });
+
+    return () => subscription.unsubscribe();
+  }, [qc]);
+
+  useEffect(() => {
     if (statusQ.data?.is_burned && !burnedRef.current) {
       burnedRef.current = true;
       (async () => {

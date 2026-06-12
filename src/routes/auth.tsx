@@ -4,7 +4,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { attachReferrerByCode } from "@/lib/referrals.functions";
-import { ensureMyAccount } from "@/lib/account.functions";
+import { createPasswordAccount, ensureMyAccount } from "@/lib/account.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,7 @@ function AuthPage() {
   const { ref } = Route.useSearch();
   const attachFn = useServerFn(attachReferrerByCode);
   const ensureFn = useServerFn(ensureMyAccount);
+  const createAccountFn = useServerFn(createPasswordAccount);
   const [mode, setMode] = useState<"signin" | "signup">(ref ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,13 +40,18 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        await createAccountFn({
+          data: {
+            email,
+            password,
+            fullName,
+            phone,
+          },
+        });
+
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
-          options: {
-            data: { full_name: fullName, phone },
-            emailRedirectTo: window.location.origin + "/dashboard",
-          },
         });
         if (error) throw error;
         try { await ensureFn(); } catch (e) { console.warn("ensureMyAccount failed", e); }
