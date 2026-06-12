@@ -29,6 +29,26 @@ function Referrals() {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
   }
 
+  if (q.isError) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <header className="flex items-center justify-between border-b border-border px-6 py-3">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" /> Dashboard</Link>
+          </Button>
+        </header>
+        <main className="mx-auto max-w-md p-6">
+          <section className="rounded-xl border border-border bg-card p-6 text-center">
+            <h1 className="text-lg font-semibold">Agent access only</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Referral tools are available after an admin upgrades your account to agent.
+            </p>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between border-b border-border px-6 py-3">

@@ -37,7 +37,7 @@ function WithdrawalsPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
-            <AppMenu isAdmin={adminQ.data?.isAdmin} />
+            <AppMenu isAdmin={adminQ.data?.isAdmin} isAgent={adminQ.data?.isAgent} />
             <h1 className="font-semibold">Withdrawals</h1>
           </div>
           <Button asChild variant="ghost" size="sm">

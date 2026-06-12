@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, LineChart, ArrowUpFromLine, User, LifeBuoy, Users, Shield } from "lucide-react";
+import { Menu, LineChart, ArrowUpFromLine, User, LifeBuoy, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-export function AppMenu({ isAdmin = false }: { isAdmin?: boolean }) {
+export function AppMenu({
+  isAdmin = false,
+  isAgent = false,
+}: {
+  isAdmin?: boolean;
+  isAgent?: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const items: { to: string; label: string; icon: any }[] = [
+  const items: { to: string; label: string; icon: LucideIcon }[] = [
     { to: "/dashboard", label: "Trading", icon: LineChart },
     { to: "/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
     { to: "/profile", label: "Profile", icon: User },
     { to: "/support", label: "Support", icon: LifeBuoy },
-    { to: "/referrals", label: "Referrals", icon: Users },
+    ...(isAgent ? [{ to: "/referrals", label: "Referrals", icon: Users }] : []),
   ];
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -37,17 +44,7 @@ export function AppMenu({ isAdmin = false }: { isAdmin?: boolean }) {
               <span>{it.label}</span>
             </Link>
           ))}
-          {isAdmin && (
-            <Link
-              to="/admin"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-accent transition-colors border-t border-border mt-2"
-              activeProps={{ className: "bg-accent font-medium text-primary" }}
-            >
-              <Shield className="h-4 w-4" />
-              <span>Admin</span>
-            </Link>
-          )}
+          {isAdmin && <span className="sr-only">Admin access enabled</span>}
         </nav>
       </SheetContent>
     </Sheet>

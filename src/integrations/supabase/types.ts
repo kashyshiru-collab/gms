@@ -364,16 +364,19 @@ export type Database = {
       wallets: {
         Row: {
           balance_kes: number
+          non_withdrawable_kes: number
           updated_at: string
           user_id: string
         }
         Insert: {
           balance_kes?: number
+          non_withdrawable_kes?: number
           updated_at?: string
           user_id: string
         }
         Update: {
           balance_kes?: number
+          non_withdrawable_kes?: number
           updated_at?: string
           user_id?: string
         }
@@ -655,7 +658,7 @@ export type Database = {
       seed_activity_event: { Args: never; Returns: undefined }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "agent" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -783,7 +786,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "agent", "user"],
     },
   },
 } as const

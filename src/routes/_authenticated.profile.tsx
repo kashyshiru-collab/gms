@@ -26,7 +26,7 @@ function ProfilePage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
-            <AppMenu isAdmin={adminQ.data?.isAdmin} />
+            <AppMenu isAdmin={adminQ.data?.isAdmin} isAgent={adminQ.data?.isAgent} />
             <h1 className="font-semibold">Profile</h1>
           </div>
           <Button asChild variant="ghost" size="sm">
@@ -40,7 +40,9 @@ function ProfilePage() {
           <Field label="Name" value={prof?.full_name ?? "—"} />
           <Field label="Email" value={prof?.email ?? "—"} />
           <Field label="Phone" value={prof?.phone ?? "—"} />
-          <Field label="Referral code" value={prof?.referral_code ?? "—"} mono />
+          {adminQ.data?.isAgent && (
+            <Field label="Referral code" value={prof?.referral_code ?? "—"} mono />
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4 space-y-2">

@@ -6,6 +6,14 @@ export const getMyReferralStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: isAgent, error: roleError } = await supabaseAdmin.rpc("has_role", {
+      _user_id: userId,
+      _role: "agent" as never,
+    });
+    if (roleError) throw new Error(roleError.message);
+    if (!isAgent) throw new Error("Forbidden: agents only");
 
     const [profileR, refsR, comsR] = await Promise.all([
       supabase.from("profiles").select("referral_code").eq("id", userId).maybeSingle(),

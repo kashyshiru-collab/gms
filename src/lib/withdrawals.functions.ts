@@ -12,10 +12,12 @@ async function assertAdmin(userId: string) {
 export const requestWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      amount: z.number().int().min(10).max(500000),
-      phone: z.string().min(9).max(15),
-    }).parse(d),
+    z
+      .object({
+        amount: z.number().int().min(10).max(500000),
+        phone: z.string().min(9).max(15),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -126,7 +128,9 @@ export const listAllWithdrawals = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("withdrawal_requests")
-      .select("id, user_id, amount_kes, phone, status, admin_note, reference, created_at, reviewed_at")
+      .select(
+        "id, user_id, amount_kes, phone, status, admin_note, reference, created_at, reviewed_at",
+      )
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
@@ -139,7 +143,8 @@ export const listAllWithdrawals = createServerFn({ method: "GET" })
         .from("profiles")
         .select("id, email, full_name")
         .in("id", userIds);
-      for (const p of profs ?? []) profilesByUser[p.id] = { email: p.email, full_name: p.full_name };
+      for (const p of profs ?? [])
+        profilesByUser[p.id] = { email: p.email, full_name: p.full_name };
     }
     return (data ?? []).map((r) => ({ ...r, profile: profilesByUser[r.user_id] ?? null }));
   });
@@ -153,17 +158,23 @@ export const approveWithdrawal = createServerFn({ method: "POST" })
     const { withdrawToMobile } = await import("./payhero.server");
 
     const { data: req, error: rErr } = await supabaseAdmin
-      .from("withdrawal_requests").select("*").eq("id", data.id).maybeSingle();
+      .from("withdrawal_requests")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     if (rErr) throw new Error(rErr.message);
     if (!req) throw new Error("Request not found");
     if (req.status !== "pending") throw new Error(`Already ${req.status}`);
 
     // Mark approved (in-flight) before calling provider
-    await supabaseAdmin.from("withdrawal_requests").update({
-      status: "approved",
-      reviewed_by: context.userId,
-      reviewed_at: new Date().toISOString(),
-    }).eq("id", req.id);
+    await supabaseAdmin
+      .from("withdrawal_requests")
+      .update({
+        status: "approved",
+        reviewed_by: context.userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", req.id);
 
     try {
       const resp = await withdrawToMobile({
@@ -171,10 +182,13 @@ export const approveWithdrawal = createServerFn({ method: "POST" })
         phone: req.phone,
         externalReference: req.reference!,
       });
-      await supabaseAdmin.from("withdrawal_requests").update({
-        status: "paid",
-        payhero_response: resp,
-      }).eq("id", req.id);
+      await supabaseAdmin
+        .from("withdrawal_requests")
+        .update({
+          status: "paid",
+          payhero_response: resp,
+        })
+        .eq("id", req.id);
       await supabaseAdmin.from("transactions").insert({
         user_id: req.user_id,
         type: "withdraw_paid",
@@ -190,10 +204,13 @@ export const approveWithdrawal = createServerFn({ method: "POST" })
         p_request_id: req.id,
         p_reason: "Payout failed: " + (e as Error).message,
       });
-      await supabaseAdmin.from("withdrawal_requests").update({
-        status: "failed",
-        payhero_response: { error: (e as Error).message },
-      }).eq("id", req.id);
+      await supabaseAdmin
+        .from("withdrawal_requests")
+        .update({
+          status: "failed",
+          payhero_response: { error: (e as Error).message },
+        })
+        .eq("id", req.id);
       throw e;
     }
   });
@@ -208,7 +225,10 @@ export const rejectWithdrawal = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: req } = await supabaseAdmin
-      .from("withdrawal_requests").select("status").eq("id", data.id).maybeSingle();
+      .from("withdrawal_requests")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
     if (!req) throw new Error("Request not found");
     if (req.status !== "pending") throw new Error(`Cannot reject ${req.status} request`);
 
@@ -217,8 +237,11 @@ export const rejectWithdrawal = createServerFn({ method: "POST" })
       p_reason: data.reason,
     });
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("withdrawal_requests").update({
-      reviewed_by: context.userId,
-    }).eq("id", data.id);
+    await supabaseAdmin
+      .from("withdrawal_requests")
+      .update({
+        reviewed_by: context.userId,
+      })
+      .eq("id", data.id);
     return { ok: true };
   });

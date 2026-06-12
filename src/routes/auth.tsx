@@ -30,6 +30,7 @@ function AuthPage() {
   const [secondName, setSecondName] = useState("");
   const [phone, setPhone] = useState("");
   const [currency, setCurrency] = useState("KES");
+  const [referralCode, setReferralCode] = useState(ref ?? "");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -54,6 +55,13 @@ function AuthPage() {
         console.error("Session check failed", error);
       });
   }, [configError, navigate]);
+
+  useEffect(() => {
+    if (ref) {
+      setMode("signup");
+      setReferralCode(ref);
+    }
+  }, [ref]);
 
   useEffect(() => {
     if (verifyCooldown <= 0) return;
@@ -162,6 +170,9 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        if (password.length < 6) {
+          throw new Error("Password must be at least 6 characters.");
+        }
         if (!emailVerified) {
           throw new Error("Please verify your email before submitting details.");
         }
@@ -183,9 +194,10 @@ function AuthPage() {
         } catch (e) {
           console.warn("ensureMyAccount failed", e);
         }
-        if (ref) {
+        const code = referralCode.trim();
+        if (code) {
           try {
-            await attachFn({ data: { code: ref } });
+            await attachFn({ data: { code } });
           } catch (e) {
             console.warn("attach referrer failed", e);
           }
@@ -235,10 +247,10 @@ function AuthPage() {
             {configError}
           </div>
         )}
-        {ref && mode === "signup" && (
+        {referralCode.trim() && mode === "signup" && (
           <div className="mt-3 rounded-md border border-bull/40 bg-bull/10 px-3 py-2 text-xs">
-            Invited by code <span className="font-mono font-semibold">{ref.toUpperCase()}</span> -
-            you'll be linked to their team.
+            Invited by code{" "}
+            <span className="font-mono font-semibold">{referralCode.trim().toUpperCase()}</span>.
           </div>
         )}
 
@@ -287,6 +299,16 @@ function AuthPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="referral-code">Referral code (optional)</Label>
+                <Input
+                  id="referral-code"
+                  placeholder="e.g. ALLAN1"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  autoCapitalize="characters"
+                />
               </div>
             </div>
           )}

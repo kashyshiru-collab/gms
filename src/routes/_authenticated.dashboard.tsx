@@ -2,13 +2,26 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { getQuotes, getCandles } from "@/lib/forex.functions";
-import { getDashboard, openPosition, closePosition, initiateDeposit, reconcilePendingDeposits } from "@/lib/wallet.functions";
+import {
+  getDashboard,
+  openPosition,
+  closePosition,
+  initiateDeposit,
+  reconcilePendingDeposits,
+} from "@/lib/wallet.functions";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { PriceChart } from "@/components/trading/PriceChart";
 import { TickChart } from "@/components/trading/TickChart";
 import { DerivedPanel } from "@/components/trading/DerivedPanel";
@@ -17,7 +30,17 @@ import { ActivityFeed } from "@/components/trading/ActivityFeed";
 import { WithdrawDialog } from "@/components/trading/WithdrawDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, LogOut, Plus, Shield, Users, Wallet, CheckCircle2, Lock } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  LogOut,
+  Plus,
+  Shield,
+  Users,
+  Wallet,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
 import { AppMenu } from "@/components/AppMenu";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,7 +50,11 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const fmtKES = (n: number) =>
-  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 }).format(n);
+  new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 2,
+  }).format(n);
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -36,7 +63,12 @@ function Dashboard() {
   const candlesFn = useServerFn(getCandles);
   const dashFn = useServerFn(getDashboard);
   const isAdminFn = useServerFn(checkIsAdmin);
-  const adminQ = useQuery({ queryKey: ["is-admin"], queryFn: () => isAdminFn(), staleTime: 60_000, retry: false });
+  const adminQ = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: () => isAdminFn(),
+    staleTime: 60_000,
+    retry: false,
+  });
 
   const [category, setCategory] = useState<"synthetic" | "forex">("synthetic");
   const [symbol, setSymbol] = useState("VOL10");
@@ -47,7 +79,11 @@ function Dashboard() {
 
   const isDerived = category === "synthetic";
 
-  const quotesQ = useQuery({ queryKey: ["quotes"], queryFn: () => quotesFn(), refetchInterval: 2_000 });
+  const quotesQ = useQuery({
+    queryKey: ["quotes"],
+    queryFn: () => quotesFn(),
+    refetchInterval: 2_000,
+  });
   const candlesQ = useQuery({
     queryKey: ["candles", symbol, "1m"],
     queryFn: () => candlesFn({ data: { symbol, interval: "1m" } }),
@@ -91,14 +127,15 @@ function Dashboard() {
   const closeMut = useMutation({
     mutationFn: (id: string) => closeFn({ data: { positionId: id } }),
     onSuccess: (r) => {
-      toast[r.pnl >= 0 ? "success" : "warning"](`Closed @ ${r.exit.toFixed(5)} · P&L ${fmtKES(r.pnl)}`);
+      toast[r.pnl >= 0 ? "success" : "warning"](
+        `Closed @ ${r.exit.toFixed(5)} · P&L ${fmtKES(r.pnl)}`,
+      );
       qc.invalidateQueries({ queryKey: ["dash"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const selectedQuote = quotesQ.data?.find((q) => q.symbol === symbol);
-  
 
   async function signOut() {
     await qc.cancelQueries();
@@ -113,25 +150,39 @@ function Dashboard() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-6 md:py-3">
           <div className="flex items-center gap-1">
-            <AppMenu isAdmin={adminQ.data?.isAdmin} />
+            <AppMenu isAdmin={adminQ.data?.isAdmin} isAgent={adminQ.data?.isAgent} />
             <SecretAdminLogo isAdmin={Boolean(adminQ.data?.isAdmin)} />
           </div>
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-card px-2 py-1 text-xs tabular sm:gap-2 sm:rounded-md sm:px-3 sm:py-1.5 sm:text-sm">
               <Wallet className="h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4" />
               <span className="hidden text-muted-foreground sm:inline">Balance</span>
-              <span className="max-w-[112px] truncate font-semibold sm:max-w-none">{fmtKES(dashQ.data?.balance ?? 0)}</span>
+              <span className="max-w-[112px] truncate font-semibold sm:max-w-none">
+                {fmtKES(dashQ.data?.balance ?? 0)}
+              </span>
             </div>
-            <DepositDialog depositFn={depositFn} onDone={() => qc.invalidateQueries({ queryKey: ["dash"] })} />
+            <DepositDialog
+              depositFn={depositFn}
+              onDone={() => qc.invalidateQueries({ queryKey: ["dash"] })}
+            />
             <div className="hidden sm:block">
               <WithdrawDialog balance={dashQ.data?.balance ?? 0} />
             </div>
-            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
-              <Link to="/referrals"><Users className="h-4 w-4 mr-1.5" />Refer</Link>
-            </Button>
-            <Button asChild variant="ghost" size="icon" className="md:hidden" title="Refer">
-              <Link to="/referrals"><Users className="h-4 w-4" /></Link>
-            </Button>
+            {adminQ.data?.isAgent && (
+              <>
+                <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+                  <Link to="/referrals">
+                    <Users className="h-4 w-4 mr-1.5" />
+                    Refer
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="icon" className="md:hidden" title="Refer">
+                  <Link to="/referrals">
+                    <Users className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
               <LogOut className="h-4 w-4" />
             </Button>
@@ -139,7 +190,9 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className={`grid gap-0 p-0 md:gap-4 md:p-4 ${expanded ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
+      <main
+        className={`grid gap-0 p-0 md:gap-4 md:p-4 ${expanded ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}
+      >
         {/* Chart + market selector */}
         <section className="flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
           {isDerived && (
@@ -148,7 +201,9 @@ function Dashboard() {
                 <button
                   key={label}
                   className={`rounded-md px-2 py-3 text-center text-sm font-semibold ${
-                    label === "Rise/Fall" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                    label === "Rise/Fall"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {label}
@@ -172,9 +227,13 @@ function Dashboard() {
                       if (first) setSymbol(first.symbol);
                     }}
                     className={`px-3 py-1 text-xs font-medium rounded ${
-                      category === c ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      category === c
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
-                  >{c === "synthetic" ? "Derived" : "Forex"}</button>
+                  >
+                    {c === "synthetic" ? "Derived" : "Forex"}
+                  </button>
                 ))}
               </div>
 
@@ -185,19 +244,35 @@ function Dashboard() {
                   className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
                 >
                   <span className="font-semibold">{symbol}</span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[180px]">{selectedQuote?.label}</span>
-                  <svg width="10" height="10" viewBox="0 0 10 10" className={`transition-transform ${marketsOpen ? "rotate-180" : ""}`}><path d="M2 4l3 3 3-3" stroke="currentColor" fill="none" strokeWidth="1.5" /></svg>
+                  <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                    {selectedQuote?.label}
+                  </span>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    className={`transition-transform ${marketsOpen ? "rotate-180" : ""}`}
+                  >
+                    <path d="M2 4l3 3 3-3" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                  </svg>
                 </button>
                 {marketsOpen && (
                   <div className="absolute z-40 mt-1 w-72 max-h-80 overflow-auto rounded-md border border-border bg-popover shadow-lg">
                     {(quotesQ.data ?? [])
-                      .filter((q) => (category === "synthetic" ? q.category === "synthetic" : q.category !== "synthetic"))
+                      .filter((q) =>
+                        category === "synthetic"
+                          ? q.category === "synthetic"
+                          : q.category !== "synthetic",
+                      )
                       .map((q) => {
                         const up = q.changePct >= 0;
                         return (
                           <button
                             key={q.symbol}
-                            onClick={() => { setSymbol(q.symbol); setMarketsOpen(false); }}
+                            onClick={() => {
+                              setSymbol(q.symbol);
+                              setMarketsOpen(false);
+                            }}
                             className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-accent ${q.symbol === symbol ? "bg-accent" : ""}`}
                           >
                             <div>
@@ -205,9 +280,12 @@ function Dashboard() {
                               <div className="text-[11px] text-muted-foreground">{q.label}</div>
                             </div>
                             <div className="text-right tabular">
-                              <div className="font-mono text-sm">{q.price.toFixed(q.decimals ?? 5)}</div>
+                              <div className="font-mono text-sm">
+                                {q.price.toFixed(q.decimals ?? 5)}
+                              </div>
                               <div className={`text-[11px] ${up ? "text-bull" : "text-bear"}`}>
-                                {up ? "+" : ""}{q.changePct.toFixed(2)}%
+                                {up ? "+" : ""}
+                                {q.changePct.toFixed(2)}%
                               </div>
                             </div>
                           </button>
@@ -219,9 +297,14 @@ function Dashboard() {
 
               {selectedQuote && (
                 <div className="hidden md:flex items-baseline gap-2">
-                  <span className="font-mono text-lg tabular">{selectedQuote.price.toFixed(selectedQuote.decimals ?? 5)}</span>
-                  <span className={`text-xs font-medium ${selectedQuote.changePct >= 0 ? "text-bull" : "text-bear"}`}>
-                    {selectedQuote.changePct >= 0 ? "+" : ""}{selectedQuote.changePct.toFixed(2)}%
+                  <span className="font-mono text-lg tabular">
+                    {selectedQuote.price.toFixed(selectedQuote.decimals ?? 5)}
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${selectedQuote.changePct >= 0 ? "text-bull" : "text-bear"}`}
+                  >
+                    {selectedQuote.changePct >= 0 ? "+" : ""}
+                    {selectedQuote.changePct.toFixed(2)}%
                   </span>
                 </div>
               )}
@@ -239,9 +322,21 @@ function Dashboard() {
                 title={expanded ? "Collapse" : "Expand chart"}
               >
                 {expanded ? (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 1v4H1M9 13V9h4M9 5V1h4M5 9v4H1" stroke="currentColor" strokeWidth="1.5"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path
+                      d="M5 1v4H1M9 13V9h4M9 5V1h4M5 9v4H1"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M13 5V1H9M1 9v4h4M13 9v4H9" stroke="currentColor" strokeWidth="1.5"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path
+                      d="M1 5V1h4M13 5V1H9M1 9v4h4M13 9v4H9"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
                 )}
               </button>
             </div>
@@ -252,7 +347,9 @@ function Dashboard() {
             ) : candlesQ.data ? (
               <PriceChart data={candlesQ.data.candles} livePrice={selectedQuote?.price} />
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Loading chart…</div>
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                Loading chart…
+              </div>
             )}
           </div>
           {category === "synthetic" && <DigitStatsStrip symbol={symbol} />}
@@ -288,7 +385,6 @@ function Dashboard() {
         </aside>
       </main>
 
-
       <section className="hidden px-4 pb-4 md:block">
         <ActivityFeed />
       </section>
@@ -296,8 +392,12 @@ function Dashboard() {
       {/* Positions */}
       <section className="px-0 pb-8 md:px-4">
         <div className="grid grid-cols-3 border-b border-border bg-card text-sm font-medium md:hidden">
-          <button className="border-b border-primary px-4 py-4 text-left text-foreground">Open ({(dashQ.data?.positions ?? []).filter((p: any) => p.status === "open").length})</button>
-          <button className="px-4 py-4 text-left text-muted-foreground">Closed ({(dashQ.data?.positions ?? []).filter((p: any) => p.status !== "open").length})</button>
+          <button className="border-b border-primary px-4 py-4 text-left text-foreground">
+            Open ({(dashQ.data?.positions ?? []).filter((p: any) => p.status === "open").length})
+          </button>
+          <button className="px-4 py-4 text-left text-muted-foreground">
+            Closed ({(dashQ.data?.positions ?? []).filter((p: any) => p.status !== "open").length})
+          </button>
           <button className="px-4 py-4 text-left text-muted-foreground">Transactions</button>
         </div>
         <div className="border-border bg-card md:rounded-xl md:border">
@@ -320,20 +420,30 @@ function Dashboard() {
               </thead>
               <tbody className="divide-y divide-border tabular">
                 {(dashQ.data?.positions ?? []).length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">No positions yet.</td></tr>
+                  <tr>
+                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                      No positions yet.
+                    </td>
+                  </tr>
                 )}
                 {(dashQ.data?.positions ?? []).map((p: any) => (
                   <tr key={p.id}>
                     <td className="px-4 py-2 font-medium">{p.pair}</td>
                     <td className="px-4 py-2">
-                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.side === "buy" ? "bg-bull/20 text-bull" : "bg-bear/20 text-bear"}`}>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.side === "buy" ? "bg-bull/20 text-bull" : "bg-bear/20 text-bear"}`}
+                      >
                         {p.side.toUpperCase()}
                       </span>
                     </td>
                     <td className="px-4 py-2">{fmtKES(Number(p.stake_kes))}</td>
                     <td className="px-4 py-2 font-mono">{Number(p.entry_price).toFixed(5)}</td>
-                    <td className="px-4 py-2 font-mono">{p.exit_price ? Number(p.exit_price).toFixed(5) : "—"}</td>
-                    <td className={`px-4 py-2 font-medium ${p.pnl_kes == null ? "" : Number(p.pnl_kes) >= 0 ? "text-bull" : "text-bear"}`}>
+                    <td className="px-4 py-2 font-mono">
+                      {p.exit_price ? Number(p.exit_price).toFixed(5) : "—"}
+                    </td>
+                    <td
+                      className={`px-4 py-2 font-medium ${p.pnl_kes == null ? "" : Number(p.pnl_kes) >= 0 ? "text-bull" : "text-bear"}`}
+                    >
                       {p.pnl_kes == null ? "—" : fmtKES(Number(p.pnl_kes))}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground text-xs">
@@ -341,7 +451,12 @@ function Dashboard() {
                     </td>
                     <td className="px-4 py-2 text-right">
                       {p.status === "open" ? (
-                        <Button size="sm" variant="outline" onClick={() => closeMut.mutate(p.id)} disabled={closeMut.isPending}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => closeMut.mutate(p.id)}
+                          disabled={closeMut.isPending}
+                        >
                           Close
                         </Button>
                       ) : (
@@ -359,7 +474,13 @@ function Dashboard() {
   );
 }
 
-function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof useServerFn<typeof initiateDeposit>>; onDone: () => void }) {
+function DepositDialog({
+  depositFn,
+  onDone,
+}: {
+  depositFn: ReturnType<typeof useServerFn<typeof initiateDeposit>>;
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"broker" | "form">("broker");
   const [broker, setBroker] = useState<"HIGH_MAX_SUPER" | null>(null);
@@ -380,7 +501,9 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
   async function submit() {
     setLoading(true);
     try {
-      const r = await depositFn({ data: { amount: Number(amount), phone, broker: broker ?? "HIGH_MAX_SUPER" } });
+      const r = await depositFn({
+        data: { amount: Number(amount), phone, broker: broker ?? "HIGH_MAX_SUPER" },
+      });
       toast.success(r.message);
       setOpen(false);
       setTimeout(onDone, 4000);
@@ -392,7 +515,12 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
   }
 
   const brokers = [
-    { id: "HIGH_MAX_SUPER" as const, name: "HIGH MAX SUPER", desc: "M-Pesa STK push · instant", available: true },
+    {
+      id: "HIGH_MAX_SUPER" as const,
+      name: "HIGH MAX SUPER",
+      desc: "M-Pesa STK push · instant",
+      available: true,
+    },
     { id: "DCASH", name: "DCASH", desc: "Currently unavailable", available: false },
     { id: "FX_TRADER", name: "FX TRADER", desc: "Currently unavailable", available: false },
   ];
@@ -400,11 +528,15 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Deposit</Button>
+        <Button size="sm">
+          <Plus className="h-4 w-4 mr-1" /> Deposit
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{step === "broker" ? "Choose a broker" : "Top up via HIGH MAX SUPER"}</DialogTitle>
+          <DialogTitle>
+            {step === "broker" ? "Choose a broker" : "Top up via HIGH MAX SUPER"}
+          </DialogTitle>
         </DialogHeader>
 
         {step === "broker" ? (
@@ -442,11 +574,23 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
           <div className="space-y-3">
             <div>
               <Label htmlFor="amt">Amount (KES)</Label>
-              <Input id="amt" type="number" min={10} max={150000} value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Input
+                id="amt"
+                type="number"
+                min={10}
+                max={150000}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="ph">M-Pesa phone</Label>
-              <Input id="ph" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input
+                id="ph"
+                placeholder="07XX XXX XXX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               You'll receive an STK push prompt. Approve it on your phone to credit your wallet.
@@ -456,7 +600,9 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
 
         {step === "form" && (
           <DialogFooter className="flex-row justify-between sm:justify-between">
-            <Button variant="ghost" size="sm" onClick={() => setStep("broker")}>Back</Button>
+            <Button variant="ghost" size="sm" onClick={() => setStep("broker")}>
+              Back
+            </Button>
             <Button onClick={submit} disabled={loading || !phone || Number(amount) < 10}>
               {loading ? "Sending…" : `Send STK for ${fmtKES(Number(amount) || 0)}`}
             </Button>
@@ -466,7 +612,6 @@ function DepositDialog({ depositFn, onDone }: { depositFn: ReturnType<typeof use
     </Dialog>
   );
 }
-
 
 function ForexOrderPanel({
   symbol,
@@ -496,7 +641,11 @@ function ForexOrderPanel({
   type Plan = { tp?: number; sl?: number; side: "buy" | "sell"; symbol: string };
   const STORAGE_KEY = "forex-order-plans";
   const readPlans = (): Record<string, Plan> => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
   };
   const writePlans = (p: Record<string, Plan>) =>
     localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
@@ -513,7 +662,8 @@ function ForexOrderPanel({
         writePlans(plans);
         toast.info(`TP/SL armed for ${symbol}`);
       }
-      setTp(""); setSl("");
+      setTp("");
+      setSl("");
     }, 1500);
   }
 
@@ -545,7 +695,9 @@ function ForexOrderPanel({
         closeMut.mutate(pos.id);
         delete plans[pos.id];
         mutated = true;
-        toast[tpHit ? "success" : "warning"](`${tpHit ? "Take-profit" : "Stop-loss"} hit on ${pos.pair}`);
+        toast[tpHit ? "success" : "warning"](
+          `${tpHit ? "Take-profit" : "Stop-loss"} hit on ${pos.pair}`,
+        );
       }
     }
     if (mutated) writePlans(plans);
@@ -554,7 +706,10 @@ function ForexOrderPanel({
 
   function place(side: "buy" | "sell") {
     if (orderType === "limit") {
-      if (!trigger) { toast.error("Set a trigger price"); return; }
+      if (!trigger) {
+        toast.error("Set a trigger price");
+        return;
+      }
       setPendingSide(side);
       toast.info(`Pending ${side.toUpperCase()} @ ${trigger}`);
       return;
@@ -580,34 +735,73 @@ function ForexOrderPanel({
             key={t}
             onClick={() => setOrderType(t)}
             className={`py-1.5 text-xs rounded font-medium ${
-              orderType === t ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
+              orderType === t
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/50"
             }`}
-          >{t === "market" ? "Market" : "Limit / Trigger"}</button>
+          >
+            {t === "market" ? "Market" : "Limit / Trigger"}
+          </button>
         ))}
       </div>
 
       <div>
         <Label htmlFor="stake">Stake (KES)</Label>
-        <Input id="stake" type="number" min={10} value={stake} onChange={(e) => setStake(e.target.value)} />
-        <p className="mt-1 text-[11px] text-muted-foreground">50x leverage applied to P&L on close.</p>
+        <Input
+          id="stake"
+          type="number"
+          min={10}
+          value={stake}
+          onChange={(e) => setStake(e.target.value)}
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          50x leverage applied to P&L on close.
+        </p>
       </div>
 
       {orderType === "limit" && (
         <div>
           <Label htmlFor="trig">Trigger price</Label>
-          <Input id="trig" type="number" step="any" placeholder={spot?.toFixed(decimals)} value={trigger} onChange={(e) => setTrigger(e.target.value)} />
-          <p className="mt-1 text-[11px] text-muted-foreground">Buy fires when price ≤ trigger; Sell when ≥.</p>
+          <Input
+            id="trig"
+            type="number"
+            step="any"
+            placeholder={spot?.toFixed(decimals)}
+            value={trigger}
+            onChange={(e) => setTrigger(e.target.value)}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Buy fires when price ≤ trigger; Sell when ≥.
+          </p>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label htmlFor="tp" className="text-bull">Take-profit</Label>
-          <Input id="tp" type="number" step="any" placeholder="optional" value={tp} onChange={(e) => setTp(e.target.value)} />
+          <Label htmlFor="tp" className="text-bull">
+            Take-profit
+          </Label>
+          <Input
+            id="tp"
+            type="number"
+            step="any"
+            placeholder="optional"
+            value={tp}
+            onChange={(e) => setTp(e.target.value)}
+          />
         </div>
         <div>
-          <Label htmlFor="sl" className="text-bear">Stop-loss</Label>
-          <Input id="sl" type="number" step="any" placeholder="optional" value={sl} onChange={(e) => setSl(e.target.value)} />
+          <Label htmlFor="sl" className="text-bear">
+            Stop-loss
+          </Label>
+          <Input
+            id="sl"
+            type="number"
+            step="any"
+            placeholder="optional"
+            value={sl}
+            onChange={(e) => setSl(e.target.value)}
+          />
         </div>
       </div>
 
@@ -630,8 +824,18 @@ function ForexOrderPanel({
 
       {pendingSide && (
         <div className="rounded-md border border-dashed border-border px-2.5 py-2 text-xs flex items-center justify-between">
-          <span className="text-muted-foreground">Pending {pendingSide.toUpperCase()} @ {trigger}</span>
-          <button onClick={() => { setPendingSide(null); setTrigger(""); }} className="text-bear hover:underline">cancel</button>
+          <span className="text-muted-foreground">
+            Pending {pendingSide.toUpperCase()} @ {trigger}
+          </span>
+          <button
+            onClick={() => {
+              setPendingSide(null);
+              setTrigger("");
+            }}
+            className="text-bear hover:underline"
+          >
+            cancel
+          </button>
         </div>
       )}
     </div>
