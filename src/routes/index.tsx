@@ -4,16 +4,16 @@ import { ArrowRight, BarChart3, ShieldCheck, Smartphone, TrendingUp, Users, Zap 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pesa Trade - Start earning today by trading" },
+      { title: "GMX Trader - Mobile trading markets" },
       {
         name: "description",
         content:
-          "Start earning today by trading fast markets from your phone. Fund instantly with M-Pesa, place trades in seconds, and withdraw to your phone.",
+          "Trade mobile-first markets from your phone. Fund instantly with M-Pesa, manage risk, and withdraw to your number.",
       },
-      { property: "og:title", content: "Pesa Trade - Start earning today by trading" },
+      { property: "og:title", content: "GMX Trader - Mobile trading markets" },
       {
         property: "og:description",
-        content: "Trade fast markets, deposit with M-Pesa, and withdraw straight to your phone.",
+        content: "Mobile trading markets with M-Pesa deposits, clear charts, and direct withdrawals.",
       },
     ],
   }),
@@ -27,9 +27,9 @@ function Landing() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 md:px-12">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary font-bold text-primary-foreground">
-              P
+              G
             </div>
-            <span className="font-semibold tracking-tight">Pesa Trade</span>
+            <span className="font-semibold tracking-tight">GMX Trader</span>
           </div>
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <a href="#features" className="hover:text-foreground">
@@ -55,14 +55,14 @@ function Landing() {
         <section className="mx-auto max-w-6xl py-20 md:py-28">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bull" />
-            Live markets - M-Pesa enabled
+            18+ mobile trading - M-Pesa enabled
           </div>
           <h1 className="mt-6 text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
-            Start earning today by <span className="text-primary">trading.</span>
+            Trade markets from your <span className="text-primary">phone.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Trade fast-moving markets from your phone. Top up via M-Pesa STK push, choose your
-            stake, make quick predictions, and withdraw straight to your number.
+            Follow live movement, choose a stake, place fixed-time trades, and manage each position
+            with a clear balance, chart, and trade history.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -81,9 +81,9 @@ function Landing() {
 
           <dl className="mt-14 grid max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
             {[
-              { k: "24/7", v: "Fast markets" },
+              { k: "24/7", v: "Markets" },
               { k: "~10s", v: "STK settlement" },
-              { k: "85%", v: "Win payout" },
+              { k: "Clear", v: "Risk per trade" },
               { k: "KES 10", v: "Start small" },
             ].map((s) => (
               <div key={s.v} className="rounded-xl border border-border bg-card p-4">
@@ -99,7 +99,7 @@ function Landing() {
             {
               i: TrendingUp,
               t: "Live markets",
-              d: "Prices update every few seconds so every trade feels immediate.",
+              d: "Watch synthetic and forex-style markets with live prices and compact mobile charts.",
             },
             {
               i: Smartphone,
@@ -109,7 +109,7 @@ function Landing() {
             {
               i: Zap,
               t: "Fast trading",
-              d: "Pick a market, set your stake, choose a direction, and see the result quickly.",
+              d: "Pick a market, set your stake, choose a direction, and track every open trade.",
             },
           ].map(({ i: Icon, t, d }) => (
             <div key={t} className="rounded-xl border border-border bg-card p-6 transition hover:border-primary/40">
@@ -121,7 +121,7 @@ function Landing() {
         </section>
 
         <section id="how" className="mx-auto max-w-6xl pb-20">
-          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">From account to earnings in 3 steps</h2>
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">From account to first trade in 3 steps</h2>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {[
               {
@@ -137,7 +137,7 @@ function Landing() {
               {
                 n: "03",
                 t: "Trade and withdraw",
-                d: "Choose a market, place your trade, and cash out to M-Pesa anytime.",
+                d: "Choose a market, place a trade, and withdraw available funds to M-Pesa anytime.",
               },
             ].map((s) => (
               <div key={s.n} className="rounded-xl border border-border bg-card p-6">
@@ -159,12 +159,12 @@ function Landing() {
             {
               i: BarChart3,
               t: "Clear charts",
-              d: "Simple market views help you follow price movement before you trade.",
+              d: "Simple market views help you follow movement before choosing a prediction.",
             },
             {
               i: Users,
               t: "Earn referrals",
-              d: "Invite friends and earn 15% / 10% / 5% across three tiers, paid on every win.",
+              d: "Invite friends and earn 15% / 10% / 5% across three tiers when referral rewards apply.",
             },
           ].map(({ i: Icon, t, d }) => (
             <div key={t} className="rounded-xl border border-border bg-card p-6">
@@ -177,7 +177,7 @@ function Landing() {
 
         <section className="mx-auto max-w-4xl pb-24 text-center">
           <div className="rounded-2xl border border-border bg-card p-10">
-            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Ready to start earning?</h2>
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Ready to trade?</h2>
             <p className="mt-3 text-muted-foreground">Create your account free. Start with KES 10. No card, no waiting.</p>
             <a
               href="/auth"
@@ -190,8 +190,14 @@ function Landing() {
       </main>
 
       <footer className="border-t border-border px-6 py-8 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 text-xs text-muted-foreground md:flex-row">
-          <div>© {new Date().getFullYear()} Pesa Trade. Trading involves risk.</div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 text-xs text-muted-foreground md:flex-row md:items-start md:justify-between">
+          <div className="max-w-md space-y-2">
+            <div>&copy; {new Date().getFullYear()} GMX Trader. All rights reserved.</div>
+            <p>
+              18+ only. Trading prediction markets involves financial risk and can be addictive.
+              Trade responsibly and only stake what you can afford to lose.
+            </p>
+          </div>
           <div className="flex gap-4">
             <a href="#features" className="hover:text-foreground">
               Features

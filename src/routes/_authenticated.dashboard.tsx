@@ -108,22 +108,24 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground md:bg-background">
       {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-3">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-6 md:py-3">
           <div className="flex items-center gap-1">
             <AppMenu isAdmin={adminQ.data?.isAdmin} />
             <SecretAdminLogo isAdmin={Boolean(adminQ.data?.isAdmin)} />
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm tabular">
-              <Wallet className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground hidden sm:inline">Balance</span>
-              <span className="font-semibold">{fmtKES(dashQ.data?.balance ?? 0)}</span>
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-card px-2 py-1 text-xs tabular sm:gap-2 sm:rounded-md sm:px-3 sm:py-1.5 sm:text-sm">
+              <Wallet className="h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4" />
+              <span className="hidden text-muted-foreground sm:inline">Balance</span>
+              <span className="max-w-[112px] truncate font-semibold sm:max-w-none">{fmtKES(dashQ.data?.balance ?? 0)}</span>
             </div>
             <DepositDialog depositFn={depositFn} onDone={() => qc.invalidateQueries({ queryKey: ["dash"] })} />
-            <WithdrawDialog balance={dashQ.data?.balance ?? 0} />
+            <div className="hidden sm:block">
+              <WithdrawDialog balance={dashQ.data?.balance ?? 0} />
+            </div>
             <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
               <Link to="/referrals"><Users className="h-4 w-4 mr-1.5" />Refer</Link>
             </Button>
@@ -137,13 +139,28 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className={`grid gap-4 p-4 ${expanded ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
+      <main className={`grid gap-0 p-0 md:gap-4 md:p-4 ${expanded ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
         {/* Chart + market selector */}
-        <section className="rounded-xl border border-border bg-card flex flex-col min-h-[520px]">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <section className="flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
+          {isDerived && (
+            <div className="grid grid-cols-3 gap-1 border-b border-border bg-background/50 p-2 md:hidden">
+              {["Rise/Fall", "Even/Odd", "Over/Under"].map((label) => (
+                <button
+                  key={label}
+                  className={`rounded-md px-2 py-3 text-center text-sm font-semibold ${
+                    label === "Rise/Fall" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-2 md:px-4 md:py-3">
             <div className="flex items-center gap-3 flex-wrap">
               {/* Category toggle */}
-              <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40">
+              <div className="hidden rounded-md border border-border bg-muted/40 p-0.5 md:inline-flex">
                 {(["synthetic", "forex"] as const).map((c) => (
                   <button
                     key={c}
@@ -229,7 +246,7 @@ function Dashboard() {
               </button>
             </div>
           </div>
-          <div className={`flex-1 p-2 ${expanded ? "min-h-[70vh]" : ""}`}>
+          <div className={`h-[260px] p-2 md:h-auto md:flex-1 ${expanded ? "min-h-[70vh]" : ""}`}>
             {isDerived ? (
               <TickChart symbol={symbol} windowTicks={derivedTicks} />
             ) : candlesQ.data ? (
@@ -242,8 +259,8 @@ function Dashboard() {
         </section>
 
         {/* Trade panel */}
-        <aside className="rounded-xl border border-border bg-card p-5 h-fit lg:sticky lg:top-20">
-          <div className="flex items-center justify-between mb-3">
+        <aside className="h-fit border-b border-border bg-card p-4 lg:sticky lg:top-20 lg:rounded-xl lg:border lg:p-5">
+          <div className="mb-3 hidden items-center justify-between md:flex">
             <h2 className="text-sm font-semibold">Place order</h2>
             <span className="text-xs text-muted-foreground">{symbol}</span>
           </div>
@@ -272,14 +289,19 @@ function Dashboard() {
       </main>
 
 
-      <section className="px-4 pb-4">
+      <section className="hidden px-4 pb-4 md:block">
         <ActivityFeed />
       </section>
 
       {/* Positions */}
-      <section className="px-4 pb-8">
-        <div className="rounded-xl border border-border bg-card">
-          <div className="border-b border-border px-5 py-3">
+      <section className="px-0 pb-8 md:px-4">
+        <div className="grid grid-cols-3 border-b border-border bg-card text-sm font-medium md:hidden">
+          <button className="border-b border-primary px-4 py-4 text-left text-foreground">Open ({(dashQ.data?.positions ?? []).filter((p: any) => p.status === "open").length})</button>
+          <button className="px-4 py-4 text-left text-muted-foreground">Closed ({(dashQ.data?.positions ?? []).filter((p: any) => p.status !== "open").length})</button>
+          <button className="px-4 py-4 text-left text-muted-foreground">Transactions</button>
+        </div>
+        <div className="border-border bg-card md:rounded-xl md:border">
+          <div className="hidden border-b border-border px-5 py-3 md:block">
             <h2 className="text-sm font-semibold">Positions & history</h2>
           </div>
           <div className="overflow-x-auto">

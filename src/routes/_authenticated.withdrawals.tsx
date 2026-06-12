@@ -11,7 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/withdrawals")({
-  head: () => ({ meta: [{ title: "Withdrawals — Pesa Trade" }] }),
+  head: () => ({ meta: [{ title: "Withdrawals - GMX Trader" }] }),
   component: WithdrawalsPage,
 });
 

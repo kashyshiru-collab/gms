@@ -7,12 +7,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Info, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
 
-type ContractGroup = "rise_fall" | "over_under" | "matches_differs" | "even_odd";
+type ContractGroup = "rise_fall" | "over_under" | "even_odd";
 
 const GROUPS: { id: ContractGroup; label: string; sub: [string, string] }[] = [
   { id: "rise_fall",       label: "Rise / Fall",       sub: ["Rise", "Fall"] },
   { id: "over_under",      label: "Over / Under",      sub: ["Over", "Under"] },
-  { id: "matches_differs", label: "Matches / Differs", sub: ["Matches", "Differs"] },
   { id: "even_odd",        label: "Even / Odd",        sub: ["Even", "Odd"] },
 ];
 
@@ -23,7 +22,6 @@ const fmt = (n: number) =>
 
 function payoutFor(group: ContractGroup, side: "a" | "b", barrier: number): number {
   if (group === "rise_fall" || group === "even_odd") return PAYOUT_MULTIPLIER;
-  if (group === "matches_differs") return side === "a" ? 9.5 : 1.1;
   const over  = [1.10, 1.25, 1.40, 1.60, 1.85, 2.20, 2.80, 3.80, 7.50, 1.10];
   const under = [1.10, 7.50, 3.80, 2.80, 2.20, 1.85, 1.60, 1.40, 1.25, 1.10];
   return side === "a" ? (over[barrier] ?? 1.85) : (under[barrier] ?? 1.85);
@@ -105,7 +103,7 @@ export function DerivedPanel({
           contract: vars.contract as any,
           prediction: vars.prediction as any,
           barrier:
-            group.id === "over_under" || group.id === "matches_differs" ? barrier : null,
+            group.id === "over_under" ? barrier : null,
           stake: Number(stake) || 0,
           duration,
         },
@@ -129,13 +127,11 @@ export function DerivedPanel({
   function placeA() {
     if (group.id === "rise_fall")       return mut.mutate({ contract: "rise_fall", prediction: "up" });
     if (group.id === "over_under")      return mut.mutate({ contract: "over",      prediction: "over" });
-    if (group.id === "matches_differs") return mut.mutate({ contract: "matches",   prediction: "matches" });
     return mut.mutate({ contract: "even", prediction: "even" });
   }
   function placeB() {
     if (group.id === "rise_fall")       return mut.mutate({ contract: "rise_fall", prediction: "down" });
     if (group.id === "over_under")      return mut.mutate({ contract: "under",     prediction: "under" });
-    if (group.id === "matches_differs") return mut.mutate({ contract: "differs",   prediction: "differs" });
     return mut.mutate({ contract: "odd", prediction: "odd" });
   }
 
@@ -144,7 +140,7 @@ export function DerivedPanel({
     setStake(String(next));
   };
 
-  const showBarrier = group.id === "over_under" || group.id === "matches_differs";
+  const showBarrier = group.id === "over_under";
   const open = (tradesQ.data ?? []).filter((t: any) => t.status === "open");
   const recent = (tradesQ.data ?? []).filter((t: any) => t.status !== "open").slice(0, 5);
 
@@ -270,7 +266,7 @@ export function DerivedPanel({
         </div>
       </div>
 
-      {/* Payout row A (Over / Up / Matches / Even) */}
+      {/* Payout row A */}
       <div>
         <div className="flex items-center justify-between text-[11px] mb-1 px-0.5">
           <span className="text-muted-foreground">Payout <span className="font-semibold text-foreground">{fmt(payoutAValue)}</span></span>
@@ -290,7 +286,7 @@ export function DerivedPanel({
         </button>
       </div>
 
-      {/* Payout row B (Under / Down / Differs / Odd) */}
+      {/* Payout row B */}
       <div>
         <div className="flex items-center justify-between text-[11px] mb-1 px-0.5">
           <span className="text-muted-foreground">Payout <span className="font-semibold text-foreground">{fmt(payoutBValue)}</span></span>

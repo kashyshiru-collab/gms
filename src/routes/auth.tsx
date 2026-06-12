@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -35,6 +35,9 @@ function AuthPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyCooldown, setVerifyCooldown] = useState(0);
+  const submitLockRef = useRef(false);
+  const verifyLockRef = useRef(false);
   const configError = getSupabaseConfigError();
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -52,10 +55,19 @@ function AuthPage() {
       });
   }, [configError, navigate]);
 
+  useEffect(() => {
+    if (verifyCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setVerifyCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [verifyCooldown]);
+
   function resetVerification(nextMode = mode) {
     setOtp("");
     setOtpSent(false);
     setEmailVerified(false);
+    setVerifyCooldown(0);
     if (nextMode === "signin") {
       setFirstName("");
       setSecondName("");
@@ -65,6 +77,7 @@ function AuthPage() {
   }
 
   async function sendVerificationCode() {
+    if (verifyLockRef.current) return;
     if (configError) {
       toast.error(configError);
       return;
@@ -73,6 +86,11 @@ function AuthPage() {
       toast.error("Enter your email first.");
       return;
     }
+    if (verifyCooldown > 0) {
+      toast.message(`Wait ${verifyCooldown}s before sending another code.`);
+      return;
+    }
+    verifyLockRef.current = true;
     setVerifyLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -91,20 +109,24 @@ function AuthPage() {
       if (error) throw error;
       setOtpSent(true);
       setEmailVerified(false);
+      setVerifyCooldown(30);
       toast.success("Verification code sent to your email.");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Could not send verification code.";
       toast.error(message);
     } finally {
       setVerifyLoading(false);
+      verifyLockRef.current = false;
     }
   }
 
   async function verifyEmailCode() {
+    if (verifyLockRef.current) return;
     if (!otp.trim()) {
       toast.error("Paste the verification code from your email.");
       return;
     }
+    verifyLockRef.current = true;
     setVerifyLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -120,15 +142,18 @@ function AuthPage() {
       toast.error(message);
     } finally {
       setVerifyLoading(false);
+      verifyLockRef.current = false;
     }
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLockRef.current) return;
     if (configError) {
       toast.error(configError);
       return;
     }
+    submitLockRef.current = true;
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -179,6 +204,7 @@ function AuthPage() {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   }
 
@@ -264,9 +290,15 @@ function AuthPage() {
                   size="sm"
                   className="h-9 shrink-0"
                   onClick={sendVerificationCode}
-                  disabled={verifyLoading || !normalizedEmail}
+                  disabled={verifyLoading || verifyCooldown > 0 || !normalizedEmail}
                 >
-                  {verifyLoading && !otpSent ? "Sending" : emailVerified ? "Verified" : "Verify email"}
+                  {verifyLoading && !otpSent
+                    ? "Sending"
+                    : emailVerified
+                      ? "Verified"
+                      : verifyCooldown > 0
+                        ? `${verifyCooldown}s`
+                        : "Verify email"}
                 </Button>
               )}
             </div>

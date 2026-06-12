@@ -14,12 +14,10 @@ const DURATIONS = [
   { s: 300, label: "5m" },
 ] as const;
 
-type ContractType = "rise_fall" | "matches" | "differs" | "even" | "odd" | "over" | "under";
+type ContractType = "rise_fall" | "even" | "odd" | "over" | "under";
 
 const CONTRACTS: { id: ContractType; label: string; hint: string }[] = [
   { id: "rise_fall", label: "Rise / Fall", hint: "Will the price end higher or lower than entry?" },
-  { id: "matches",   label: "Matches",     hint: "Last digit of final tick equals chosen digit" },
-  { id: "differs",   label: "Differs",     hint: "Last digit differs from chosen digit" },
   { id: "even",      label: "Even",        hint: "Last digit is 0, 2, 4, 6 or 8" },
   { id: "odd",       label: "Odd",         hint: "Last digit is 1, 3, 5, 7 or 9" },
   { id: "over",      label: "Over",        hint: "Last digit > barrier" },
@@ -31,8 +29,6 @@ const fmt = (n: number) =>
 
 function payoutFor(contract: ContractType, barrier: number): number {
   if (contract === "rise_fall") return PAYOUT_MULTIPLIER;
-  if (contract === "matches") return 9.5;
-  if (contract === "differs") return 1.1;
   if (contract === "even" || contract === "odd") return PAYOUT_MULTIPLIER;
   if (contract === "over") {
     return [1.1, 1.25, 1.4, 1.6, 1.85, 2.2, 2.8, 3.8, 7.5, 1.1][barrier] ?? 1.85;
@@ -62,7 +58,7 @@ export function BinaryPanel({ symbol, stake }: { symbol: string; stake: number }
           symbol,
           contract,
           prediction: prediction as any,
-          barrier: contract === "matches" || contract === "differs" || contract === "over" || contract === "under" ? barrier : null,
+          barrier: contract === "over" || contract === "under" ? barrier : null,
           stake,
           duration,
         },
@@ -121,7 +117,7 @@ export function BinaryPanel({ symbol, stake }: { symbol: string; stake: number }
       </div>
 
       {/* Barrier picker for digit contracts */}
-      {(contract === "matches" || contract === "differs" || contract === "over" || contract === "under") && (
+      {(contract === "over" || contract === "under") && (
         <div>
           <div className="text-[11px] text-muted-foreground mb-1">Choose digit (0–9)</div>
           <div className="grid grid-cols-10 gap-1">
@@ -161,7 +157,7 @@ export function BinaryPanel({ symbol, stake }: { symbol: string; stake: number }
           onClick={() => mut.mutate(contract)}
         >
           {CONTRACTS.find((c) => c.id === contract)?.label.toUpperCase()}
-          {(contract === "matches" || contract === "differs" || contract === "over" || contract === "under") &&
+          {(contract === "over" || contract === "under") &&
             ` · ${barrier}`}
         </Button>
       )}

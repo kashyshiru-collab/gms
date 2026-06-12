@@ -13,7 +13,7 @@ import { WithdrawalQueue } from "@/components/admin/WithdrawalQueue";
 import { MarketOverridePanel } from "@/components/admin/MarketOverridePanel";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — Pesa Trade" }] }),
+  head: () => ({ meta: [{ title: "Admin - GMX Trader" }] }),
   component: AdminPage,
 });
 

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
-  head: () => ({ meta: [{ title: "Referrals — Pesa Trade" }] }),
+  head: () => ({ meta: [{ title: "Referrals - GMX Trader" }] }),
   component: Referrals,
 });
 
@@ -90,7 +90,7 @@ function Referrals() {
               <tbody className="divide-y divide-border tabular">
                 {(q.data?.recent ?? []).length === 0 && (
                   <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                    No commissions yet. Share your link to start earning.
+                    No commissions yet. Share your link to start building referrals.
                   </td></tr>
                 )}
                 {(q.data?.recent ?? []).map((c: any) => (
