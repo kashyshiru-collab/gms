@@ -4,13 +4,19 @@ const SANDBOX_BASE = "https://sandbox.safaricom.co.ke";
 const PRODUCTION_BASE = "https://api.safaricom.co.ke";
 
 function baseUrl() {
-  return process.env.DARAJA_BASE_URL || (process.env.DARAJA_ENV === "production" ? PRODUCTION_BASE : SANDBOX_BASE);
+  const explicit = process.env.DARAJA_BASE_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  return process.env.DARAJA_ENV?.trim().toLowerCase() === "sandbox" ? SANDBOX_BASE : PRODUCTION_BASE;
 }
 
 function requiredEnv(name: string) {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} missing`);
   return value;
+}
+
+function darajaEnvLabel() {
+  return baseUrl() === PRODUCTION_BASE ? "production" : "sandbox";
 }
 
 export function publicAppUrl(): string {
@@ -38,19 +44,24 @@ export function usdToDarajaKes(amountUsd: number) {
 }
 
 async function accessToken() {
-  const token = Buffer.from(
-    `${requiredEnv("DARAJA_CONSUMER_KEY")}:${requiredEnv("DARAJA_CONSUMER_SECRET")}`,
-  ).toString("base64");
-  const res = await fetch(`${baseUrl()}/oauth/v1/generate?grant_type=client_credentials`, {
+  const consumerKey = requiredEnv("DARAJA_CONSUMER_KEY");
+  const consumerSecret = requiredEnv("DARAJA_CONSUMER_SECRET");
+  const token = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+  const url = `${baseUrl()}/oauth/v1/generate?grant_type=client_credentials`;
+
+  const res = await fetch(url, {
     headers: { Authorization: `Basic ${token}` },
   });
   const text = await res.text();
+
   let json: any = {};
   try {
     json = JSON.parse(text);
   } catch {}
   if (!res.ok || !json.access_token) {
-    throw new Error(`Daraja OAuth failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new Error(
+      `Daraja OAuth failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
+    );
   }
   return String(json.access_token);
 }
@@ -80,10 +91,10 @@ export async function stkPush(params: {
     BusinessShortCode: shortCode,
     Password: stkPassword(shortCode, passkey, ts),
     Timestamp: ts,
-    TransactionType: process.env.DARAJA_STK_TRANSACTION_TYPE || "CustomerPayBillOnline",
+    TransactionType: process.env.DARAJA_STK_TRANSACTION_TYPE?.trim() || "CustomerPayBillOnline",
     Amount: usdToDarajaKes(params.amountUsd),
     PartyA: normalizeKenyanPhone(params.phone),
-    PartyB: process.env.DARAJA_STK_PARTY_B || shortCode,
+    PartyB: process.env.DARAJA_STK_PARTY_B?.trim() || shortCode,
     PhoneNumber: normalizeKenyanPhone(params.phone),
     CallBackURL: params.callbackUrl,
     AccountReference: params.reference.slice(0, 12),
@@ -100,7 +111,9 @@ export async function stkPush(params: {
     json = JSON.parse(text);
   } catch {}
   if (!res.ok || (json.ResponseCode && json.ResponseCode !== "0")) {
-    throw new Error(`Daraja STK failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new Error(
+      `Daraja STK failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
+    );
   }
   return json;
 }
@@ -140,7 +153,7 @@ export async function withdrawToMobile(params: {
     OriginatorConversationID: params.externalReference,
     InitiatorName: requiredEnv("DARAJA_B2C_INITIATOR_NAME"),
     SecurityCredential: requiredEnv("DARAJA_B2C_SECURITY_CREDENTIAL"),
-    CommandID: process.env.DARAJA_B2C_COMMAND_ID || "BusinessPayment",
+    CommandID: process.env.DARAJA_B2C_COMMAND_ID?.trim() || "BusinessPayment",
     Amount: usdToDarajaKes(params.amountUsd),
     PartyA: requiredEnv("DARAJA_B2C_SHORTCODE"),
     PartyB: normalizeKenyanPhone(params.phone),
@@ -160,7 +173,9 @@ export async function withdrawToMobile(params: {
     json = JSON.parse(text);
   } catch {}
   if (!res.ok || (json.ResponseCode && json.ResponseCode !== "0")) {
-    throw new Error(`Daraja B2C failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new Error(
+      `Daraja B2C failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
+    );
   }
   return json;
 }
