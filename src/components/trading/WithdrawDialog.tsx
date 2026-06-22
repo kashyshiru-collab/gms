@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { requestWithdrawal, listMyWithdrawals } from "@/lib/withdrawals.functions";
+import {
+  requestWithdrawal,
+  listMyWithdrawals,
+  processMyPendingWithdrawals,
+} from "@/lib/withdrawals.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,17 +22,35 @@ export function WithdrawDialog({ balance }: { balance: number }) {
   const qc = useQueryClient();
   const reqFn = useServerFn(requestWithdrawal);
   const listFn = useServerFn(listMyWithdrawals);
+  const processPendingFn = useServerFn(processMyPendingWithdrawals);
+  const processedOpenRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(String(MIN_WITHDRAWAL_USD));
-  const [phone, setPhone] = useState("");
+  const [registeredPhone, setRegisteredPhone] = useState("");
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      processedOpenRef.current = false;
+      return;
+    }
     supabase.auth.getUser().then(({ data }) => {
       const p = (data.user?.user_metadata as any)?.phone;
-      if (p && !phone) setPhone(p);
+      if (p) setRegisteredPhone(p);
     });
-  }, [open, phone]);
+    if (!processedOpenRef.current) {
+      processedOpenRef.current = true;
+      processPendingFn()
+        .then((result) => {
+          if (result.processed > 0) {
+            qc.invalidateQueries({ queryKey: ["dash"] });
+            qc.invalidateQueries({ queryKey: ["my-withdrawals"] });
+          }
+        })
+        .catch(() => {
+          qc.invalidateQueries({ queryKey: ["my-withdrawals"] });
+        });
+    }
+  }, [open, processPendingFn, qc]);
 
   const myQ = useQuery({
     queryKey: ["my-withdrawals"],
@@ -38,9 +60,9 @@ export function WithdrawDialog({ balance }: { balance: number }) {
   });
 
   const mut = useMutation({
-    mutationFn: () => reqFn({ data: { amount: Number(amount), phone } }),
+    mutationFn: () => reqFn({ data: { amount: Number(amount) } }),
     onSuccess: () => {
-      toast.success("Withdrawal request submitted. Status: Pending.");
+      toast.success("Withdrawal sent to M-Pesa. Waiting for confirmation.");
       qc.invalidateQueries({ queryKey: ["dash"] });
       qc.invalidateQueries({ queryKey: ["my-withdrawals"] });
       setAmount(String(MIN_WITHDRAWAL_USD));
@@ -71,10 +93,10 @@ export function WithdrawDialog({ balance }: { balance: number }) {
           </div>
           <div>
             <Label htmlFor="wd-ph">M-Pesa phone</Label>
-            <Input id="wd-ph" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input id="wd-ph" value={registeredPhone || "Saved profile phone"} disabled />
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Funds are held immediately and sent to your M-Pesa once your request is processed. Pending requests are returned to your wallet if cancelled.
+            Funds are held immediately and sent to the M-Pesa number saved on your profile. If Daraja rejects the payout, the amount is returned to your wallet.
           </p>
 
           {(myQ.data ?? []).length > 0 && (
@@ -88,7 +110,7 @@ export function WithdrawDialog({ balance }: { balance: number }) {
                     r.status === "paid" ? "text-bull font-medium" :
                     r.status === "rejected" || r.status === "failed" ? "text-bear font-medium" :
                     "text-amber-500 font-medium"
-                  }>{r.status}</span>
+                  }>{["pending", "approved", "processing"].includes(r.status) ? "pending" : r.status}</span>
                 </div>
               ))}
             </div>
@@ -97,8 +119,8 @@ export function WithdrawDialog({ balance }: { balance: number }) {
         <DialogFooter>
           <Button
             onClick={() => mut.mutate()}
-            disabled={mut.isPending || !phone || Number(amount) < MIN_WITHDRAWAL_USD || Number(amount) > balance}
-          >{mut.isPending ? "Submitting…" : `Request ${fmt(Number(amount) || 0)}`}</Button>
+            disabled={mut.isPending || Number(amount) < MIN_WITHDRAWAL_USD || Number(amount) > balance}
+          >{mut.isPending ? "Sending..." : `Withdraw ${fmt(Number(amount) || 0)}`}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

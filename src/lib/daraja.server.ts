@@ -19,6 +19,19 @@ function darajaEnvLabel() {
   return baseUrl() === PRODUCTION_BASE ? "production" : "sandbox";
 }
 
+function maskValue(value: string) {
+  if (value.length <= 8) return "***";
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function darajaConfigLabel() {
+  const consumerKey = process.env.DARAJA_CONSUMER_KEY?.trim() || "";
+  const b2cShortCode = process.env.DARAJA_B2C_SHORTCODE?.trim() || "";
+  const initiator = process.env.DARAJA_B2C_INITIATOR_NAME?.trim() || "";
+  const commandId = process.env.DARAJA_B2C_COMMAND_ID?.trim() || "BusinessPayment";
+  return `endpoint=${baseUrl()}/mpesa/b2c/v1/paymentrequest, consumerKey=${maskValue(consumerKey)}, b2cShortCode=${b2cShortCode || "missing"}, initiator=${initiator || "missing"}, command=${commandId}`;
+}
+
 export function publicAppUrl(): string {
   const explicitUrl = process.env.PUBLIC_APP_URL || process.env.VITE_PUBLIC_APP_URL;
   if (explicitUrl) return explicitUrl.replace(/\/$/, "");
@@ -174,7 +187,7 @@ export async function withdrawToMobile(params: {
   } catch {}
   if (!res.ok || (json.ResponseCode && json.ResponseCode !== "0")) {
     throw new Error(
-      `Daraja B2C failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
+      `Daraja B2C failed on ${darajaEnvLabel()} (${res.status}; ${darajaConfigLabel()}): ${text.slice(0, 300)}`,
     );
   }
   return json;

@@ -182,7 +182,7 @@ function Landing() {
             {
               i: ShieldCheck,
               t: "Custodial safety",
-              d: "Wallets are isolated per user. Withdrawals require admin review.",
+              d: "Wallets are isolated per user. Withdrawals are sent to M-Pesa automatically.",
             },
             {
               i: BarChart3,

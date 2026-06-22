@@ -45,7 +45,7 @@ function SupportPage() {
 
         <div className="rounded-xl border border-border bg-card p-5 space-y-3">
           <h3 className="font-medium">Frequently asked</h3>
-          <FAQ q="Why is my withdrawal pending?" a="Withdrawals are reviewed before being released to M-Pesa. This usually takes a few minutes." />
+          <FAQ q="Why is my withdrawal pending?" a="Withdrawals are sent to M-Pesa automatically. They stay pending while Daraja confirms the payout, then update to paid or failed." />
           <FAQ q="Why can't I withdraw yet?" a="To keep the platform safe, you must complete at least 5 trades on your most recent deposit before withdrawing." />
           <FAQ q="What does 'account warning' mean?" a="It means you've attempted to withdraw before meeting the trading requirement. A second warning may permanently disable your account." />
         </div>

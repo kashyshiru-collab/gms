@@ -70,7 +70,7 @@ function WithdrawalsPage() {
                   </div>
                 </div>
                 <div className={`text-sm font-medium capitalize ${statusBadge(r.status)}`}>
-                  {r.status === "pending" || r.status === "approved" ? "Pending" : r.status}
+                  {["pending", "approved", "processing"].includes(r.status) ? "Pending" : r.status}
                 </div>
               </div>
             ))}

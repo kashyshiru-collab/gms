@@ -532,7 +532,7 @@ export const getFinancialReport = createServerFn({ method: "GET" })
       .filter((withdrawal) => withdrawal.status === "paid")
       .reduce((sum, withdrawal) => sum + Number(withdrawal.amount_kes), 0);
     const pendingWithdrawals = withdrawals
-      .filter((withdrawal) => ["pending", "approved"].includes(withdrawal.status))
+      .filter((withdrawal) => ["pending", "approved", "processing"].includes(withdrawal.status))
       .reduce((sum, withdrawal) => sum + Number(withdrawal.amount_kes), 0);
 
     const profilesById = new Map(
