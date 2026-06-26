@@ -234,7 +234,7 @@ function AdminPage() {
           people={filtered}
           empty="No clients found."
           action={(person) =>
-            person.isAdmin ? (
+            person.roles.includes("admin") ? (
               <span className="text-xs text-muted-foreground">admin</span>
             ) : (
               <Button
@@ -434,7 +434,7 @@ function AdminPage() {
                     onClick={() => setAgentId(agent.id)}
                   >
                     <td className="p-3">
-                      <div className="font-medium">{personName(agent as Person)}</div>
+                      <div className="font-medium">{personName(agent)}</div>
                       <div className="text-xs text-muted-foreground">{agent.email}</div>
                     </td>
                     <td className="p-3 font-mono text-xs">{agent.referral_code ?? "-"}</td>
@@ -475,7 +475,7 @@ function AdminPage() {
                 {(reportQ.data?.clients ?? []).map((client) => (
                   <tr key={client.id} className="border-b border-border/60">
                     <td className="p-3">
-                      <div className="font-medium">{personName(client as Person)}</div>
+                      <div className="font-medium">{personName(client)}</div>
                       <div className="text-xs text-muted-foreground">{client.email}</div>
                     </td>
                     <td className="p-3">{client.phone ?? "-"}</td>
@@ -617,7 +617,11 @@ function AdminPage() {
           <Metric icon={Banknote} label="Open stake" value={fmtUSD(summary?.stakeOpen ?? 0)} />
           <Metric icon={ArrowDownToLine} label="Live buy side" value={`${summary?.buyPct ?? 0}%`} />
           <Metric icon={Landmark} label="Live sell side" value={`${summary?.sellPct ?? 0}%`} />
-          <Metric icon={Shield} label="Resolved retained" value={fmtUSD(summary?.netRetained ?? 0)} />
+          <Metric
+            icon={Shield}
+            label="Resolved retained"
+            value={fmtUSD(summary?.netRetained ?? 0)}
+          />
           <Metric
             icon={CalendarDays}
             label="Open / won / lost"
@@ -653,9 +657,13 @@ function AdminPage() {
                     </td>
                     <td className="p-3">
                       <div className="font-medium">
-                        {trade.profile?.full_name ?? trade.profile?.email ?? trade.user_id.slice(0, 8)}
+                        {trade.profile?.full_name ??
+                          trade.profile?.email ??
+                          trade.user_id.slice(0, 8)}
                       </div>
-                      <div className="text-xs text-muted-foreground">{trade.profile?.phone ?? ""}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {trade.profile?.phone ?? ""}
+                      </div>
                     </td>
                     <td className="p-3 font-medium">{trade.pair}</td>
                     <td className="p-3">
@@ -663,7 +671,9 @@ function AdminPage() {
                         {trade.contract_type.replace("_", "/")} · {trade.direction}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {trade.barrier_digit == null ? `${trade.duration_seconds}s` : `barrier ${trade.barrier_digit} · ${trade.duration_seconds}s`}
+                        {trade.barrier_digit == null
+                          ? `${trade.duration_seconds}s`
+                          : `barrier ${trade.barrier_digit} · ${trade.duration_seconds}s`}
                       </div>
                     </td>
                     <td className="p-3 text-right tabular">{fmtUSD(Number(trade.stake_kes))}</td>

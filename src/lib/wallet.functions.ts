@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 import { z } from "zod";
 import { MIN_DEPOSIT_USD } from "./money";
+
+type JsonObject = { [key: string]: Json | undefined };
 
 async function getSpotForPair(symbol: string): Promise<number> {
   const { getPriceAt } = await import("./pricing.server");
@@ -14,8 +17,18 @@ export const getDashboard = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const [walletRes, posRes, txRes] = await Promise.all([
       supabase.from("wallets").select("balance_kes").eq("user_id", userId).maybeSingle(),
-      supabase.from("positions").select("*").eq("user_id", userId).order("opened_at", { ascending: false }).limit(50),
-      supabase.from("transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+      supabase
+        .from("positions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("opened_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
     return {
       balance: Number(walletRes.data?.balance_kes ?? 0),
@@ -27,29 +40,23 @@ export const getDashboard = createServerFn({ method: "GET" })
 export const initiateDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      amount: z.number().min(MIN_DEPOSIT_USD).max(150000),
-      phone: z.string().min(9).max(15),
-      broker: z.enum(["HIGH_MAX_SUPER", "DCASH", "FX_TRADER"]).optional(),
-    }).parse(d),
+    z
+      .object({
+        amount: z.number().min(MIN_DEPOSIT_USD).max(150000),
+        phone: z.string().min(9).max(15),
+        broker: z.enum(["HIGH_MAX_SUPER", "DCASH", "FX_TRADER"]).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     if (data.broker && data.broker !== "HIGH_MAX_SUPER") {
       throw new Error("Selected broker is currently unavailable.");
     }
-    // Burn / trade-gate check
-    const { tradeGateInfo, getProfileFlags } = await import("./compliance.server");
+    const { getProfileFlags } = await import("./compliance.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const flags = await getProfileFlags(supabaseAdmin, userId);
     if (flags.is_burned) throw new Error("Account disabled. Please contact support.");
-    const gate = await tradeGateInfo(supabase, userId);
-    if (!gate.ok) {
-      const remaining = Math.max(0, 5 - gate.trades);
-      throw new Error(
-        `Please complete ${remaining} more trade${remaining === 1 ? "" : "s"} on your last deposit before topping up again.`,
-      );
-    }
 
     const reference = `dep_${userId.slice(0, 8)}_${Date.now()}`;
 
@@ -73,7 +80,8 @@ export const initiateDeposit = createServerFn({ method: "POST" })
         reference,
         callbackUrl,
       });
-      const darajaRef = resp?.CheckoutRequestID ?? resp?.MerchantRequestID ?? null;
+      const rawDarajaRef = resp.CheckoutRequestID ?? resp.MerchantRequestID;
+      const darajaRef = rawDarajaRef == null ? null : String(rawDarajaRef);
       if (darajaRef) {
         await supabase
           .from("transactions")
@@ -84,7 +92,7 @@ export const initiateDeposit = createServerFn({ method: "POST" })
               broker: data.broker ?? "HIGH_MAX_SUPER",
               provider: "daraja",
               provider_amount_kes: usdToDarajaKes(data.amount),
-              provider_response: resp,
+              provider_response: resp as JsonObject,
             },
           })
           .eq("reference", reference);
@@ -102,11 +110,13 @@ export const initiateDeposit = createServerFn({ method: "POST" })
 export const openPosition = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      symbol: z.string().min(3).max(10),
-      side: z.enum(["buy", "sell"]),
-      stake: z.number().positive().max(1_000_000),
-    }).parse(d),
+    z
+      .object({
+        symbol: z.string().min(3).max(10),
+        side: z.enum(["buy", "sell"]),
+        stake: z.number().positive().max(1_000_000),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -127,8 +137,10 @@ export const closePosition = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: posRow, error: readErr } = await supabase
-      .from("positions").select("pair, status, entry_price, side, stake_kes")
-      .eq("id", data.positionId).maybeSingle();
+      .from("positions")
+      .select("pair, status, entry_price, side, stake_kes")
+      .eq("id", data.positionId)
+      .maybeSingle();
     if (readErr || !posRow) throw new Error("Position not found");
     if (posRow.status === "closed") throw new Error("Already closed");
 
@@ -148,7 +160,8 @@ export const closePosition = createServerFn({ method: "POST" })
       p_exit: exit,
     });
     if (rpcErr) throw new Error(rpcErr.message);
-    return { ok: true, pnl: Number((closed as any)?.pnl_kes ?? 0), exit };
+    const closedRow = closed as { pnl_kes?: number | string | null } | null;
+    return { ok: true, pnl: Number(closedRow?.pnl_kes ?? 0), exit };
   });
 
 export const getMyStatus = createServerFn({ method: "GET" })
@@ -190,34 +203,52 @@ export const reconcilePendingDeposits = createServerFn({ method: "POST" })
     const { queryStkStatus } = await import("./daraja.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    let credited = 0, failed = 0;
+    let credited = 0,
+      failed = 0;
     for (const tx of pendings) {
       const lookup = tx.daraja_reference || tx.reference;
       if (!lookup) continue;
       try {
-        const r: any = await queryStkStatus(lookup);
+        const r = (await queryStkStatus(lookup)) as JsonObject;
         const resultCode = String(r?.ResultCode ?? "");
         if (resultCode === "0") {
           const credit = Number(tx.amount_kes);
-          const { data: w } = await supabaseAdmin.from("wallets")
-            .select("balance_kes").eq("user_id", userId).maybeSingle();
+          const receipt = r.MpesaReceiptNumber == null ? null : String(r.MpesaReceiptNumber);
+          const { data: w } = await supabaseAdmin
+            .from("wallets")
+            .select("balance_kes")
+            .eq("user_id", userId)
+            .maybeSingle();
           const newBal = Number(w?.balance_kes ?? 0) + credit;
-          await supabaseAdmin.from("wallets")
+          await supabaseAdmin
+            .from("wallets")
             .update({ balance_kes: newBal, updated_at: new Date().toISOString() })
             .eq("user_id", userId);
-          const prevMeta = (tx.meta && typeof tx.meta === "object" ? tx.meta : {}) as Record<string, unknown>;
-          await supabaseAdmin.from("transactions").update({
-            status: "success",
-            mpesa_receipt: r?.MpesaReceiptNumber ?? null,
-            meta: { ...prevMeta, reconcile: r },
-          }).eq("id", tx.id);
+          const prevMeta = (tx.meta && typeof tx.meta === "object" ? tx.meta : {}) as Record<
+            string,
+            unknown
+          >;
+          await supabaseAdmin
+            .from("transactions")
+            .update({
+              status: "success",
+              mpesa_receipt: receipt,
+              meta: { ...prevMeta, reconcile: r },
+            })
+            .eq("id", tx.id);
           credited++;
         } else if (resultCode && resultCode !== "1032") {
-          const prevMeta = (tx.meta && typeof tx.meta === "object" ? tx.meta : {}) as Record<string, unknown>;
-          await supabaseAdmin.from("transactions").update({
-            status: "failed",
-            meta: { ...prevMeta, reconcile: r },
-          }).eq("id", tx.id);
+          const prevMeta = (tx.meta && typeof tx.meta === "object" ? tx.meta : {}) as Record<
+            string,
+            unknown
+          >;
+          await supabaseAdmin
+            .from("transactions")
+            .update({
+              status: "failed",
+              meta: { ...prevMeta, reconcile: r },
+            })
+            .eq("id", tx.id);
           failed++;
         }
         // QUEUED → leave as pending

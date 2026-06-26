@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { AppMenu } from "@/components/AppMenu";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Mail, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, Mail, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/support")({
   head: () => ({ meta: [{ title: "Support - GMX Trader" }] }),
@@ -13,7 +13,12 @@ export const Route = createFileRoute("/_authenticated/support")({
 
 function SupportPage() {
   const adminFn = useServerFn(checkIsAdmin);
-  const adminQ = useQuery({ queryKey: ["is-admin"], queryFn: () => adminFn(), staleTime: 60_000, retry: false });
+  const adminQ = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: () => adminFn(),
+    staleTime: 60_000,
+    retry: false,
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -24,7 +29,10 @@ function SupportPage() {
             <h1 className="font-semibold">Support</h1>
           </div>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Back</Link>
+            <Link to="/dashboard">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Link>
           </Button>
         </div>
       </header>
@@ -38,25 +46,57 @@ function SupportPage() {
         </div>
 
         <div className="grid gap-3">
-          <Contact icon={MessageCircle} label="WhatsApp" value="+254 700 000 000" href="https://wa.me/254700000000" />
-          <Contact icon={Mail} label="Email" value="support@pesatrade.app" href="mailto:support@pesatrade.app" />
+          <Contact
+            icon={MessageCircle}
+            label="WhatsApp"
+            value="+254 700 000 000"
+            href="https://wa.me/254700000000"
+          />
+          <Contact
+            icon={Mail}
+            label="Email"
+            value="support@pesatrade.app"
+            href="mailto:support@pesatrade.app"
+          />
           <Contact icon={Phone} label="Call" value="+254 700 000 000" href="tel:+254700000000" />
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 space-y-3">
           <h3 className="font-medium">Frequently asked</h3>
-          <FAQ q="Why is my withdrawal pending?" a="Withdrawals are sent to M-Pesa automatically. They stay pending while Daraja confirms the payout, then update to paid or failed." />
-          <FAQ q="Why can't I withdraw yet?" a="To keep the platform safe, you must complete at least 5 trades on your most recent deposit before withdrawing." />
-          <FAQ q="What does 'account warning' mean?" a="It means you've attempted to withdraw before meeting the trading requirement. A second warning may permanently disable your account." />
+          <FAQ
+            q="Why is my withdrawal pending?"
+            a="Withdrawals are sent to M-Pesa automatically. They stay pending while Daraja confirms the payout, then update to paid or failed."
+          />
+          <FAQ
+            q="Can I deposit again immediately?"
+            a="Yes. Deposits are sent straight to M-Pesa and credited after Daraja confirms payment."
+          />
+          <FAQ
+            q="Why did my payout fail?"
+            a="Daraja may reject payouts for invalid phone numbers, insufficient B2C utility balance, or inactive API operator credentials."
+          />
         </div>
       </main>
     </div>
   );
 }
 
-function Contact({ icon: Icon, label, value, href }: { icon: any; label: string; value: string; href: string }) {
+function Contact({
+  icon: Icon,
+  label,
+  value,
+  href,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  href: string;
+}) {
   return (
-    <a href={href} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent transition-colors">
+    <a
+      href={href}
+      className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent transition-colors"
+    >
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
         <Icon className="h-5 w-5" />
       </div>

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 type ProfileRow = {
@@ -71,16 +73,21 @@ function codeBaseFromName(profile: Pick<ProfileRow, "email" | "full_name" | "fir
     profile.full_name?.split(/\s+/)[0] ||
     profile.email?.split("@")[0] ||
     "AGENT";
-  return raw
-    .normalize("NFKD")
-    .replace(/[^\w\s]/g, "")
-    .trim()
-    .replace(/\s+/g, "")
-    .toUpperCase()
-    .slice(0, 18) || "AGENT";
+  return (
+    raw
+      .normalize("NFKD")
+      .replace(/[^\w\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase()
+      .slice(0, 18) || "AGENT"
+  );
 }
 
-async function makeUniqueAgentReferralCode(supabaseAdmin, profile: Pick<ProfileRow, "id" | "email" | "full_name" | "first_name">) {
+async function makeUniqueAgentReferralCode(
+  supabaseAdmin: SupabaseClient<Database>,
+  profile: Pick<ProfileRow, "id" | "email" | "full_name" | "first_name">,
+) {
   const base = codeBaseFromName(profile);
   for (let i = 1; i <= 500; i++) {
     const candidate = `${base}${i}`;
@@ -146,7 +153,8 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       totalLockedBalance,
       agentCount: agentsRes.data?.length ?? 0,
       darajaWallet: null,
-      darajaError: "Daraja does not expose a simple service wallet balance through this integration.",
+      darajaError:
+        "Daraja does not expose a simple service wallet balance through this integration.",
     };
   });
 
@@ -201,8 +209,8 @@ export const checkIsAdmin = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: isAdmin }, { data: isAgent }] = await Promise.all([
       supabaseAdmin.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
+        _user_id: context.userId,
+        _role: "admin",
       }),
       supabaseAdmin.rpc("has_role", {
         _user_id: context.userId,
@@ -574,10 +582,7 @@ export const getAdminTradesReport = createServerFn({ method: "GET" })
     const trades = (tradesData ?? []) as BinaryTradeRow[];
     const userIds = Array.from(new Set(trades.map((trade) => trade.user_id)));
     const profilesRes = userIds.length
-      ? await supabaseAdmin
-          .from("profiles")
-          .select("id, email, full_name, phone")
-          .in("id", userIds)
+      ? await supabaseAdmin.from("profiles").select("id, email, full_name, phone").in("id", userIds)
       : { data: [], error: null };
     if (profilesRes.error) throw new Error(profilesRes.error.message);
 

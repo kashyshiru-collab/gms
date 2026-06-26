@@ -15,8 +15,17 @@ export const Route = createFileRoute("/_authenticated/profile")({
 function ProfilePage() {
   const statusFn = useServerFn(getMyStatus);
   const adminFn = useServerFn(checkIsAdmin);
-  const statusQ = useQuery({ queryKey: ["my-status"], queryFn: () => statusFn(), refetchInterval: 15_000 });
-  const adminQ = useQuery({ queryKey: ["is-admin"], queryFn: () => adminFn(), staleTime: 60_000, retry: false });
+  const statusQ = useQuery({
+    queryKey: ["my-status"],
+    queryFn: () => statusFn(),
+    refetchInterval: 15_000,
+  });
+  const adminQ = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: () => adminFn(),
+    staleTime: 60_000,
+    retry: false,
+  });
 
   const s = statusQ.data;
   const prof = s?.profile;
@@ -30,7 +39,10 @@ function ProfilePage() {
             <h1 className="font-semibold">Profile</h1>
           </div>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Back</Link>
+            <Link to="/dashboard">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Link>
           </Button>
         </div>
       </header>
@@ -49,24 +61,20 @@ function ProfilePage() {
           <div className="text-sm font-medium">Trading activity</div>
           <Field
             label="Trades since last deposit"
-            value={s?.has_prior_deposit ? `${s.trades_since_last_deposit} / 5` : "No deposits yet"}
+            value={s?.has_prior_deposit ? String(s.trades_since_last_deposit) : "No deposits yet"}
           />
-          {s?.has_prior_deposit && !s.trade_gate_ok && (
-            <p className="text-xs text-amber-500 flex items-start gap-1.5 pt-1">
-              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              Complete at least 5 trades on your current deposit before depositing or withdrawing again.
-            </p>
-          )}
         </div>
 
         {Number(s?.warnings_count ?? 0) > 0 && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
             <div>
-              <div className="font-medium text-amber-500">Account warning ({s?.warnings_count}/2)</div>
+              <div className="font-medium text-amber-500">
+                Account warning ({s?.warnings_count}/2)
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                You attempted to withdraw before completing the required number of trades on your last deposit.
-                Further violations may result in your account being permanently disabled.
+                Please contact support if you believe this warning should be removed. Further
+                violations may result in your account being permanently disabled.
               </p>
             </div>
           </div>
