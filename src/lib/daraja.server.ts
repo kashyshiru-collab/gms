@@ -1,7 +1,14 @@
 // Server-only Daraja helpers. Never import from a client component.
+import { createHash } from "node:crypto";
 
 const SANDBOX_BASE = "https://sandbox.safaricom.co.ke";
 const PRODUCTION_BASE = "https://api.safaricom.co.ke";
+
+type DarajaAccessToken = {
+  token: string;
+  expiresIn: string | null;
+  fingerprint: string;
+};
 
 function baseUrl() {
   const explicit = process.env.DARAJA_BASE_URL?.trim();
@@ -32,6 +39,27 @@ function darajaConfigLabel() {
   return `endpoint=${baseUrl()}/mpesa/b2c/v1/paymentrequest, consumerKey=${maskValue(consumerKey)}, b2cShortCode=${b2cShortCode || "missing"}, initiator=${initiator || "missing"}, command=${commandId}`;
 }
 
+function fingerprintToken(token: string) {
+  return createHash("sha256").update(token).digest("hex").slice(0, 12);
+}
+
+function tokenLabel(auth: DarajaAccessToken) {
+  return `oauthTokenLength=${auth.token.length}, oauthTokenHash=${auth.fingerprint}, oauthExpiresIn=${auth.expiresIn ?? "missing"}, authHeader=Bearer`;
+}
+
+function debugDaraja(label: string, auth: DarajaAccessToken, extra: Record<string, unknown> = {}) {
+  if (process.env.DARAJA_DEBUG?.trim().toLowerCase() !== "true") return;
+  console.info(`[daraja:${label}]`, {
+    env: darajaEnvLabel(),
+    baseUrl: baseUrl(),
+    tokenLength: auth.token.length,
+    tokenHash: auth.fingerprint,
+    expiresIn: auth.expiresIn,
+    authHeader: "Bearer",
+    ...extra,
+  });
+}
+
 export function publicAppUrl(): string {
   const explicitUrl = process.env.PUBLIC_APP_URL || process.env.VITE_PUBLIC_APP_URL;
   if (explicitUrl) return explicitUrl.replace(/\/$/, "");
@@ -56,7 +84,7 @@ export function usdToDarajaKes(amountUsd: number) {
   return Math.max(1, Math.round(amountUsd * rate));
 }
 
-async function accessToken() {
+async function accessToken(): Promise<DarajaAccessToken> {
   const consumerKey = requiredEnv("DARAJA_CONSUMER_KEY");
   const consumerSecret = requiredEnv("DARAJA_CONSUMER_SECRET");
   const token = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
@@ -76,7 +104,12 @@ async function accessToken() {
       `Daraja OAuth failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
     );
   }
-  return String(json.access_token);
+  const accessToken = String(json.access_token).trim();
+  return {
+    token: accessToken,
+    expiresIn: json.expires_in == null ? null : String(json.expires_in),
+    fingerprint: fingerprintToken(accessToken),
+  };
 }
 
 function timestamp() {
@@ -96,7 +129,8 @@ export async function stkPush(params: {
   callbackUrl: string;
   description?: string;
 }) {
-  const token = await accessToken();
+  const auth = await accessToken();
+  debugDaraja("stk", auth, { reference: params.reference });
   const shortCode = requiredEnv("DARAJA_STK_SHORTCODE");
   const passkey = requiredEnv("DARAJA_STK_PASSKEY");
   const ts = timestamp();
@@ -115,7 +149,7 @@ export async function stkPush(params: {
   };
   const res = await fetch(`${baseUrl()}/mpesa/stkpush/v1/processrequest`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -125,14 +159,15 @@ export async function stkPush(params: {
   } catch {}
   if (!res.ok || (json.ResponseCode && json.ResponseCode !== "0")) {
     throw new Error(
-      `Daraja STK failed on ${darajaEnvLabel()} (${res.status}): ${text.slice(0, 300)}`,
+      `Daraja STK failed on ${darajaEnvLabel()} (${res.status}; ${tokenLabel(auth)}): ${text.slice(0, 300)}`,
     );
   }
   return json;
 }
 
 export async function queryStkStatus(checkoutRequestId: string) {
-  const token = await accessToken();
+  const auth = await accessToken();
+  debugDaraja("stk-query", auth, { checkoutRequestId });
   const shortCode = requiredEnv("DARAJA_STK_SHORTCODE");
   const passkey = requiredEnv("DARAJA_STK_PASSKEY");
   const ts = timestamp();
@@ -144,7 +179,7 @@ export async function queryStkStatus(checkoutRequestId: string) {
   };
   const res = await fetch(`${baseUrl()}/mpesa/stkpushquery/v1/query`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -152,7 +187,11 @@ export async function queryStkStatus(checkoutRequestId: string) {
   try {
     json = JSON.parse(text);
   } catch {}
-  if (!res.ok) throw new Error(`Daraja STK query failed (${res.status}): ${text.slice(0, 300)}`);
+  if (!res.ok) {
+    throw new Error(
+      `Daraja STK query failed (${res.status}; ${tokenLabel(auth)}): ${text.slice(0, 300)}`,
+    );
+  }
   return json;
 }
 
@@ -161,7 +200,8 @@ export async function withdrawToMobile(params: {
   phone: string;
   externalReference: string;
 }) {
-  const token = await accessToken();
+  const auth = await accessToken();
+  debugDaraja("b2c", auth, { externalReference: params.externalReference });
   const body = {
     OriginatorConversationID: params.externalReference,
     InitiatorName: requiredEnv("DARAJA_B2C_INITIATOR_NAME"),
@@ -177,7 +217,7 @@ export async function withdrawToMobile(params: {
   };
   const res = await fetch(`${baseUrl()}/mpesa/b2c/v1/paymentrequest`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -187,7 +227,7 @@ export async function withdrawToMobile(params: {
   } catch {}
   if (!res.ok || (json.ResponseCode && json.ResponseCode !== "0")) {
     throw new Error(
-      `Daraja B2C failed on ${darajaEnvLabel()} (${res.status}; ${darajaConfigLabel()}): ${text.slice(0, 300)}`,
+      `Daraja B2C failed on ${darajaEnvLabel()} (${res.status}; ${darajaConfigLabel()}; ${tokenLabel(auth)}): ${text.slice(0, 300)}`,
     );
   }
   return json;
