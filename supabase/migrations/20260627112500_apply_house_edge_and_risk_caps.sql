@@ -148,13 +148,13 @@ DECLARE
   v_trade public.binary_trades;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
-  IF p_contract NOT IN ('rise_fall','even','odd','over','under') THEN
+  IF p_contract NOT IN ('rise_fall','matches','differs','even','odd','over','under') THEN
     RAISE EXCEPTION 'Invalid contract';
   END IF;
-  IF p_prediction NOT IN ('up','down','even','odd','over','under') THEN
+  IF p_prediction NOT IN ('up','down','matches','differs','even','odd','over','under') THEN
     RAISE EXCEPTION 'Invalid prediction';
   END IF;
-  IF p_contract IN ('over','under') AND p_barrier IS NULL THEN
+  IF p_contract IN ('matches','differs','over','under') AND p_barrier IS NULL THEN
     RAISE EXCEPTION 'Barrier is required';
   END IF;
   IF p_stake <= 0 OR p_stake > 500 THEN RAISE EXCEPTION 'Invalid stake'; END IF;
