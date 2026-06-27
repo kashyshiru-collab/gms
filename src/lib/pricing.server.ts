@@ -91,7 +91,7 @@ export const PAIRS: PairDef[] = [
     category: "synthetic",
     seedOffset: 1011,
     vol: 0.0006,
-    basePrice: 1000,
+    basePrice: 1.034,
     decimals: 5,
   },
   {
@@ -101,7 +101,7 @@ export const PAIRS: PairDef[] = [
     category: "synthetic",
     seedOffset: 2025,
     vol: 0.0015,
-    basePrice: 1000,
+    basePrice: 1.185,
     decimals: 5,
   },
   {
@@ -111,7 +111,7 @@ export const PAIRS: PairDef[] = [
     category: "synthetic",
     seedOffset: 3050,
     vol: 0.003,
-    basePrice: 1000,
+    basePrice: 1.5,
     decimals: 5,
   },
   {
@@ -121,7 +121,7 @@ export const PAIRS: PairDef[] = [
     category: "synthetic",
     seedOffset: 4100,
     vol: 0.006,
-    basePrice: 1000,
+    basePrice: 1.9,
     decimals: 5,
   },
   {

@@ -5,16 +5,17 @@ import { openDigitTrade, getActiveBinaryTrades, resolveMyDueBinaryTrades, PAYOUT
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Info, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Bot, Info, Minus, Plus, User, TrendingDown, TrendingUp } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { DIGIT_OVER_PAYOUTS, DIGIT_UNDER_PAYOUTS, MAX_TRADE_STAKE_USD } from "@/lib/risk";
 
-type ContractGroup = "rise_fall" | "over_under" | "even_odd";
+type ContractGroup = "rise_fall" | "even_odd" | "matches" | "over_under";
 
 const GROUPS: { id: ContractGroup; label: string; sub: [string, string] }[] = [
-  { id: "rise_fall",       label: "Rise / Fall",       sub: ["Rise", "Fall"] },
-  { id: "over_under",      label: "Over / Under",      sub: ["Over", "Under"] },
+  { id: "rise_fall",       label: "Buy / Sell",        sub: ["Buy", "Sell"] },
   { id: "even_odd",        label: "Even / Odd",        sub: ["Even", "Odd"] },
+  { id: "matches",         label: "Matches",           sub: ["Matches", "Differs"] },
+  { id: "over_under",      label: "Over / Under",      sub: ["Over", "Under"] },
 ];
 
 const TICKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -23,6 +24,7 @@ const fmt = formatMoney;
 
 function payoutFor(group: ContractGroup, side: "a" | "b", barrier: number): number {
   if (group === "rise_fall" || group === "even_odd") return PAYOUT_MULTIPLIER;
+  if (group === "matches") return side === "a" ? 8.2 : 1.03;
   return side === "a"
     ? (DIGIT_OVER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER)
     : (DIGIT_UNDER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER);
@@ -107,7 +109,7 @@ export function DerivedPanel({
           contract: vars.contract as any,
           prediction: vars.prediction as any,
           barrier:
-            group.id === "over_under" ? barrier : null,
+            group.id === "over_under" || group.id === "matches" ? barrier : null,
           stake: Number(stake) || 0,
           duration,
         },
@@ -127,15 +129,34 @@ export function DerivedPanel({
   const payoutBValue = stakeNum * payoutB;
   const pctA = ((payoutA - 1) * 100).toFixed(2);
   const pctB = ((payoutB - 1) * 100).toFixed(2);
+  const mobileA =
+    group.id === "rise_fall"
+      ? "BUY"
+      : group.id === "over_under"
+        ? "OVER"
+        : group.id === "matches"
+          ? "MATCHES"
+          : "EVEN";
+  const mobileB =
+    group.id === "rise_fall"
+      ? "SELL"
+      : group.id === "over_under"
+        ? "UNDER"
+        : group.id === "matches"
+          ? "DIFFERS"
+          : "ODD";
+  const quickStakes = [1, 5, 10, 25, 50, 100];
 
   function placeA() {
     if (group.id === "rise_fall")       return mut.mutate({ contract: "rise_fall", prediction: "up" });
     if (group.id === "over_under")      return mut.mutate({ contract: "over",      prediction: "over" });
+    if (group.id === "matches")         return mut.mutate({ contract: "matches",   prediction: "matches" });
     return mut.mutate({ contract: "even", prediction: "even" });
   }
   function placeB() {
     if (group.id === "rise_fall")       return mut.mutate({ contract: "rise_fall", prediction: "down" });
     if (group.id === "over_under")      return mut.mutate({ contract: "under",     prediction: "under" });
+    if (group.id === "matches")         return mut.mutate({ contract: "differs",   prediction: "differs" });
     return mut.mutate({ contract: "odd", prediction: "odd" });
   }
 
@@ -144,7 +165,7 @@ export function DerivedPanel({
     setStake(String(next));
   };
 
-  const showBarrier = group.id === "over_under";
+  const showBarrier = group.id === "over_under" || group.id === "matches";
   const open = (tradesQ.data ?? []).filter((t: any) => t.status === "open");
   const recent = (tradesQ.data ?? []).filter((t: any) => t.status !== "open").slice(0, 5);
 
@@ -152,8 +173,8 @@ export function DerivedPanel({
   const arrowClip = { clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%)" } as const;
 
   return (
-    <div className="space-y-3">
-      <div className="hidden rounded-lg border border-border bg-card/60 p-1 lg:grid lg:grid-cols-3 lg:gap-1">
+    <div className="space-y-2 lg:space-y-3">
+      <div className="hidden rounded-lg border border-border bg-card/60 p-1 lg:grid lg:grid-cols-4 lg:gap-1">
         {GROUPS.map((item, index) => (
           <button
             key={item.id}
@@ -169,7 +190,30 @@ export function DerivedPanel({
 
       {/* Last digit prediction */}
       {showBarrier && (
-        <div className="rounded-lg border border-border bg-card/60 p-3">
+        <div className="lg:hidden border-b border-border/80 px-0 pb-2">
+          <div className="mb-2 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            Select digit (0-9)
+          </div>
+          <div className="grid grid-cols-10 gap-1">
+            {Array.from({ length: 10 }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setBarrier(i)}
+                className={`h-11 rounded-md border text-lg font-bold transition ${
+                  barrier === i
+                    ? "border-primary bg-primary text-primary-foreground shadow-[0_0_18px_var(--primary)]"
+                    : "border-border bg-muted/35 text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showBarrier && (
+        <div className="hidden rounded-lg border border-border bg-card/60 p-3 lg:block">
           <div className="text-center text-sm font-medium mb-2">Last Digit Prediction</div>
           <div className="grid grid-cols-5 gap-1.5">
             {Array.from({ length: 10 }, (_, i) => (
@@ -188,7 +232,7 @@ export function DerivedPanel({
       )}
 
       {/* Ticks */}
-      <div className="rounded-lg border border-border bg-card/60 p-3">
+      <div className="hidden rounded-lg border border-border bg-card/60 p-3">
         <div className="text-center text-sm font-medium mb-3">Ticks</div>
         <div className="relative h-6 flex items-center">
           <div className="absolute inset-x-1 h-[3px] bg-muted rounded-full" />
@@ -217,7 +261,65 @@ export function DerivedPanel({
       </div>
 
       {/* Stake / Payout tabs */}
-      <div className="rounded-lg border border-border bg-card/60 overflow-hidden">
+      <div className="grid grid-cols-2 gap-2 lg:hidden">
+        <button className="flex h-12 items-center justify-center gap-2 rounded-md bg-primary text-sm font-bold text-primary-foreground">
+          <User className="h-4 w-4" />
+          Manual Trading
+        </button>
+        <button className="flex h-12 items-center justify-center gap-2 rounded-md border border-border bg-card/70 text-sm font-bold text-foreground">
+          <Bot className="h-4 w-4 text-primary" />
+          Smart Trading Bot
+        </button>
+      </div>
+
+      <div className="lg:hidden">
+        <div className="grid grid-cols-[52px_1fr_52px] gap-2">
+          <button
+            onClick={() => stepStake(-10)}
+            className="flex h-14 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground"
+            aria-label="decrease stake"
+          >
+            <Minus className="h-5 w-5" />
+          </button>
+          <div className="flex h-14 items-center justify-center rounded-md border border-primary/55 bg-background px-3">
+            <span className="mr-3 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+              Stake $
+            </span>
+            <Input
+              type="number"
+              min={10}
+              max={MAX_TRADE_STAKE_USD}
+              value={stake}
+              onChange={(e) => setStake(e.target.value)}
+              className="h-12 border-0 bg-transparent p-0 text-center text-3xl font-bold shadow-none focus-visible:ring-0"
+            />
+          </div>
+          <button
+            onClick={() => stepStake(10)}
+            className="flex h-14 items-center justify-center rounded-md border border-border bg-muted/40 text-foreground"
+            aria-label="increase stake"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-6 gap-1">
+          {quickStakes.map((value) => (
+            <button
+              key={value}
+              onClick={() => setStake(String(value))}
+              className={`h-9 rounded border text-xs font-bold ${
+                Number(stake) === value
+                  ? "border-primary bg-primary/20 text-foreground"
+                  : "border-border bg-card/60 text-muted-foreground"
+              }`}
+            >
+              ${value}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden rounded-lg border border-border bg-card/60 overflow-hidden lg:block">
         <div className="grid grid-cols-2 text-sm font-medium">
           <button
             onClick={() => setTab("stake")}
@@ -252,7 +354,24 @@ export function DerivedPanel({
       </div>
 
       {/* Payout row A */}
-      <div>
+      <div className="grid grid-cols-2 gap-2 pt-1 lg:hidden">
+        <button
+          onClick={placeA}
+          disabled={mut.isPending || !stakeNum}
+          className="h-14 rounded-full bg-bull text-xl font-black tracking-wide text-bull-foreground shadow-[0_-6px_16px_rgba(255,255,255,0.18)_inset] disabled:opacity-60"
+        >
+          {mobileA}
+        </button>
+        <button
+          onClick={placeB}
+          disabled={mut.isPending || !stakeNum}
+          className="h-14 rounded-full bg-bear text-xl font-black tracking-wide text-bear-foreground shadow-[0_-6px_16px_rgba(255,255,255,0.18)_inset] disabled:opacity-60"
+        >
+          {mobileB}
+        </button>
+      </div>
+
+      <div className="hidden lg:block">
         <div className="flex items-center justify-between text-[11px] mb-1 px-0.5">
           <span className="text-muted-foreground">Payout <span className="font-semibold text-foreground">{fmt(payoutAValue)}</span></span>
           <Info className="h-3.5 w-3.5 text-muted-foreground" />
@@ -272,7 +391,7 @@ export function DerivedPanel({
       </div>
 
       {/* Payout row B */}
-      <div>
+      <div className="hidden lg:block">
         <div className="flex items-center justify-between text-[11px] mb-1 px-0.5">
           <span className="text-muted-foreground">Payout <span className="font-semibold text-foreground">{fmt(payoutBValue)}</span></span>
           <Info className="h-3.5 w-3.5 text-muted-foreground" />
@@ -292,14 +411,14 @@ export function DerivedPanel({
       </div>
 
       {open.length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-border">
+        <div className="hidden space-y-1.5 pt-2 border-t border-border lg:block">
           <div className="text-xs text-muted-foreground">Open</div>
           {open.map((t: any) => <OpenRow key={t.id} trade={t} />)}
         </div>
       )}
 
       {recent.length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-border">
+        <div className="hidden space-y-1.5 pt-2 border-t border-border lg:block">
           <div className="text-xs text-muted-foreground">Recent</div>
           {recent.map((t: any) => (
             <div key={t.id} className="flex items-center justify-between rounded-md border border-border/60 px-2.5 py-1.5 text-xs">

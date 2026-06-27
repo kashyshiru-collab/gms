@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, LineChart, ArrowUpFromLine, User, LifeBuoy, Users } from "lucide-react";
+import {
+  Menu,
+  BarChart3,
+  CircleDollarSign,
+  Plane,
+  Scale,
+  User,
+  LifeBuoy,
+  Users,
+  Wallet,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -13,9 +23,12 @@ export function AppMenu({
   isAgent?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const items: { to: string; label: string; icon: LucideIcon }[] = [
-    { to: "/dashboard", label: "Trading", icon: LineChart },
-    { to: "/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
+  const items: { to: string; label: string; icon: LucideIcon; mode?: "binary" | "forex" }[] = [
+    { to: "/dashboard", label: "Binary", icon: BarChart3, mode: "binary" },
+    { to: "/dashboard", label: "Forex", icon: CircleDollarSign, mode: "forex" },
+    { to: "/aviator", label: "Aviator", icon: Plane },
+    { to: "/polymarket", label: "Polymarket", icon: Scale },
+    { to: "/wallet", label: "Wallet", icon: Wallet },
     { to: "/profile", label: "Profile", icon: User },
     { to: "/support", label: "Support", icon: LifeBuoy },
     ...(isAgent ? [{ to: "/referrals", label: "Referrals", icon: Users }] : []),
@@ -34,9 +47,15 @@ export function AppMenu({
         <nav className="flex flex-col py-2">
           {items.map((it) => (
             <Link
-              key={it.to}
+              key={`${it.to}-${it.label}`}
               to={it.to}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                if (it.mode) {
+                  localStorage.setItem("tronix-trading-mode", it.mode);
+                  window.dispatchEvent(new CustomEvent("tronix-trading-mode", { detail: it.mode }));
+                }
+                setOpen(false);
+              }}
               className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-accent transition-colors"
               activeProps={{ className: "bg-accent font-medium text-primary" }}
             >

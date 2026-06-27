@@ -35,8 +35,8 @@ export const openDigitTrade = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       symbol: z.string().min(3).max(10),
-      contract: z.enum(["rise_fall", "even", "odd", "over", "under"]),
-      prediction: z.enum(["up", "down", "even", "odd", "over", "under"]),
+      contract: z.enum(["rise_fall", "matches", "differs", "even", "odd", "over", "under"]),
+      prediction: z.enum(["up", "down", "matches", "differs", "even", "odd", "over", "under"]),
       barrier: z.number().int().min(0).max(9).nullable().optional(),
       stake: z.number().positive().max(MAX_TRADE_STAKE_USD),
       duration: z.number().int().min(1).max(300),

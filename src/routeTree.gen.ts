@@ -13,10 +13,13 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWithdrawalsRouteImport } from './routes/_authenticated.withdrawals'
+import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated.wallet'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated.support'
 import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated.referrals'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
+import { Route as AuthenticatedPolymarketRouteImport } from './routes/_authenticated.polymarket'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
+import { Route as AuthenticatedAviatorRouteImport } from './routes/_authenticated.aviator'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as ApiPublicHooksResolveBinaryTradesRouteImport } from './routes/api/public/hooks/resolve-binary-trades'
 import { Route as ApiPublicDarajaWithdrawCallbackRouteImport } from './routes/api/public/daraja/withdraw-callback'
@@ -42,6 +45,11 @@ const AuthenticatedWithdrawalsRoute =
     path: '/withdrawals',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
   id: '/support',
   path: '/support',
@@ -57,9 +65,19 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPolymarketRoute = AuthenticatedPolymarketRouteImport.update({
+  id: '/polymarket',
+  path: '/polymarket',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAviatorRoute = AuthenticatedAviatorRouteImport.update({
+  id: '/aviator',
+  path: '/aviator',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -89,10 +107,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/aviator': typeof AuthenticatedAviatorRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/polymarket': typeof AuthenticatedPolymarketRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/wallet': typeof AuthenticatedWalletRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/daraja/callback': typeof ApiPublicDarajaCallbackRoute
   '/api/public/daraja/withdraw-callback': typeof ApiPublicDarajaWithdrawCallbackRoute
@@ -102,10 +123,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/aviator': typeof AuthenticatedAviatorRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/polymarket': typeof AuthenticatedPolymarketRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/wallet': typeof AuthenticatedWalletRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/daraja/callback': typeof ApiPublicDarajaCallbackRoute
   '/api/public/daraja/withdraw-callback': typeof ApiPublicDarajaWithdrawCallbackRoute
@@ -117,10 +141,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/aviator': typeof AuthenticatedAviatorRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/polymarket': typeof AuthenticatedPolymarketRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
+  '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/daraja/callback': typeof ApiPublicDarajaCallbackRoute
   '/api/public/daraja/withdraw-callback': typeof ApiPublicDarajaWithdrawCallbackRoute
@@ -132,10 +159,13 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
+    | '/aviator'
     | '/dashboard'
+    | '/polymarket'
     | '/profile'
     | '/referrals'
     | '/support'
+    | '/wallet'
     | '/withdrawals'
     | '/api/public/daraja/callback'
     | '/api/public/daraja/withdraw-callback'
@@ -145,10 +175,13 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
+    | '/aviator'
     | '/dashboard'
+    | '/polymarket'
     | '/profile'
     | '/referrals'
     | '/support'
+    | '/wallet'
     | '/withdrawals'
     | '/api/public/daraja/callback'
     | '/api/public/daraja/withdraw-callback'
@@ -159,10 +192,13 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/admin'
+    | '/_authenticated/aviator'
     | '/_authenticated/dashboard'
+    | '/_authenticated/polymarket'
     | '/_authenticated/profile'
     | '/_authenticated/referrals'
     | '/_authenticated/support'
+    | '/_authenticated/wallet'
     | '/_authenticated/withdrawals'
     | '/api/public/daraja/callback'
     | '/api/public/daraja/withdraw-callback'
@@ -208,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWithdrawalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/wallet': {
+      id: '/_authenticated/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/support': {
       id: '/_authenticated/support'
       path: '/support'
@@ -229,11 +272,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/polymarket': {
+      id: '/_authenticated/polymarket'
+      path: '/polymarket'
+      fullPath: '/polymarket'
+      preLoaderRoute: typeof AuthenticatedPolymarketRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/aviator': {
+      id: '/_authenticated/aviator'
+      path: '/aviator'
+      fullPath: '/aviator'
+      preLoaderRoute: typeof AuthenticatedAviatorRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin': {
@@ -269,19 +326,25 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAviatorRoute: typeof AuthenticatedAviatorRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedPolymarketRoute: typeof AuthenticatedPolymarketRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
+  AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedWithdrawalsRoute: typeof AuthenticatedWithdrawalsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAviatorRoute: AuthenticatedAviatorRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedPolymarketRoute: AuthenticatedPolymarketRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedSupportRoute: AuthenticatedSupportRoute,
+  AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedWithdrawalsRoute: AuthenticatedWithdrawalsRoute,
 }
 

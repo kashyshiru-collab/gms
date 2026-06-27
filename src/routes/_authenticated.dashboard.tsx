@@ -40,6 +40,8 @@ import {
   Wallet,
   CheckCircle2,
   Lock,
+  ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { AppMenu } from "@/components/AppMenu";
 import { formatDistanceToNow } from "date-fns";
@@ -73,13 +75,19 @@ function Dashboard() {
     retry: false,
   });
 
-  const [category, setCategory] = useState<"synthetic" | "forex">("synthetic");
-  const [symbol, setSymbol] = useState("VOL10");
+  const initialMode =
+    typeof window === "undefined" ? "binary" : localStorage.getItem("tronix-trading-mode");
+  const [category, setCategory] = useState<"synthetic" | "forex">(
+    initialMode === "forex" ? "forex" : "synthetic",
+  );
+  const [symbol, setSymbol] = useState(initialMode === "forex" ? "EURUSD" : "VOL25");
   const [stake, setStake] = useState("10");
   const [derivedTicks, setDerivedTicks] = useState(5);
   const [derivedGroupIdx, setDerivedGroupIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [marketsOpen, setMarketsOpen] = useState(false);
+  const [accountMode, setAccountMode] = useState<"real" | "demo">("real");
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const isDerived = category === "synthetic";
 
@@ -141,6 +149,19 @@ function Dashboard() {
 
   const selectedQuote = quotesQ.data?.find((q) => q.symbol === symbol);
 
+  useEffect(() => {
+    const onMode = (event: Event) => {
+      const mode = (event as CustomEvent<"binary" | "forex">).detail;
+      setCategory(mode === "forex" ? "forex" : "synthetic");
+      const first = (quotesQ.data ?? []).find((q) =>
+        mode === "forex" ? q.category !== "synthetic" : q.category === "synthetic",
+      );
+      setSymbol(first?.symbol ?? (mode === "forex" ? "EURUSD" : "VOL25"));
+    };
+    window.addEventListener("tronix-trading-mode", onMode);
+    return () => window.removeEventListener("tronix-trading-mode", onMode);
+  }, [quotesQ.data]);
+
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
@@ -151,24 +172,26 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground md:bg-background">
       {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 shadow-[0_8px_30px_rgba(37,99,235,0.08)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="flex h-16 items-center justify-between gap-2 px-3 md:h-auto md:px-6 md:py-3">
-          <div className="flex items-center gap-1">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 shadow-[0_8px_30px_rgba(135,245,20,0.08)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="grid h-20 grid-cols-[auto_1fr_auto] items-center gap-2 px-3 md:h-auto md:grid-cols-[1fr_auto_1fr] md:px-6 md:py-3">
+          <div className="flex items-center gap-3">
             <AppMenu isAdmin={adminQ.data?.isAdmin} isAgent={adminQ.data?.isAgent} />
             <SecretAdminLogo isAdmin={Boolean(adminQ.data?.isAdmin)} />
           </div>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="justify-self-center">
             <DepositDialog
               depositFn={depositFn}
               onDone={() => qc.invalidateQueries({ queryKey: ["dash"] })}
             />
-            <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-2 text-xs tabular shadow-inner sm:gap-2 sm:px-3 sm:text-sm">
-              <Wallet className="h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4" />
-              <span className="hidden text-muted-foreground sm:inline">USD</span>
-              <span className="max-w-[92px] truncate font-semibold sm:max-w-none">
-                {fmtUSD(dashQ.data?.balance ?? 0).replace("USD ", "")}
-              </span>
-            </div>
+          </div>
+          <div className="flex min-w-0 items-center gap-2 justify-self-end">
+            <AccountSwitcher
+              mode={accountMode}
+              open={accountOpen}
+              balance={dashQ.data?.balance ?? 0}
+              onOpenChange={setAccountOpen}
+              onModeChange={setAccountMode}
+            />
             <div className="hidden sm:block">
               <WithdrawDialog balance={dashQ.data?.balance ?? 0} />
             </div>
@@ -198,21 +221,22 @@ function Dashboard() {
         className={`grid gap-0 p-0 md:gap-4 md:p-4 ${expanded ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}
       >
         {/* Chart + market selector */}
-        <section className="flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
+        <section className="relative flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
           {isDerived && (
-            <div className="grid grid-cols-3 gap-2 overflow-x-auto border-b border-border bg-background/70 p-2 lg:hidden">
+            <div className="flex gap-3 overflow-x-auto border-b border-border bg-background/70 px-0 py-2 lg:hidden">
               {[
                 { label: "Buy/Sell", value: 0 },
-                { label: "Even/Odd", value: 2 },
-                { label: "Over/Under", value: 1 },
+                { label: "Even/Odd", value: 1 },
+                { label: "Matches", value: 2 },
+                { label: "Over/Under", value: 3 },
               ].map(({ label, value }) => (
                 <button
                   key={label}
                   disabled={value == null}
                   onClick={() => value != null && setDerivedGroupIdx(value)}
-                  className={`min-w-[132px] rounded-md border px-2 py-3 text-center text-sm font-semibold ${
+                  className={`min-w-[148px] rounded-full border px-4 py-3 text-center text-sm font-semibold ${
                     value != null && derivedGroupIdx === value
-                      ? "border-primary bg-primary/25 text-foreground shadow-[0_0_18px_rgba(59,130,246,0.45)]"
+                      ? "border-primary bg-primary/25 text-foreground shadow-[0_0_18px_var(--primary)]"
                       : "border-border bg-card/70 text-muted-foreground"
                   }`}
                 >
@@ -222,7 +246,7 @@ function Dashboard() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-2 md:px-4 md:py-3">
+          <div className="absolute inset-x-0 top-[65px] z-20 flex flex-wrap items-center justify-between gap-3 border-b-0 border-border bg-transparent px-3 py-3 md:static md:border-b md:bg-transparent md:px-4 md:py-3">
             <div className="flex items-center gap-3 flex-wrap">
               {/* Category toggle */}
               <div className="hidden rounded-md border border-border bg-muted/40 p-0.5 md:inline-flex">
@@ -352,7 +376,7 @@ function Dashboard() {
             </div>
           </div>
           <div
-            className={`h-[44svh] min-h-[330px] max-h-[440px] p-0 md:h-auto md:max-h-none md:flex-1 md:p-2 ${
+            className={`h-[40svh] min-h-[300px] max-h-[440px] p-0 md:h-auto md:max-h-none md:flex-1 md:p-2 ${
               expanded ? "min-h-[70vh]" : ""
             }`}
           >
@@ -370,7 +394,7 @@ function Dashboard() {
         </section>
 
         {/* Trade panel */}
-        <aside className="h-fit border-b border-border bg-card p-3 pb-6 lg:sticky lg:top-20 lg:rounded-xl lg:border lg:p-5">
+        <aside className="h-fit border-b border-border bg-card p-3 pb-3 lg:sticky lg:top-20 lg:rounded-xl lg:border lg:p-5">
           <div className="mb-3 hidden items-center justify-between md:flex">
             <h2 className="text-sm font-semibold">Place order</h2>
             <span className="text-xs text-muted-foreground">{symbol}</span>
@@ -405,8 +429,21 @@ function Dashboard() {
         <ActivityFeed />
       </section>
 
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 gap-2 border-t border-border bg-background/95 p-2 lg:hidden">
+        <button className="flex h-14 items-center justify-center gap-2 rounded-md border border-primary bg-primary/20 text-sm font-bold text-primary">
+          <span className="text-2xl leading-none">||</span>
+          Trade
+        </button>
+        <button className="flex h-14 items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 bg-card/70 text-sm font-bold text-muted-foreground">
+          AI Scanner
+        </button>
+        <button className="flex h-14 items-center justify-center gap-2 rounded-md border border-border bg-card/70 text-sm font-bold text-muted-foreground">
+          Positions
+        </button>
+      </nav>
+
       {/* Positions */}
-      <section className="px-0 pb-28 md:px-4 md:pb-8">
+      <section className="hidden px-0 pb-28 md:block md:px-4 md:pb-8">
         <div className="grid grid-cols-3 border-b border-border bg-card text-sm font-medium md:hidden">
           <button className="border-b border-primary px-4 py-4 text-left text-foreground">
             Open ({(dashQ.data?.positions ?? []).filter((p: any) => p.status === "open").length})
@@ -486,6 +523,89 @@ function Dashboard() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function AccountSwitcher({
+  mode,
+  open,
+  balance,
+  onOpenChange,
+  onModeChange,
+}: {
+  mode: "real" | "demo";
+  open: boolean;
+  balance: number;
+  onOpenChange: (v: boolean) => void;
+  onModeChange: (v: "real" | "demo") => void;
+}) {
+  const displayBalance = mode === "demo" ? 10000 : balance;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-card px-2 py-2 text-xs tabular shadow-inner sm:gap-2 sm:px-3 sm:text-sm"
+        aria-label="Switch wallet account"
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-sm">
+          US
+        </span>
+        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+          {mode === "real" ? "R" : "D"}
+        </span>
+        <span className="hidden text-muted-foreground sm:inline">USD</span>
+        <span className="max-w-[76px] truncate font-semibold sm:max-w-none">
+          {fmtUSD(displayBalance).replace("USD ", "")}
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 w-72 rounded-lg border border-border bg-popover p-3 shadow-xl">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            Switch Account
+          </div>
+          {(["real", "demo"] as const).map((item) => {
+            const active = item === mode;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  onModeChange(item);
+                  onOpenChange(false);
+                }}
+                className={`mb-2 flex w-full items-center justify-between rounded-md border px-3 py-3 text-left ${
+                  active
+                    ? "border-primary bg-primary/20 text-foreground"
+                    : "border-border bg-card/70 text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={`h-3 w-3 rounded-full border ${
+                      active ? "border-primary bg-primary" : "border-muted-foreground"
+                    }`}
+                  />
+                  <span className="font-semibold capitalize">{item} Account</span>
+                </span>
+                <span className="rounded border border-border px-2 py-1 text-xs">
+                  {active ? "Active" : "Inactive"}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => onModeChange(mode)}
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md border border-bear/50 bg-bear/15 text-bear"
+            aria-label="Refresh account"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

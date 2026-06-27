@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WithdrawalQueue } from "@/components/admin/WithdrawalQueue";
 import { MarketOverridePanel } from "@/components/admin/MarketOverridePanel";
+import { PolymarketAdminPanel } from "@/components/admin/PolymarketAdminPanel";
 import { toast } from "sonner";
 import { formatMoney } from "@/lib/money";
 import {
@@ -172,6 +173,7 @@ function AdminPage() {
               <TabsTrigger value="trades">Trades</TabsTrigger>
               <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
               <TabsTrigger value="markets">Markets</TabsTrigger>
+              <TabsTrigger value="polymarket">Polymarket</TabsTrigger>
             </TabsList>
           </div>
 
@@ -202,6 +204,9 @@ function AdminPage() {
           </TabsContent>
           <TabsContent value="markets">
             <MarketOverridePanel />
+          </TabsContent>
+          <TabsContent value="polymarket">
+            <PolymarketAdminPanel />
           </TabsContent>
         </Tabs>
       </main>
