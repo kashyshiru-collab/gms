@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { formatMoney } from "@/lib/money";
+import { DIGIT_OVER_PAYOUTS, DIGIT_UNDER_PAYOUTS } from "@/lib/risk";
 
 const DURATIONS = [
   { s: 15, label: "15s" },
@@ -31,10 +32,10 @@ function payoutFor(contract: ContractType, barrier: number): number {
   if (contract === "rise_fall") return PAYOUT_MULTIPLIER;
   if (contract === "even" || contract === "odd") return PAYOUT_MULTIPLIER;
   if (contract === "over") {
-    return [1.1, 1.25, 1.4, 1.6, 1.85, 2.2, 2.8, 3.8, 7.5, 1.1][barrier] ?? 1.85;
+    return DIGIT_OVER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER;
   }
   // under
-  return [1.1, 7.5, 3.8, 2.8, 2.2, 1.85, 1.6, 1.4, 1.25, 1.1][barrier] ?? 1.85;
+  return DIGIT_UNDER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER;
 }
 
 export function BinaryPanel({ symbol, stake }: { symbol: string; stake: number }) {

@@ -1,5 +1,6 @@
 // Unified pricing for FX + synthetic indices + admin overrides.
 // FX/metals use real Yahoo Finance OHLC; synthetics use a proper random walk.
+import { createHmac, randomBytes } from "node:crypto";
 
 export type Category = "forex" | "metals" | "synthetic";
 
@@ -220,9 +221,15 @@ async function fxPriceAt(pair: PairDef, atMs: number): Promise<number> {
 }
 
 // ---------- Synthetic random walk (proper cumulative GBM-ish) ----------
+const bootSecret = randomBytes(32).toString("hex");
+
+function pricingSecret() {
+  return process.env.MARKET_RANDOM_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || bootSecret;
+}
+
 function hash01(n: number): number {
-  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
-  return x - Math.floor(x);
+  const hex = createHmac("sha256", pricingSecret()).update(String(n)).digest("hex").slice(0, 13);
+  return Number.parseInt(hex, 16) / 0x10000000000000;
 }
 // Box–Muller-ish normal from two uniforms
 function gauss(s: number): number {

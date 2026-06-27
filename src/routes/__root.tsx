@@ -68,11 +68,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "TronixOption — Forex & synthetic trading" },
       { property: "og:description", content: "Trade forex, synthetic indices and digits on TronixOption. Fund instantly via M-Pesa while tracking balances in USD." },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "/gmx-logo.png" },
+      { property: "og:image", content: "/tronixoption-logo.png" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "TronixOption" },
       { name: "twitter:description", content: "Trade forex, synthetic indices and digits on TronixOption." },
-      { name: "twitter:image", content: "/gmx-logo.png" },
+      { name: "twitter:image", content: "/tronixoption-logo.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import { z } from "zod";
 import { MIN_DEPOSIT_USD } from "./money";
+import { ACTIVE_BROKER, MAX_TRADE_STAKE_USD } from "./risk";
 
 type JsonObject = { [key: string]: Json | undefined };
 
@@ -44,13 +45,13 @@ export const initiateDeposit = createServerFn({ method: "POST" })
       .object({
         amount: z.number().min(MIN_DEPOSIT_USD).max(150000),
         phone: z.string().min(9).max(15),
-        broker: z.enum(["HIGH_MAX_SUPER", "DCASH", "FX_TRADER"]).optional(),
+        broker: z.enum([ACTIVE_BROKER, "DCASH", "FX_TRADER"]).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    if (data.broker && data.broker !== "HIGH_MAX_SUPER") {
+    if (data.broker && data.broker !== ACTIVE_BROKER) {
       throw new Error("Selected broker is currently unavailable.");
     }
     const { getProfileFlags } = await import("./compliance.server");
@@ -66,7 +67,7 @@ export const initiateDeposit = createServerFn({ method: "POST" })
       amount_kes: data.amount,
       status: "pending",
       reference,
-      meta: { phone: data.phone, broker: data.broker ?? "HIGH_MAX_SUPER" },
+      meta: { phone: data.phone, broker: ACTIVE_BROKER },
     });
     if (insErr) throw new Error(insErr.message);
 
@@ -89,7 +90,7 @@ export const initiateDeposit = createServerFn({ method: "POST" })
             daraja_reference: darajaRef,
             meta: {
               phone: data.phone,
-              broker: data.broker ?? "HIGH_MAX_SUPER",
+              broker: ACTIVE_BROKER,
               provider: "daraja",
               provider_amount_kes: usdToDarajaKes(data.amount),
               provider_response: resp as JsonObject,
@@ -114,7 +115,7 @@ export const openPosition = createServerFn({ method: "POST" })
       .object({
         symbol: z.string().min(3).max(10),
         side: z.enum(["buy", "sell"]),
-        stake: z.number().positive().max(1_000_000),
+        stake: z.number().positive().max(MAX_TRADE_STAKE_USD),
       })
       .parse(d),
   )

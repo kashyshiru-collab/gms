@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Info, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { formatMoney } from "@/lib/money";
+import { DIGIT_OVER_PAYOUTS, DIGIT_UNDER_PAYOUTS, MAX_TRADE_STAKE_USD } from "@/lib/risk";
 
 type ContractGroup = "rise_fall" | "over_under" | "even_odd";
 
@@ -22,9 +23,9 @@ const fmt = formatMoney;
 
 function payoutFor(group: ContractGroup, side: "a" | "b", barrier: number): number {
   if (group === "rise_fall" || group === "even_odd") return PAYOUT_MULTIPLIER;
-  const over  = [1.10, 1.25, 1.40, 1.60, 1.85, 2.20, 2.80, 3.80, 7.50, 1.10];
-  const under = [1.10, 7.50, 3.80, 2.80, 2.20, 1.85, 1.60, 1.40, 1.25, 1.10];
-  return side === "a" ? (over[barrier] ?? 1.85) : (under[barrier] ?? 1.85);
+  return side === "a"
+    ? (DIGIT_OVER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER)
+    : (DIGIT_UNDER_PAYOUTS[barrier] ?? PAYOUT_MULTIPLIER);
 }
 
 export function DerivedPanel({
@@ -139,7 +140,7 @@ export function DerivedPanel({
   }
 
   const stepStake = (delta: number) => {
-    const next = Math.max(10, (Number(stake) || 0) + delta);
+    const next = Math.min(MAX_TRADE_STAKE_USD, Math.max(10, (Number(stake) || 0) + delta));
     setStake(String(next));
   };
 
@@ -236,6 +237,7 @@ export function DerivedPanel({
           <Input
             type="number"
             min={10}
+            max={MAX_TRADE_STAKE_USD}
             value={tab === "stake" ? stake : (stakeNum * Math.max(payoutA, payoutB)).toFixed(2)}
             onChange={(e) => tab === "stake" && setStake(e.target.value)}
             readOnly={tab === "payout"}

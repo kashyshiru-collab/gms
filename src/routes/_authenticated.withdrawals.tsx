@@ -12,7 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { formatMoney } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/withdrawals")({
-  head: () => ({ meta: [{ title: "Withdrawals - GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Withdrawals - TronixOption" }] }),
   component: WithdrawalsPage,
 });
 

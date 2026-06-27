@@ -44,9 +44,16 @@ import {
 import { AppMenu } from "@/components/AppMenu";
 import { formatDistanceToNow } from "date-fns";
 import { formatMoney, MIN_DEPOSIT_USD } from "@/lib/money";
+import {
+  ACTIVE_BROKER,
+  ACTIVE_BROKER_NAME,
+  MAX_TRADE_STAKE_USD,
+  SPOT_LEVERAGE,
+  SPOT_MAX_PROFIT_RATE,
+} from "@/lib/risk";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Dashboard - TronixOption" }] }),
   component: Dashboard,
 });
 
@@ -68,7 +75,7 @@ function Dashboard() {
 
   const [category, setCategory] = useState<"synthetic" | "forex">("synthetic");
   const [symbol, setSymbol] = useState("VOL10");
-  const [stake, setStake] = useState("100");
+  const [stake, setStake] = useState("10");
   const [derivedTicks, setDerivedTicks] = useState(5);
   const [derivedGroupIdx, setDerivedGroupIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -144,24 +151,24 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground md:bg-background">
       {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-6 md:py-3">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 shadow-[0_8px_30px_rgba(37,99,235,0.08)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex h-16 items-center justify-between gap-2 px-3 md:h-auto md:px-6 md:py-3">
           <div className="flex items-center gap-1">
             <AppMenu isAdmin={adminQ.data?.isAdmin} isAgent={adminQ.data?.isAgent} />
             <SecretAdminLogo isAdmin={Boolean(adminQ.data?.isAdmin)} />
           </div>
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-            <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-card px-2 py-1 text-xs tabular sm:gap-2 sm:rounded-md sm:px-3 sm:py-1.5 sm:text-sm">
-              <Wallet className="h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4" />
-              <span className="hidden text-muted-foreground sm:inline">Balance</span>
-              <span className="max-w-[112px] truncate font-semibold sm:max-w-none">
-                {fmtUSD(dashQ.data?.balance ?? 0)}
-              </span>
-            </div>
+          <div className="flex min-w-0 items-center gap-2">
             <DepositDialog
               depositFn={depositFn}
               onDone={() => qc.invalidateQueries({ queryKey: ["dash"] })}
             />
+            <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-2 text-xs tabular shadow-inner sm:gap-2 sm:px-3 sm:text-sm">
+              <Wallet className="h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4" />
+              <span className="hidden text-muted-foreground sm:inline">USD</span>
+              <span className="max-w-[92px] truncate font-semibold sm:max-w-none">
+                {fmtUSD(dashQ.data?.balance ?? 0).replace("USD ", "")}
+              </span>
+            </div>
             <div className="hidden sm:block">
               <WithdrawDialog balance={dashQ.data?.balance ?? 0} />
             </div>
@@ -180,7 +187,7 @@ function Dashboard() {
                 </Button>
               </>
             )}
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sign out" className="hidden sm:inline-flex">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -193,15 +200,20 @@ function Dashboard() {
         {/* Chart + market selector */}
         <section className="flex min-h-0 flex-col border-b border-border bg-card md:min-h-[520px] md:rounded-xl md:border">
           {isDerived && (
-            <div className="grid grid-cols-3 gap-1 border-b border-border bg-background/50 p-2 lg:hidden">
-              {["Rise/Fall", "Over/Under", "Even/Odd"].map((label, index) => (
+            <div className="grid grid-cols-3 gap-2 overflow-x-auto border-b border-border bg-background/70 p-2 lg:hidden">
+              {[
+                { label: "Buy/Sell", value: 0 },
+                { label: "Even/Odd", value: 2 },
+                { label: "Over/Under", value: 1 },
+              ].map(({ label, value }) => (
                 <button
                   key={label}
-                  onClick={() => setDerivedGroupIdx(index)}
-                  className={`rounded-md px-2 py-3 text-center text-sm font-semibold ${
-                    derivedGroupIdx === index
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground"
+                  disabled={value == null}
+                  onClick={() => value != null && setDerivedGroupIdx(value)}
+                  className={`min-w-[132px] rounded-md border px-2 py-3 text-center text-sm font-semibold ${
+                    value != null && derivedGroupIdx === value
+                      ? "border-primary bg-primary/25 text-foreground shadow-[0_0_18px_rgba(59,130,246,0.45)]"
+                      : "border-border bg-card/70 text-muted-foreground"
                   }`}
                 >
                   {label}
@@ -230,7 +242,7 @@ function Dashboard() {
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {c === "synthetic" ? "Derived" : "Forex"}
+                    {c === "synthetic" ? "Deriv" : "Forex"}
                   </button>
                 ))}
               </div>
@@ -239,7 +251,7 @@ function Dashboard() {
               <div className="relative">
                 <button
                   onClick={() => setMarketsOpen((v) => !v)}
-                  className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm hover:bg-accent"
                 >
                   <span className="font-semibold">{symbol}</span>
                   <span className="text-xs text-muted-foreground truncate max-w-[180px]">
@@ -340,7 +352,7 @@ function Dashboard() {
             </div>
           </div>
           <div
-            className={`h-[210px] p-2 sm:h-[240px] md:h-auto md:flex-1 ${
+            className={`h-[44svh] min-h-[330px] max-h-[440px] p-0 md:h-auto md:max-h-none md:flex-1 md:p-2 ${
               expanded ? "min-h-[70vh]" : ""
             }`}
           >
@@ -358,7 +370,7 @@ function Dashboard() {
         </section>
 
         {/* Trade panel */}
-        <aside className="h-fit border-b border-border bg-card p-4 lg:sticky lg:top-20 lg:rounded-xl lg:border lg:p-5">
+        <aside className="h-fit border-b border-border bg-card p-3 pb-6 lg:sticky lg:top-20 lg:rounded-xl lg:border lg:p-5">
           <div className="mb-3 hidden items-center justify-between md:flex">
             <h2 className="text-sm font-semibold">Place order</h2>
             <span className="text-xs text-muted-foreground">{symbol}</span>
@@ -394,7 +406,7 @@ function Dashboard() {
       </section>
 
       {/* Positions */}
-      <section className="px-0 pb-8 md:px-4">
+      <section className="px-0 pb-28 md:px-4 md:pb-8">
         <div className="grid grid-cols-3 border-b border-border bg-card text-sm font-medium md:hidden">
           <button className="border-b border-primary px-4 py-4 text-left text-foreground">
             Open ({(dashQ.data?.positions ?? []).filter((p: any) => p.status === "open").length})
@@ -487,7 +499,7 @@ function DepositDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"broker" | "form">("broker");
-  const [broker, setBroker] = useState<"HIGH_MAX_SUPER" | null>(null);
+  const [broker, setBroker] = useState<typeof ACTIVE_BROKER | null>(null);
   const [amount, setAmount] = useState(String(MIN_DEPOSIT_USD));
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -506,7 +518,7 @@ function DepositDialog({
     setLoading(true);
     try {
       const r = await depositFn({
-        data: { amount: Number(amount), phone, broker: broker ?? "HIGH_MAX_SUPER" },
+        data: { amount: Number(amount), phone, broker: broker ?? ACTIVE_BROKER },
       });
       toast.success(r.message);
       setOpen(false);
@@ -520,8 +532,8 @@ function DepositDialog({
 
   const brokers = [
     {
-      id: "HIGH_MAX_SUPER" as const,
-      name: "HIGH MAX SUPER",
+      id: ACTIVE_BROKER,
+      name: ACTIVE_BROKER_NAME,
       desc: "M-Pesa STK push · instant",
       available: true,
     },
@@ -539,7 +551,7 @@ function DepositDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {step === "broker" ? "Choose a broker" : "Top up via HIGH MAX SUPER"}
+            {step === "broker" ? "Choose a broker" : `Top up via ${ACTIVE_BROKER_NAME}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -551,7 +563,7 @@ function DepositDialog({
                 disabled={!b.available}
                 onClick={() => {
                   if (!b.available) return;
-                  setBroker(b.id as "HIGH_MAX_SUPER");
+                  setBroker(ACTIVE_BROKER);
                   setStep("form");
                 }}
                 className={`w-full text-left rounded-lg border p-3 flex items-center justify-between transition-colors ${
@@ -755,11 +767,12 @@ function ForexOrderPanel({
           id="stake"
           type="number"
           min={10}
+          max={MAX_TRADE_STAKE_USD}
           value={stake}
           onChange={(e) => setStake(e.target.value)}
         />
         <p className="mt-1 text-[11px] text-muted-foreground">
-          50x leverage applied to P&L on close.
+          {SPOT_LEVERAGE}x leverage with profit capped at {Math.round(SPOT_MAX_PROFIT_RATE * 100)}% per trade.
         </p>
       </div>
 
@@ -867,10 +880,10 @@ function SecretAdminLogo({ isAdmin }: { isAdmin: boolean }) {
     <button
       onClick={onTap}
       className="flex items-center gap-2 shrink-0 select-none"
-      aria-label="GMX Trader"
+      aria-label="TronixOption"
     >
-      <img src="/favicon.png" alt="" width={28} height={28} className="h-7 w-7 rounded-md" />
-      <span className="font-semibold tracking-tight hidden sm:inline">GMX Trader</span>
+      <img src="/tronixoption-mark.png" alt="" width={28} height={28} className="h-7 w-7 rounded-md" />
+      <span className="font-semibold tracking-tight hidden sm:inline">TronixOption</span>
     </button>
   );
 }

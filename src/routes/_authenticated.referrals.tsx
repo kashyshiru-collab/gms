@@ -10,7 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { formatMoney } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
-  head: () => ({ meta: [{ title: "Referrals - GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Referrals - TronixOption" }] }),
   component: Referrals,
 });
 

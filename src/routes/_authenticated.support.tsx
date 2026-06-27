@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/support")({
-  head: () => ({ meta: [{ title: "Support - GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Support - TronixOption" }] }),
   component: SupportPage,
 });
 

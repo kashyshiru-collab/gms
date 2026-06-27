@@ -132,7 +132,7 @@ function AuthPage() {
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center gap-2">
           <img
-            src="/gmx-logo.png"
+            src="/tronixoption-logo.png"
             alt="TronixOption"
             width={150}
             height={54}

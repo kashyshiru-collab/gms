@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { BINARY_PAYOUT_MULTIPLIER, MAX_TRADE_STAKE_USD } from "./risk";
 
-export const PAYOUT_MULTIPLIER = 1.85;
+export const PAYOUT_MULTIPLIER = BINARY_PAYOUT_MULTIPLIER;
 
 export const openBinaryTrade = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -10,7 +11,7 @@ export const openBinaryTrade = createServerFn({ method: "POST" })
     z.object({
       symbol: z.string().min(3).max(10),
       direction: z.enum(["up", "down"]),
-      stake: z.number().positive().max(1_000_000),
+      stake: z.number().positive().max(MAX_TRADE_STAKE_USD),
       duration: z.number().int().min(1).max(300),
     }).parse(d),
   )
@@ -37,7 +38,7 @@ export const openDigitTrade = createServerFn({ method: "POST" })
       contract: z.enum(["rise_fall", "even", "odd", "over", "under"]),
       prediction: z.enum(["up", "down", "even", "odd", "over", "under"]),
       barrier: z.number().int().min(0).max(9).nullable().optional(),
-      stake: z.number().positive().max(1_000_000),
+      stake: z.number().positive().max(MAX_TRADE_STAKE_USD),
       duration: z.number().int().min(1).max(300),
     }).parse(d),
   )

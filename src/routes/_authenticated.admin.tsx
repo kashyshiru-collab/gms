@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin - GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Admin - TronixOption" }] }),
   component: AdminPage,
 });
 
@@ -956,8 +956,8 @@ function SecretAdminLogo({ onExit }: { onExit: () => void }) {
   }
 
   return (
-    <button onClick={onTap} className="flex items-center gap-2" aria-label="GMX Trader admin">
-      <img src="/favicon.png" alt="" width={30} height={30} className="h-8 w-8 rounded-md" />
+    <button onClick={onTap} className="flex items-center gap-2" aria-label="TronixOption admin">
+      <img src="/tronixoption-mark.png" alt="" width={30} height={30} className="h-8 w-8 rounded-md" />
       <span className="font-semibold tracking-tight">Admin Panel</span>
     </button>
   );

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  head: () => ({ meta: [{ title: "Profile - GMX Trader" }] }),
+  head: () => ({ meta: [{ title: "Profile - TronixOption" }] }),
   component: ProfilePage,
 });
 
