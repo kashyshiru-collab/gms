@@ -75,18 +75,6 @@ function AuthPage() {
     }
   }
 
-  async function handleGoogle() {
-    setBusy(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/binary` },
-    });
-    if (error) {
-      toast.error("Google sign-in failed");
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="min-h-screen grid place-items-center px-4 py-8">
       <div className="w-full max-w-md">
@@ -152,17 +140,6 @@ function AuthPage() {
               {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
             </button>
           </form>
-
-          <div className="flex items-center gap-3 my-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <button onClick={handleGoogle} disabled={busy}
-            className="w-full py-2.5 rounded-xl bg-surface border border-border-strong font-semibold text-sm hover:bg-accent transition">
-            Continue with Google
-          </button>
 
           <p className="text-[10px] text-muted-foreground mt-3 text-center">
             By continuing you agree to our terms. Trading involves risk.
