@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { placeTrade, settleTrade } from "@/lib/trades.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { logDebugEvent, serializeError } from "@/lib/debug-logger";
 
 const VOL_INDICES = [
   {
@@ -170,6 +171,14 @@ export function BinaryPanel() {
     const sel = selectedDigitRef.current;
     activeDirectionRef.current = direction;
     let trade;
+    logDebugEvent("info", "binary.trade", "Placing binary trade", {
+      market: index,
+      type: ty,
+      direction,
+      stake: useStake,
+      selectedDigit: ty === "Over/Under" || ty === "Matches/Differs" ? sel : undefined,
+      price: priceRef.current,
+    });
     try {
       trade = await place({
         data: {
@@ -184,8 +193,14 @@ export function BinaryPanel() {
           },
         },
       });
+      logDebugEvent("info", "binary.trade", "Binary trade placed", {
+        tradeId: trade.id,
+        direction,
+        stake: useStake,
+      });
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
+      logDebugEvent("error", "binary.trade", "Binary trade placement failed", serializeError(e));
       toast.error(e instanceof Error ? e.message : "Failed");
       activeDirectionRef.current = null;
       throw e;
@@ -201,9 +216,20 @@ export function BinaryPanel() {
     else if (ty === "Matches/Differs")
       won = direction === "MATCH" ? finalDigit === sel : finalDigit !== sel;
 
-    await settle({
-      data: { trade_id: trade.id, won, exit_price: priceRef.current, multiplier: 1.85 },
-    });
+    try {
+      await settle({
+        data: { trade_id: trade.id, won, exit_price: priceRef.current, multiplier: 1.85 },
+      });
+      logDebugEvent("info", "binary.trade", "Binary trade settled", {
+        tradeId: trade.id,
+        won,
+        finalDigit,
+        exitPrice: priceRef.current,
+      });
+    } catch (e) {
+      logDebugEvent("error", "binary.trade", "Binary trade settlement failed", serializeError(e));
+      throw e;
+    }
     activeDirectionRef.current = null;
     qc.invalidateQueries({ queryKey: ["profile"] });
     qc.invalidateQueries({ queryKey: ["trades"] });
@@ -231,6 +257,15 @@ export function BinaryPanel() {
 
   async function startBot(direction: string) {
     if (botRunningRef.current) return;
+    logDebugEvent("info", "binary.bot", "Binary bot started", {
+      direction,
+      stake,
+      target,
+      stop,
+      martingale,
+      type,
+      market: index,
+    });
     botRunningRef.current = true;
     setBotRunning(true);
     sessionPnLRef.current = 0;
@@ -253,7 +288,13 @@ export function BinaryPanel() {
           break;
         }
         await new Promise((r) => setTimeout(r, 800));
-      } catch {
+      } catch (e) {
+        logDebugEvent(
+          "error",
+          "binary.bot",
+          "Binary bot stopped after trade error",
+          serializeError(e),
+        );
         break;
       }
     }
@@ -262,6 +303,9 @@ export function BinaryPanel() {
   }
 
   function stopBot() {
+    logDebugEvent("info", "binary.bot", "Binary bot stop requested", {
+      sessionPnL: sessionPnLRef.current,
+    });
     botRunningRef.current = false;
     setBotRunning(false);
     toast("Bot stopped");

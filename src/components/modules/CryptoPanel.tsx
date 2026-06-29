@@ -6,6 +6,7 @@ import { placeTrade } from "@/lib/trades.functions";
 import { getCryptoQuote, getCryptoCandles } from "@/lib/crypto.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { logDebugEvent, serializeError } from "@/lib/debug-logger";
 
 const COINS = [
   { sym: "BTC", name: "Bitcoin", mark: "₿", color: "#F7931A" },
@@ -66,12 +67,22 @@ export function CryptoPanel() {
   }, [live?.price]);
 
   async function submit(direction: "LONG" | "SHORT") {
+    logDebugEvent("info", "crypto.trade", "Placing crypto trade", {
+      coin: coin.sym,
+      direction,
+      stake,
+      leverage: lev,
+      price,
+    });
     if (!price) {
+      logDebugEvent("warn", "crypto.trade", "Crypto trade blocked because price is unavailable", {
+        coin: coin.sym,
+      });
       toast.error("Price not available");
       return;
     }
     try {
-      await place({
+      const trade = await place({
         data: {
           module: "crypto",
           market: `${coin.sym}/USD`,
@@ -81,10 +92,16 @@ export function CryptoPanel() {
           meta: { leverage: lev },
         },
       });
+      logDebugEvent("info", "crypto.trade", "Crypto trade placed", {
+        tradeId: trade.id,
+        coin: coin.sym,
+        direction,
+      });
       toast.success(`${direction} ${coin.sym} ${lev}x @ $${price.toFixed(2)}`);
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["trades"] });
     } catch (e) {
+      logDebugEvent("error", "crypto.trade", "Crypto trade failed", serializeError(e));
       toast.error(e instanceof Error ? e.message : "Failed");
     }
   }

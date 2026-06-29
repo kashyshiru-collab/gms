@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { DebugConsole } from "@/components/DebugConsole";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -20,6 +21,7 @@ function AuthedLayout() {
       <main className="px-3 py-3">
         <Outlet />
       </main>
+      <DebugConsole />
       <BottomNav />
     </div>
   );

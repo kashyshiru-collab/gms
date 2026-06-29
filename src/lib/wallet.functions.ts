@@ -9,27 +9,46 @@ const MoneyInput = z.object({
   phone: z.string().optional(),
 });
 
+type RpcClient = {
+  rpc: (
+    name: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: WalletTransaction; error: { message?: string } | null }>;
+};
+
+type WalletTransaction = {
+  id: string;
+  amount: number | string;
+};
+
 export const createDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
     const currency = data.method === "mpesa" ? "KSH" : "USD";
-    const { data: tx, error } = await (context.supabase as any).rpc("create_transaction", {
-      _kind: "deposit",
-      _method: data.method,
-      _amount: data.amount,
-      _currency: currency,
-      _account: data.account,
-      _phone: data.phone ?? null,
-      _meta: {},
-      _provider_reference: null,
-    });
-    if (error) throw error;
+    const { data: tx, error } = await (context.supabase as unknown as RpcClient).rpc(
+      "create_transaction",
+      {
+        _kind: "deposit",
+        _method: data.method,
+        _amount: data.amount,
+        _currency: currency,
+        _account: data.account,
+        _phone: data.phone ?? null,
+        _meta: {},
+        _provider_reference: null,
+      },
+    );
+    if (error) {
+      console.error("[Wallet] create deposit transaction failed", error);
+      throw new Error(`Could not create deposit transaction: ${error.message ?? String(error)}`);
+    }
 
     if (data.method === "mpesa" && data.account === "real") {
       try {
         return await startDarajaStkPush(tx, data.phone);
       } catch (e) {
+        console.error("[Daraja] STK push failed", e);
         try {
           await markTransactionFailed(tx.id, e);
         } catch (markError) {
@@ -47,17 +66,23 @@ export const createWithdrawal = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
     const currency = data.method === "mpesa" ? "KSH" : "USD";
-    const { data: tx, error } = await (context.supabase as any).rpc("create_transaction", {
-      _kind: "withdraw",
-      _method: data.method,
-      _amount: data.amount,
-      _currency: currency,
-      _account: data.account,
-      _phone: data.phone ?? null,
-      _meta: {},
-      _provider_reference: null,
-    });
-    if (error) throw error;
+    const { data: tx, error } = await (context.supabase as unknown as RpcClient).rpc(
+      "create_transaction",
+      {
+        _kind: "withdraw",
+        _method: data.method,
+        _amount: data.amount,
+        _currency: currency,
+        _account: data.account,
+        _phone: data.phone ?? null,
+        _meta: {},
+        _provider_reference: null,
+      },
+    );
+    if (error) {
+      console.error("[Wallet] create withdrawal transaction failed", error);
+      throw new Error(`Could not create withdrawal transaction: ${error.message ?? String(error)}`);
+    }
 
     if (data.method === "mpesa" && data.account === "real") {
       return startDarajaB2C(tx, data.phone);
@@ -66,11 +91,16 @@ export const createWithdrawal = createServerFn({ method: "POST" })
     return { ok: true, transaction: tx };
   });
 
-async function startDarajaStkPush(transaction: any, phone?: string) {
+async function startDarajaStkPush(transaction: WalletTransaction, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
   const env = getDarajaEnv("stk");
-  const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-  const password = Buffer.from(`${env.stkShortcode}${env.stkPasskey}${timestamp}`).toString("base64");
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+  const password = Buffer.from(`${env.stkShortcode}${env.stkPasskey}${timestamp}`).toString(
+    "base64",
+  );
   const body = {
     BusinessShortCode: env.stkShortcode,
     Password: password,
@@ -87,13 +117,16 @@ async function startDarajaStkPush(transaction: any, phone?: string) {
 
   const response = await darajaFetch("/mpesa/stkpush/v1/processrequest", body, "stk");
   if (response.ResponseCode && response.ResponseCode !== "0") {
-    throw new Error(response.ResponseDescription ?? response.errorMessage ?? "Daraja rejected STK push");
+    console.error("[Daraja] STK rejected", response);
+    throw new Error(
+      response.ResponseDescription ?? response.errorMessage ?? "Daraja rejected STK push",
+    );
   }
   await recordPaymentRequest(transaction.id, "stk_push", msisdn, body, response);
   return { ok: true, transaction, daraja: response };
 }
 
-async function startDarajaB2C(transaction: any, phone?: string) {
+async function startDarajaB2C(transaction: WalletTransaction, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
   const env = getDarajaEnv("b2c");
   const body = {
@@ -126,7 +159,22 @@ async function darajaFetch(path: string, body: Record<string, unknown>, mode: "s
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.errorMessage ?? json.error_description ?? json.ResponseDescription ?? "Daraja request failed");
+  if (!res.ok) {
+    console.error("[Daraja] HTTP request failed", {
+      mode,
+      path,
+      status: res.status,
+      response: json,
+    });
+    throw new Error(
+      `Daraja ${mode.toUpperCase()} request failed (${res.status}): ${
+        json.errorMessage ??
+        json.error_description ??
+        json.ResponseDescription ??
+        "No response message"
+      }`,
+    );
+  }
   return json;
 }
 
@@ -137,7 +185,14 @@ async function getDarajaToken(mode: "stk" | "b2c") {
     headers: { Authorization: `Basic ${credentials}` },
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.access_token) throw new Error(json.errorMessage ?? json.error_description ?? "Could not authenticate with Daraja");
+  if (!res.ok || !json.access_token) {
+    console.error("[Daraja] Token request failed", { mode, status: res.status, response: json });
+    throw new Error(
+      `Could not authenticate with Daraja ${mode.toUpperCase()} (${res.status}): ${
+        json.errorMessage ?? json.error_description ?? "No access token returned"
+      }`,
+    );
+  }
   return json.access_token as string;
 }
 
@@ -159,12 +214,12 @@ async function recordPaymentRequest(
     status: "pending",
     request_payload: requestPayload,
     response_payload: responsePayload,
-  } as any);
+  } as Record<string, unknown>);
 }
 
 async function markTransactionFailed(transactionId: string, error: unknown) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  await (supabaseAdmin as any).rpc("apply_transaction", {
+  await (supabaseAdmin as unknown as RpcClient).rpc("apply_transaction", {
     _transaction_id: transactionId,
     _status: "failed",
     _meta: {
@@ -202,16 +257,30 @@ function getDarajaEnv(mode: "stk" | "b2c") {
     b2cTimeoutUrl: process.env.DARAJA_B2C_TIMEOUT_URL ?? `${appUrl}/api/daraja/b2c-timeout`,
   };
   const required = mode === "stk" ? { ...shared, ...stk } : { ...shared, ...b2c };
-  const missing = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
+  const missing = Object.entries(required)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
   if (missing.length) {
-    throw new Error(`Missing Daraja environment variable(s): ${missing.join(", ")}. Set them in Vercel and your local .env file.`);
+    console.error("[Daraja] Missing environment variables", { mode, missing });
+    throw new Error(
+      `Missing Daraja environment variable(s): ${missing.join(", ")}. Set them in Vercel and your local .env file.`,
+    );
   }
   return { baseUrl, ...(required as Record<string, string>) };
 }
 
 function getPublicAppUrl() {
-  const explicit = process.env.DARAJA_PUBLIC_BASE_URL ?? process.env.PUBLIC_APP_URL ?? process.env.APP_URL;
+  const explicit =
+    process.env.DARAJA_PUBLIC_BASE_URL ?? process.env.PUBLIC_APP_URL ?? process.env.APP_URL;
   if (explicit) return explicit.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  throw new Error("Missing public app URL for Daraja callbacks. Set DARAJA_PUBLIC_BASE_URL or APP_URL.");
+  console.error("[Daraja] Missing public app URL", {
+    hasDarajaPublicBaseUrl: Boolean(process.env.DARAJA_PUBLIC_BASE_URL),
+    hasPublicAppUrl: Boolean(process.env.PUBLIC_APP_URL),
+    hasAppUrl: Boolean(process.env.APP_URL),
+    hasVercelUrl: Boolean(process.env.VERCEL_URL),
+  });
+  throw new Error(
+    "Missing public app URL for Daraja callbacks. Set DARAJA_PUBLIC_BASE_URL or APP_URL.",
+  );
 }

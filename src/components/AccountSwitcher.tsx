@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage, logDebugEvent, serializeError } from "@/lib/debug-logger";
 
 export function AccountSwitcher() {
   const fetchProfile = useServerFn(getMyProfile);
@@ -25,11 +26,25 @@ export function AccountSwitcher() {
   const activeBal = active === "real" ? realBal : demoBal;
 
   async function switchTo(account: "real" | "demo") {
-    if (account === active) { setOpen(false); return; }
+    if (account === active) {
+      setOpen(false);
+      return;
+    }
+    logDebugEvent("info", "account.switch", "Switch account requested", {
+      from: active,
+      to: account,
+    });
     try {
       try {
         await setAccount({ data: { account } });
-      } catch {
+        logDebugEvent("info", "account.switch", "Server account switch succeeded", { account });
+      } catch (serverError) {
+        logDebugEvent(
+          "warn",
+          "account.switch",
+          "Server account switch failed, trying client fallback",
+          serializeError(serverError),
+        );
         const { data: user } = await supabase.auth.getUser();
         if (!user.user) throw new Error("Please sign in again");
         const { error } = await supabase
@@ -37,12 +52,16 @@ export function AccountSwitcher() {
           .update({ active_account: account })
           .eq("id", user.user.id);
         if (error) throw error;
+        logDebugEvent("info", "account.switch", "Client fallback account switch succeeded", {
+          account,
+        });
       }
       qc.invalidateQueries({ queryKey: ["profile"] });
       toast.success(`Switched to ${account.toUpperCase()} account`);
       setOpen(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to switch");
+      logDebugEvent("error", "account.switch", "Account switch failed", serializeError(e));
+      toast.error(getErrorMessage(e, "Failed to switch"));
     }
   }
 
@@ -60,7 +79,9 @@ export function AccountSwitcher() {
         {active === "real" ? (
           <span className="text-[13px] leading-none">🇺🇸</span>
         ) : (
-          <span className="text-[10px] px-1 rounded bg-primary/30 text-primary-foreground font-extrabold">D</span>
+          <span className="text-[10px] px-1 rounded bg-primary/30 text-primary-foreground font-extrabold">
+            D
+          </span>
         )}
         <span className="tabular-nums">${activeBal.toFixed(2)}</span>
         <ChevronDown className="h-3 w-3 opacity-70" />
@@ -75,23 +96,35 @@ export function AccountSwitcher() {
             </div>
             <button
               onClick={() => switchTo("real")}
-              className={"w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface " + (active === "real" ? "bg-bull/5" : "")}
+              className={
+                "w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface " +
+                (active === "real" ? "bg-bull/5" : "")
+              }
             >
               <span className="flex items-center gap-2">
                 <span className="text-base leading-none">🇺🇸</span>
                 <span className="text-sm font-bold">Real USD</span>
               </span>
-              <span className="text-sm font-bold tabular-nums text-bull">${realBal.toFixed(2)}</span>
+              <span className="text-sm font-bold tabular-nums text-bull">
+                ${realBal.toFixed(2)}
+              </span>
             </button>
             <button
               onClick={() => switchTo("demo")}
-              className={"w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface " + (active === "demo" ? "bg-primary/5" : "")}
+              className={
+                "w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface " +
+                (active === "demo" ? "bg-primary/5" : "")
+              }
             >
               <span className="flex items-center gap-2">
-                <span className="h-4 w-4 grid place-items-center rounded bg-primary text-primary-foreground text-[9px] font-extrabold">D</span>
+                <span className="h-4 w-4 grid place-items-center rounded bg-primary text-primary-foreground text-[9px] font-extrabold">
+                  D
+                </span>
                 <span className="text-sm font-bold">Demo USD</span>
               </span>
-              <span className="text-sm font-bold tabular-nums text-primary">${demoBal.toFixed(2)}</span>
+              <span className="text-sm font-bold tabular-nums text-primary">
+                ${demoBal.toFixed(2)}
+              </span>
             </button>
           </div>
         </>

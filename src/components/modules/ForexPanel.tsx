@@ -6,6 +6,7 @@ import { placeTrade } from "@/lib/trades.functions";
 import { getForexQuote, getForexCandles } from "@/lib/forex.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { logDebugEvent, serializeError } from "@/lib/debug-logger";
 
 const PAIRS = [
   { sym: "EUR/USD", flag: "🇪🇺🇺🇸", base: 1.14066, spread: 0.0002 },
@@ -80,8 +81,16 @@ export function ForexPanel() {
   }, [live?.price, pair.base, pair.sym]);
 
   async function submit(direction: "BUY" | "SELL") {
+    logDebugEvent("info", "forex.trade", "Placing forex trade", {
+      pair: pair.sym,
+      direction,
+      size,
+      sl,
+      tp,
+      price,
+    });
     try {
-      await place({
+      const trade = await place({
         data: {
           module: "forex",
           market: pair.sym,
@@ -91,10 +100,16 @@ export function ForexPanel() {
           meta: { sl, tp, lot: size },
         },
       });
+      logDebugEvent("info", "forex.trade", "Forex trade placed", {
+        tradeId: trade.id,
+        pair: pair.sym,
+        direction,
+      });
       toast.success(`${direction} ${pair.sym} @ ${price.toFixed(digits)}`);
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["trades"] });
     } catch (e) {
+      logDebugEvent("error", "forex.trade", "Forex trade failed", serializeError(e));
       toast.error(e instanceof Error ? e.message : "Failed");
     }
   }
