@@ -4,7 +4,7 @@
 
 create extension if not exists pgcrypto;
 
-drop view if exists public.agent_rollups;
+drop view if exists public.agent_rollups cascade;
 
 do $$
 begin
@@ -12,42 +12,49 @@ begin
     drop trigger if exists on_auth_user_created on auth.users;
   end if;
   if to_regclass('public.profiles') is not null then
+    drop trigger if exists trg_profiles_updated on public.profiles;
     drop trigger if exists profiles_touch on public.profiles;
   end if;
   if to_regclass('public.user_settings') is not null then
     drop trigger if exists settings_touch on public.user_settings;
   end if;
   if to_regclass('public.transactions') is not null then
+    drop trigger if exists trg_tx_updated on public.transactions;
     drop trigger if exists transactions_touch on public.transactions;
+  end if;
+  if to_regclass('public.withdrawal_requests') is not null then
+    drop trigger if exists trg_wr_touch on public.withdrawal_requests;
   end if;
   if to_regclass('public.payment_requests') is not null then
     drop trigger if exists payment_requests_touch on public.payment_requests;
   end if;
 end $$;
 
-drop function if exists public.handle_new_user();
-drop function if exists public.touch_updated_at();
+drop table if exists public.withdrawal_requests cascade;
+
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.touch_updated_at() cascade;
 
 do $$
 begin
   if to_regtype('public.app_role') is not null then
-    drop function if exists public.has_role(uuid, public.app_role);
+    drop function if exists public.has_role(uuid, public.app_role) cascade;
   end if;
   if to_regtype('public.account_type') is not null then
-    drop function if exists public.set_active_account(public.account_type);
+    drop function if exists public.set_active_account(public.account_type) cascade;
   end if;
-  drop function if exists public.reset_demo_account();
+  drop function if exists public.reset_demo_account() cascade;
   if to_regtype('public.trade_module') is not null then
-    drop function if exists public.place_trade(public.trade_module, text, text, numeric, numeric, jsonb);
+    drop function if exists public.place_trade(public.trade_module, text, text, numeric, numeric, jsonb) cascade;
   end if;
-  drop function if exists public.settle_trade(uuid, boolean, numeric, numeric);
+  drop function if exists public.settle_trade(uuid, boolean, numeric, numeric) cascade;
   if to_regtype('public.transaction_kind') is not null
     and to_regtype('public.payment_method') is not null
     and to_regtype('public.account_type') is not null then
-    drop function if exists public.create_transaction(public.transaction_kind, public.payment_method, numeric, text, public.account_type, text, jsonb, text);
+    drop function if exists public.create_transaction(public.transaction_kind, public.payment_method, numeric, text, public.account_type, text, jsonb, text) cascade;
   end if;
   if to_regtype('public.transaction_status') is not null then
-    drop function if exists public.apply_transaction(uuid, public.transaction_status, jsonb);
+    drop function if exists public.apply_transaction(uuid, public.transaction_status, jsonb) cascade;
   end if;
 end $$;
 

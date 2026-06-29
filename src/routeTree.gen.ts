@@ -22,6 +22,7 @@ import { Route as AuthenticatedForexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCryptoRouteImport } from './routes/_authenticated/crypto'
 import { Route as AuthenticatedBinaryRouteImport } from './routes/_authenticated/binary'
 import { Route as AuthenticatedAviatorRouteImport } from './routes/_authenticated/aviator'
+import { Route as AuthenticatedAppsRouteImport } from './routes/_authenticated/apps'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const AuthRoute = AuthRouteImport.update({
@@ -88,6 +89,11 @@ const AuthenticatedAviatorRoute = AuthenticatedAviatorRouteImport.update({
   path: '/aviator',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppsRoute = AuthenticatedAppsRouteImport.update({
+  id: '/apps',
+  path: '/apps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/apps': typeof AuthenticatedAppsRoute
   '/aviator': typeof AuthenticatedAviatorRoute
   '/binary': typeof AuthenticatedBinaryRoute
   '/crypto': typeof AuthenticatedCryptoRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/apps': typeof AuthenticatedAppsRoute
   '/aviator': typeof AuthenticatedAviatorRoute
   '/binary': typeof AuthenticatedBinaryRoute
   '/crypto': typeof AuthenticatedCryptoRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/apps': typeof AuthenticatedAppsRoute
   '/_authenticated/aviator': typeof AuthenticatedAviatorRoute
   '/_authenticated/binary': typeof AuthenticatedBinaryRoute
   '/_authenticated/crypto': typeof AuthenticatedCryptoRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
+    | '/apps'
     | '/aviator'
     | '/binary'
     | '/crypto'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
+    | '/apps'
     | '/aviator'
     | '/binary'
     | '/crypto'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/admin'
+    | '/_authenticated/apps'
     | '/_authenticated/aviator'
     | '/_authenticated/binary'
     | '/_authenticated/crypto'
@@ -289,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAviatorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/apps': {
+      id: '/_authenticated/apps'
+      path: '/apps'
+      fullPath: '/apps'
+      preLoaderRoute: typeof AuthenticatedAppsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -301,6 +320,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAppsRoute: typeof AuthenticatedAppsRoute
   AuthenticatedAviatorRoute: typeof AuthenticatedAviatorRoute
   AuthenticatedBinaryRoute: typeof AuthenticatedBinaryRoute
   AuthenticatedCryptoRoute: typeof AuthenticatedCryptoRoute
@@ -315,6 +335,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAppsRoute: AuthenticatedAppsRoute,
   AuthenticatedAviatorRoute: AuthenticatedAviatorRoute,
   AuthenticatedBinaryRoute: AuthenticatedBinaryRoute,
   AuthenticatedCryptoRoute: AuthenticatedCryptoRoute,
