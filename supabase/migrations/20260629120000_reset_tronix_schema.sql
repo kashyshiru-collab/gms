@@ -262,7 +262,9 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.user_roles
-    where user_id = _user_id and role = _role
+    where user_id = _user_id
+      and role = _role
+      and _user_id = auth.uid()
   );
 $$;
 
@@ -689,6 +691,7 @@ grant execute on function public.place_trade(public.trade_module, text, text, nu
 grant execute on function public.settle_trade(uuid, boolean, numeric, numeric) to authenticated;
 grant execute on function public.create_transaction(public.transaction_kind, public.payment_method, numeric, text, public.account_type, text, jsonb, text) to authenticated;
 grant execute on function public.apply_transaction(uuid, public.transaction_status, jsonb) to service_role;
+grant execute on function public.has_role(uuid, public.app_role) to authenticated;
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.touch_updated_at() from public, anon, authenticated;
-revoke execute on function public.has_role(uuid, public.app_role) from public, anon, authenticated;
+revoke execute on function public.has_role(uuid, public.app_role) from public, anon;
