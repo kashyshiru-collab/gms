@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
-import logoAsset from "@/assets/tronix-logo.png.asset.json";
+import { LOGO_URL } from "@/lib/brand";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -92,7 +92,7 @@ function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2.5 mb-2">
-            <img src={logoAsset.url} alt="TRONIXOPTION" className="h-11 w-11 object-contain drop-shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
+            <img src={LOGO_URL} alt="TRONIXOPTION" className="h-11 w-11 object-contain drop-shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
             <span className="text-xl font-extrabold tracking-wider">TRONIX<span className="text-primary">OPTION</span></span>
           </div>
           <p className="text-xs text-muted-foreground">Forex · Crypto · Binaries · Polymarket · Aviator</p>

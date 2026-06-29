@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/co
 import { supabase } from "@/integrations/supabase/client";
 import { applyTheme, getInitialTheme, type Theme } from "@/lib/theme";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
-import logoAsset from "@/assets/tronix-logo.png.asset.json";
+import { LOGO_URL } from "@/lib/brand";
 
 export function AppHeader() {
   const fetchProfile = useServerFn(getMyProfile);
@@ -70,7 +70,7 @@ export function AppHeader() {
         <SheetContent side="left" className="w-72 bg-background border-border p-0">
           <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
             <SheetTitle className="flex items-center gap-2">
-              <img src={logoAsset.url} alt="TronixOption" className="h-8 w-8 object-contain" />
+              <img src={LOGO_URL} alt="TronixOption" className="h-8 w-8 object-contain" />
               <span className="text-base font-extrabold tracking-tight">TRONIX<span className="text-primary">OPTION</span></span>
             </SheetTitle>
           </SheetHeader>
@@ -114,7 +114,7 @@ export function AppHeader() {
       </Sheet>
 
       <Link to="/binary" className="flex items-center gap-1.5">
-        <img src={logoAsset.url} alt="TronixOption" className="h-8 w-8 object-contain drop-shadow-[0_0_10px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
+        <img src={LOGO_URL} alt="TronixOption" className="h-8 w-8 object-contain drop-shadow-[0_0_10px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
         <span className="hidden sm:inline text-xs font-extrabold tracking-wider">TRONIX<span className="text-primary">OPTION</span></span>
       </Link>
 

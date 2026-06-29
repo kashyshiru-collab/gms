@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { FAVICON_URL } from "@/lib/brand";
 
 import appCss from "../styles.css?url";
 
@@ -70,8 +71,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-import logoAsset from "@/assets/tronix-logo.png.asset.json";
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -88,8 +87,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/png", href: logoAsset.url },
-      { rel: "apple-touch-icon", href: logoAsset.url },
+      { rel: "icon", type: "image/svg+xml", href: FAVICON_URL },
+      { rel: "shortcut icon", href: FAVICON_URL },
+      { rel: "apple-touch-icon", href: FAVICON_URL },
     ],
   }),
   shellComponent: RootShell,
