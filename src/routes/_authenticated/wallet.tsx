@@ -63,7 +63,7 @@ function WalletPage() {
       setAmount("");
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -83,7 +83,7 @@ function WalletPage() {
       setAmount("");
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -186,6 +186,12 @@ function WalletPage() {
       </button>
     </div>
   );
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error) return error;
+  return "Request failed. Check your payment settings and try again.";
 }
 
 function MethodCard({ active, onClick, icon, title, sub }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; sub: string }) {

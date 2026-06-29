@@ -30,7 +30,11 @@ export const createDeposit = createServerFn({ method: "POST" })
       try {
         return await startDarajaStkPush(tx, data.phone);
       } catch (e) {
-        await markTransactionFailed(tx.id, e);
+        try {
+          await markTransactionFailed(tx.id, e);
+        } catch (markError) {
+          console.error("[Daraja] Could not mark failed transaction", markError);
+        }
         throw e;
       }
     }
@@ -64,7 +68,7 @@ export const createWithdrawal = createServerFn({ method: "POST" })
 
 async function startDarajaStkPush(transaction: any, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
-  const env = getDarajaEnv();
+  const env = getDarajaEnv("stk");
   const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   const password = Buffer.from(`${env.stkShortcode}${env.stkPasskey}${timestamp}`).toString("base64");
   const body = {
@@ -81,14 +85,17 @@ async function startDarajaStkPush(transaction: any, phone?: string) {
     TransactionDesc: "TRONIXOPTION deposit",
   };
 
-  const response = await darajaFetch("/mpesa/stkpush/v1/processrequest", body);
+  const response = await darajaFetch("/mpesa/stkpush/v1/processrequest", body, "stk");
+  if (response.ResponseCode && response.ResponseCode !== "0") {
+    throw new Error(response.ResponseDescription ?? response.errorMessage ?? "Daraja rejected STK push");
+  }
   await recordPaymentRequest(transaction.id, "stk_push", msisdn, body, response);
   return { ok: true, transaction, daraja: response };
 }
 
 async function startDarajaB2C(transaction: any, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
-  const env = getDarajaEnv();
+  const env = getDarajaEnv("b2c");
   const body = {
     InitiatorName: env.b2cInitiatorName,
     SecurityCredential: env.b2cSecurityCredential,
@@ -102,14 +109,14 @@ async function startDarajaB2C(transaction: any, phone?: string) {
     Occasion: `TRONIX-${transaction.id.slice(0, 8)}`,
   };
 
-  const response = await darajaFetch("/mpesa/b2c/v1/paymentrequest", body);
+  const response = await darajaFetch("/mpesa/b2c/v1/paymentrequest", body, "b2c");
   await recordPaymentRequest(transaction.id, "b2c", msisdn, body, response);
   return { ok: true, transaction, daraja: response };
 }
 
-async function darajaFetch(path: string, body: Record<string, unknown>) {
-  const env = getDarajaEnv();
-  const token = await getDarajaToken();
+async function darajaFetch(path: string, body: Record<string, unknown>, mode: "stk" | "b2c") {
+  const env = getDarajaEnv(mode);
+  const token = await getDarajaToken(mode);
   const res = await fetch(`${env.baseUrl}${path}`, {
     method: "POST",
     headers: {
@@ -119,18 +126,18 @@ async function darajaFetch(path: string, body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.errorMessage ?? json.error_description ?? "Daraja request failed");
+  if (!res.ok) throw new Error(json.errorMessage ?? json.error_description ?? json.ResponseDescription ?? "Daraja request failed");
   return json;
 }
 
-async function getDarajaToken() {
-  const env = getDarajaEnv();
+async function getDarajaToken(mode: "stk" | "b2c") {
+  const env = getDarajaEnv(mode);
   const credentials = Buffer.from(`${env.consumerKey}:${env.consumerSecret}`).toString("base64");
   const res = await fetch(`${env.baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${credentials}` },
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.access_token) throw new Error("Could not authenticate with Daraja");
+  if (!res.ok || !json.access_token) throw new Error(json.errorMessage ?? json.error_description ?? "Could not authenticate with Daraja");
   return json.access_token as string;
 }
 
@@ -161,9 +168,9 @@ async function markTransactionFailed(transactionId: string, error: unknown) {
     _transaction_id: transactionId,
     _status: "failed",
     _meta: {
-        provider_error: error instanceof Error ? error.message : String(error),
-        failed_at: new Date().toISOString(),
-      },
+      provider_error: error instanceof Error ? error.message : String(error),
+      failed_at: new Date().toISOString(),
+    },
   });
 }
 
@@ -175,21 +182,26 @@ function normalizeKenyanPhone(phone?: string) {
   throw new Error("Enter a valid Kenyan Safaricom number");
 }
 
-function getDarajaEnv() {
+function getDarajaEnv(mode: "stk" | "b2c") {
   const baseUrl = process.env.DARAJA_BASE_URL ?? "https://api.safaricom.co.ke";
   const appUrl = getPublicAppUrl();
-  const required = {
+  const shared = {
     consumerKey: process.env.DARAJA_CONSUMER_KEY,
     consumerSecret: process.env.DARAJA_CONSUMER_SECRET,
+  };
+  const stk = {
     stkShortcode: process.env.DARAJA_STK_SHORTCODE,
     stkPasskey: process.env.DARAJA_STK_PASSKEY,
     stkCallbackUrl: process.env.DARAJA_STK_CALLBACK_URL ?? `${appUrl}/api/daraja/stk-callback`,
+  };
+  const b2c = {
     b2cInitiatorName: process.env.DARAJA_B2C_INITIATOR_NAME,
     b2cSecurityCredential: process.env.DARAJA_B2C_SECURITY_CREDENTIAL,
     b2cShortcode: process.env.DARAJA_B2C_SHORTCODE,
     b2cResultUrl: process.env.DARAJA_B2C_RESULT_URL ?? `${appUrl}/api/daraja/b2c-result`,
     b2cTimeoutUrl: process.env.DARAJA_B2C_TIMEOUT_URL ?? `${appUrl}/api/daraja/b2c-timeout`,
   };
+  const required = mode === "stk" ? { ...shared, ...stk } : { ...shared, ...b2c };
   const missing = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
   if (missing.length) {
     throw new Error(`Missing Daraja environment variable(s): ${missing.join(", ")}. Set them in Vercel and your local .env file.`);

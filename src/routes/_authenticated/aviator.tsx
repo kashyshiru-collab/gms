@@ -15,6 +15,7 @@ type Phase = "waiting" | "flying" | "crashed";
 
 const WAIT_MS = 5_000;
 const FLY_MS = 12_000;
+const CRASH_DISPLAY_MS = 1_600;
 const ROUND_MS = WAIT_MS + FLY_MS;
 const TICK_MS = 100;
 const MAX_CRASH = multiplierAt(FLY_MS);
@@ -59,6 +60,17 @@ function getRoundState(now: number) {
 
   const flightElapsed = Math.min(elapsed - WAIT_MS, crashMs);
   const crashed = elapsed - WAIT_MS >= crashMs;
+  if (crashed && elapsed - WAIT_MS - crashMs > CRASH_DISPLAY_MS) {
+    return {
+      roundId: roundId + 1,
+      phase: "waiting" as const,
+      countdown: Math.ceil((ROUND_MS - elapsed) / 1000),
+      flightElapsed: 0,
+      multiplier: 1,
+      crashAt: crashForRound(roundId + 1),
+    };
+  }
+
   return {
     roundId,
     phase: crashed ? ("crashed" as const) : ("flying" as const),
@@ -228,6 +240,15 @@ function AviatorPage() {
           <span key={i} className="absolute h-0.5 w-0.5 bg-white rounded-full opacity-70" style={{ top: `${(i * 37) % 100}%`, left: `${(i * 53) % 100}%` }} />
         ))}
         <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle at 75% 35%, oklch(0.78 0.13 86 / 0.45), transparent 50%)" }} />
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,transparent,oklch(0.08_0.02_250)_58%)]" />
+        <div className="absolute left-4 right-4 bottom-7 h-1 rounded-full bg-primary/40 shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_50%,transparent)]" />
+        <div className="absolute left-7 bottom-7 h-8 w-10 rounded-t-lg border border-primary/35 bg-surface/70">
+          <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-bull live-dot" />
+          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-primary" />
+        </div>
+        {phase === "waiting" && (
+          <Plane className="absolute h-12 w-12 text-primary/90 drop-shadow-[0_4px_18px_rgba(0,0,0,0.5)]" style={{ left: "calc(9% - 24px)", top: "calc(78% - 24px)", transform: "rotate(-10deg)" }} />
+        )}
 
         {phase !== "waiting" && (
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
