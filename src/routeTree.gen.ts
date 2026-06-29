@@ -24,6 +24,9 @@ import { Route as AuthenticatedBinaryRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAviatorRouteImport } from './routes/_authenticated/aviator'
 import { Route as AuthenticatedAppsRouteImport } from './routes/_authenticated/apps'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiDarajaStkCallbackRouteImport } from './routes/api/daraja/stk-callback'
+import { Route as ApiDarajaB2cTimeoutRouteImport } from './routes/api/daraja/b2c-timeout'
+import { Route as ApiDarajaB2cResultRouteImport } from './routes/api/daraja/b2c-result'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -99,6 +102,21 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiDarajaStkCallbackRoute = ApiDarajaStkCallbackRouteImport.update({
+  id: '/api/daraja/stk-callback',
+  path: '/api/daraja/stk-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDarajaB2cTimeoutRoute = ApiDarajaB2cTimeoutRouteImport.update({
+  id: '/api/daraja/b2c-timeout',
+  path: '/api/daraja/b2c-timeout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDarajaB2cResultRoute = ApiDarajaB2cResultRouteImport.update({
+  id: '/api/daraja/b2c-result',
+  path: '/api/daraja/b2c-result',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,6 +133,9 @@ export interface FileRoutesByFullPath {
   '/scanner': typeof AuthenticatedScannerRoute
   '/trade': typeof AuthenticatedTradeRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,6 +152,9 @@ export interface FileRoutesByTo {
   '/scanner': typeof AuthenticatedScannerRoute
   '/trade': typeof AuthenticatedTradeRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +173,9 @@ export interface FileRoutesById {
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/trade': typeof AuthenticatedTradeRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +194,9 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/trade'
     | '/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +213,9 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/trade'
     | '/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
   id:
     | '__root__'
     | '/'
@@ -200,12 +233,18 @@ export interface FileRouteTypes {
     | '/_authenticated/scanner'
     | '/_authenticated/trade'
     | '/_authenticated/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiDarajaB2cResultRoute: typeof ApiDarajaB2cResultRoute
+  ApiDarajaB2cTimeoutRoute: typeof ApiDarajaB2cTimeoutRoute
+  ApiDarajaStkCallbackRoute: typeof ApiDarajaStkCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -315,6 +354,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/daraja/stk-callback': {
+      id: '/api/daraja/stk-callback'
+      path: '/api/daraja/stk-callback'
+      fullPath: '/api/daraja/stk-callback'
+      preLoaderRoute: typeof ApiDarajaStkCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/daraja/b2c-timeout': {
+      id: '/api/daraja/b2c-timeout'
+      path: '/api/daraja/b2c-timeout'
+      fullPath: '/api/daraja/b2c-timeout'
+      preLoaderRoute: typeof ApiDarajaB2cTimeoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/daraja/b2c-result': {
+      id: '/api/daraja/b2c-result'
+      path: '/api/daraja/b2c-result'
+      fullPath: '/api/daraja/b2c-result'
+      preLoaderRoute: typeof ApiDarajaB2cResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -355,6 +415,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiDarajaB2cResultRoute: ApiDarajaB2cResultRoute,
+  ApiDarajaB2cTimeoutRoute: ApiDarajaB2cTimeoutRoute,
+  ApiDarajaStkCallbackRoute: ApiDarajaStkCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

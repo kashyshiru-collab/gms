@@ -58,7 +58,7 @@ function WalletPage() {
 
     setBusy(true);
     try {
-      await depositFn({ method, amount: amt, account: activeAccount, phone });
+      await depositFn({ data: { method, amount: amt, account: activeAccount, phone } });
       toast.success(method === "mpesa" && activeAccount === "real" ? "STK push sent to your phone" : `Deposited to ${activeAccount.toUpperCase()} account`);
       setAmount("");
       qc.invalidateQueries({ queryKey: ["profile"] });
@@ -78,7 +78,7 @@ function WalletPage() {
 
     setBusy(true);
     try {
-      await withdrawFn({ method, amount: amt, account: activeAccount, phone });
+      await withdrawFn({ data: { method, amount: amt, account: activeAccount, phone } });
       toast.success("Withdrawal request submitted - processing in 1-24h");
       setAmount("");
       qc.invalidateQueries({ queryKey: ["profile"] });

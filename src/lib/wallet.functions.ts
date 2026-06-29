@@ -97,7 +97,7 @@ async function startDarajaB2C(transaction: any, phone?: string) {
     Occasion: `TRONIX-${transaction.id.slice(0, 8)}`,
   };
 
-  const response = await darajaFetch("/mpesa/b2c/v3/paymentrequest", body);
+  const response = await darajaFetch("/mpesa/b2c/v1/paymentrequest", body);
   await recordPaymentRequest(transaction.id, "b2c", msisdn, body, response);
   return { ok: true, transaction, daraja: response };
 }
@@ -159,20 +159,28 @@ function normalizeKenyanPhone(phone?: string) {
 }
 
 function getDarajaEnv() {
-  const baseUrl = process.env.DARAJA_BASE_URL ?? "https://sandbox.safaricom.co.ke";
+  const baseUrl = process.env.DARAJA_BASE_URL ?? "https://api.safaricom.co.ke";
+  const appUrl = getPublicAppUrl();
   const required = {
     consumerKey: process.env.DARAJA_CONSUMER_KEY,
     consumerSecret: process.env.DARAJA_CONSUMER_SECRET,
     stkShortcode: process.env.DARAJA_STK_SHORTCODE,
     stkPasskey: process.env.DARAJA_STK_PASSKEY,
-    stkCallbackUrl: process.env.DARAJA_STK_CALLBACK_URL,
+    stkCallbackUrl: process.env.DARAJA_STK_CALLBACK_URL ?? `${appUrl}/api/daraja/stk-callback`,
     b2cInitiatorName: process.env.DARAJA_B2C_INITIATOR_NAME,
     b2cSecurityCredential: process.env.DARAJA_B2C_SECURITY_CREDENTIAL,
     b2cShortcode: process.env.DARAJA_B2C_SHORTCODE,
-    b2cResultUrl: process.env.DARAJA_B2C_RESULT_URL,
-    b2cTimeoutUrl: process.env.DARAJA_B2C_TIMEOUT_URL,
+    b2cResultUrl: process.env.DARAJA_B2C_RESULT_URL ?? `${appUrl}/api/daraja/b2c-result`,
+    b2cTimeoutUrl: process.env.DARAJA_B2C_TIMEOUT_URL ?? `${appUrl}/api/daraja/b2c-timeout`,
   };
   const missing = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
   if (missing.length) throw new Error(`Missing Daraja environment variable(s): ${missing.join(", ")}`);
   return { baseUrl, ...(required as Record<string, string>) };
+}
+
+function getPublicAppUrl() {
+  const explicit = process.env.DARAJA_PUBLIC_BASE_URL ?? process.env.PUBLIC_APP_URL ?? process.env.APP_URL;
+  if (explicit) return explicit.replace(/\/$/, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  throw new Error("Missing public app URL for Daraja callbacks. Set DARAJA_PUBLIC_BASE_URL or APP_URL.");
 }

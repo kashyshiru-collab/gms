@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 import { LOGO_URL } from "@/lib/brand";
+import { useServerFn } from "@tanstack/react-start";
+import { signUpWithoutEmailVerification } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -13,6 +15,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const signUpNow = useServerFn(signUpWithoutEmailVerification);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,21 +50,9 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email, password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/binary`,
-            data: { full_name: fullName, username: fullName.split(" ")[0] },
-          },
-        });
+        await signUpNow({ data: { email, password, fullName, referralCode: referralCode || undefined } });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Save referral code if provided (RLS allows client to insert own)
-        if (data.user && referralCode.trim()) {
-          await supabase.from("referrals").insert({
-            client_id: data.user.id,
-            referral_code: referralCode.trim().toUpperCase(),
-          });
-        }
         toast.success("Account created. Welcome aboard.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });

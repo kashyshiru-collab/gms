@@ -92,7 +92,7 @@ export function ForexPanel() {
         </div>
       )}
 
-      {quote && !quote.ok && quote.reason === "missing_key" && (
+      {false && (
         <div className="bg-bear/10 border border-bear/30 text-bear text-[10px] rounded-lg p-1.5 text-center">
           Live data unavailable — Finnhub key not configured.
         </div>

@@ -51,6 +51,64 @@ export const settleTrade = createServerFn({ method: "POST" })
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase.from("profiles").select("*").eq("id", context.userId).single();
-    return data;
+    const { data } = await context.supabase.from("profiles").select("*").eq("id", context.userId).maybeSingle();
+    if (data) {
+      if (Number(data.demo_balance_usd ?? 0) === 0) {
+        const [{ count: tradeCount }, { count: txCount }] = await Promise.all([
+          context.supabase
+            .from("trades")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", context.userId)
+            .eq("account_type", "demo"),
+          context.supabase
+            .from("transactions")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", context.userId)
+            .eq("account_type", "demo"),
+        ]);
+
+        if ((tradeCount ?? 0) === 0 && (txCount ?? 0) === 0) {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: repaired } = await supabaseAdmin
+            .from("profiles")
+            .update({ demo_balance_usd: 10000, active_account: "demo" })
+            .eq("id", context.userId)
+            .select("*")
+            .single();
+          return repaired ?? data;
+        }
+      }
+      return data;
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: user } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const email = user.user?.email ?? null;
+    const fullName = typeof user.user?.user_metadata?.full_name === "string" ? user.user.user_metadata.full_name : null;
+    const username =
+      (typeof user.user?.user_metadata?.username === "string" && user.user.user_metadata.username) ||
+      email?.split("@")[0] ||
+      "client";
+
+    const { data: created, error } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: context.userId,
+        email,
+        username,
+        full_name: fullName,
+        demo_balance_usd: 10000,
+        active_account: "demo",
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    await supabaseAdmin.from("user_settings").upsert({ user_id: context.userId });
+    await supabaseAdmin.from("user_roles").upsert(
+      { user_id: context.userId, role: "client" },
+      { onConflict: "user_id,role" },
+    );
+
+    return created;
   });

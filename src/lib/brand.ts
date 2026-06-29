@@ -1,3 +1,3 @@
-export const LOGO_URL = "/logo.svg";
-export const FAVICON_URL = "/favicon.svg";
+export const LOGO_URL = "/tronix-logo.png";
+export const FAVICON_URL = "/favicon.png";
 export const APP_NAME = "TRONIXOPTION";

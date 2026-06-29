@@ -5,6 +5,7 @@ import { setActiveAccount } from "@/lib/account.functions";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export function AccountSwitcher() {
   const fetchProfile = useServerFn(getMyProfile);
@@ -26,7 +27,17 @@ export function AccountSwitcher() {
   async function switchTo(account: "real" | "demo") {
     if (account === active) { setOpen(false); return; }
     try {
-      await setAccount({ data: { account } });
+      try {
+        await setAccount({ data: { account } });
+      } catch {
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) throw new Error("Please sign in again");
+        const { error } = await supabase
+          .from("profiles")
+          .update({ active_account: account })
+          .eq("id", user.user.id);
+        if (error) throw error;
+      }
       qc.invalidateQueries({ queryKey: ["profile"] });
       toast.success(`Switched to ${account.toUpperCase()} account`);
       setOpen(false);
