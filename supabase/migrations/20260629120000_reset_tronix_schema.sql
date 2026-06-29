@@ -579,7 +579,7 @@ insert into public.polymarket_events (question, category, yes_price, no_price, v
   ('Will Fed cut rates by 25bps at next meeting?', 'Macro', 71, 29, 2400000, now() + interval '30 days'),
   ('Will BTC close above $120k this Friday?', 'Crypto', 62, 38, 184000, now() + interval '5 days'),
   ('Will EUR/USD trade above 1.16 today?', 'Forex', 55, 45, 340000, now() + interval '12 hours'),
-  ('Will OpenAI release GPT-6 in 2026?', 'Tech', 33, 67, 488000, '2026-12-31T00:00:00Z');
+  ('Will NVIDIA remain above $5T market cap through 2026?', 'Tech', 33, 67, 488000, '2026-12-31T00:00:00Z');
 
 create or replace view public.agent_rollups
 with (security_invoker = true) as
