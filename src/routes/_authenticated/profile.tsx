@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
 import { changePassword, updateProfile } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { User, KeyRound, ShieldCheck, Eye, EyeOff, Upload } from "lucide-react";
+import { User, KeyRound, ShieldCheck, Eye, EyeOff, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 
@@ -135,11 +135,11 @@ function ProfilePage() {
         </div>
         {kycStatus === "unverified" && (
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={submitKyc} className="py-2 rounded-lg bg-surface border border-border text-xs font-bold flex items-center justify-center gap-1.5">
-              <Upload className="h-3 w-3" /> Upload ID
+            <button disabled className="py-2 rounded-lg bg-surface border border-border text-xs font-bold flex items-center justify-center gap-1.5 opacity-60">
+              <Lock className="h-3 w-3" /> ID upload unavailable
             </button>
-            <button onClick={submitKyc} className="py-2 rounded-lg bg-surface border border-border text-xs font-bold flex items-center justify-center gap-1.5">
-              <Upload className="h-3 w-3" /> Upload selfie
+            <button disabled className="py-2 rounded-lg bg-surface border border-border text-xs font-bold flex items-center justify-center gap-1.5 opacity-60">
+              <Lock className="h-3 w-3" /> Selfie upload unavailable
             </button>
           </div>
         )}

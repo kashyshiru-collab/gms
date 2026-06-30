@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Users, TrendingUp, DollarSign, Plus, Search, X, Wallet } from "lucide-react";
+import { Eye, EyeOff, Shield, ShieldPlus, Users, TrendingUp, DollarSign, Plus, Search, X, Wallet } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAgent, creditAgentVirtual, listAgents, listClients } from "@/lib/admin.functions";
+import { createAdminAccount, createAgent, creditAgentVirtual, listAdmins, listAgents, listClients } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 interface Trade { id: string; user_id: string; module: string; market: string; stake: number; payout: number; status: string; account_type: string; created_at: string }
 
 function AdminPage() {
-  const [tab, setTab] = useState<"users" | "trades" | "agents">("users");
+  const [tab, setTab] = useState<"users" | "trades" | "agents" | "admins">("users");
 
   return (
     <div className="space-y-3">
@@ -38,8 +38,8 @@ function AdminPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 bg-card border border-border rounded-xl p-1">
-        {(["users", "trades", "agents"] as const).map((k) => (
+      <div className="grid grid-cols-4 gap-1 bg-card border border-border rounded-xl p-1">
+        {(["users", "trades", "agents", "admins"] as const).map((k) => (
           <button key={k} onClick={() => setTab(k)}
             className={"py-2 rounded-lg text-xs font-semibold " + (tab === k ? "bg-primary/15 text-primary" : "text-muted-foreground")}>
             {k[0].toUpperCase() + k.slice(1)}
@@ -50,6 +50,7 @@ function AdminPage() {
       {tab === "users" && <UsersTab />}
       {tab === "trades" && <TradesTab />}
       {tab === "agents" && <AgentsTab />}
+      {tab === "admins" && <AdminsTab />}
     </div>
   );
 }
@@ -268,6 +269,86 @@ function AgentsTab() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function AdminsTab() {
+  const adminsFn = useServerFn(listAdmins);
+  const create = useServerFn(createAdminAccount);
+  const qc = useQueryClient();
+  const { data: admins = [], isLoading } = useQuery({ queryKey: ["admin-admins"], queryFn: () => adminsFn() });
+
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const createMut = useMutation({
+    mutationFn: (vars: { fullName: string; email: string; password: string }) => create({ data: vars }),
+    onSuccess: (r) => {
+      toast.success(r.promotedExisting ? "Existing user promoted to admin" : "Admin account created");
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setConfirm("");
+      qc.invalidateQueries({ queryKey: ["admin-admins"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create admin"),
+  });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) {
+      toast.error("Admin password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    createMut.mutate({ fullName, email, password });
+  }
+
+  return (
+    <div className="space-y-3">
+      <form onSubmit={submit} className="bg-card border border-border rounded-xl p-3 space-y-2">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <ShieldPlus className="h-4 w-4 text-primary" /> Add admin
+        </div>
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" minLength={2} required
+          className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-sm outline-none focus:border-primary" />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" type="email" required
+          className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-sm outline-none focus:border-primary" />
+        <div className="relative">
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Temporary password" type={showPassword ? "text" : "password"} minLength={8} required
+            className="w-full px-3 py-2 pr-10 rounded-lg bg-surface border border-border text-sm outline-none focus:border-primary" />
+          <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        <input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" type="password" minLength={8} required
+          className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-sm outline-none focus:border-primary" />
+        <button disabled={createMut.isPending}
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm glow-primary disabled:opacity-50">
+          {createMut.isPending ? "Creating..." : "Create admin"}
+        </button>
+      </form>
+
+      <div className="bg-card border border-border rounded-xl divide-y divide-border">
+        {isLoading && <div className="p-6 text-center text-sm text-muted-foreground">Loading...</div>}
+        {!isLoading && (admins as any[]).length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No admins found.</div>}
+        {(admins as any[]).map((admin) => (
+          <div key={admin.id} className="flex items-center justify-between p-2.5 text-sm">
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold truncate">{admin.full_name || admin.username || admin.email}</div>
+              <div className="text-[10px] text-muted-foreground truncate">{admin.email}</div>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Joined {new Date(admin.created_at).toLocaleDateString()}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

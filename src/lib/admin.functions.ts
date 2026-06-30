@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { createAdminUser } from "@/lib/auth.functions";
 import { z } from "zod";
 
 // Inline admin gate (has_role EXECUTE is locked down to service_role only)
@@ -72,7 +73,7 @@ export const creditAgentVirtual = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Credit virtual money to agent's REAL balance, tag transaction as virtual
+    // Credit virtual money to agent's real balance, tag transaction as virtual.
     const { data: p, error: pErr } = await supabaseAdmin
       .from("profiles")
       .select("balance_usd")
@@ -87,10 +88,11 @@ export const creditAgentVirtual = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("transactions").insert({
       user_id: data.agent_user_id,
-      kind: "deposit",
-      method: "virtual_credit",
+      kind: "admin_credit",
+      method: "system",
       amount: data.amount_usd,
       currency: "USD",
+      amount_usd: data.amount_usd,
       status: "completed",
       account_type: "real",
       is_virtual: true,
@@ -140,6 +142,44 @@ export const listClients = createServerFn({ method: "GET" })
     if (data.search) q = q.or(`username.ilike.%${data.search}%,full_name.ilike.%${data.search}%`);
 
     const { data: profiles, error } = await q;
+    if (error) throw new Error(error.message);
+    return profiles ?? [];
+  });
+
+export const createAdminAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      email: z.string().email(),
+      password: z.string().min(8),
+      fullName: z.string().min(2).max(120),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    return createAdminUser(data);
+  });
+
+export const listAdmins = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: roles, error: rolesErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+    if (rolesErr) throw new Error(rolesErr.message);
+
+    const ids = (roles ?? []).map((row) => row.user_id);
+    if (ids.length === 0) return [];
+
+    const { data: profiles, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id,email,full_name,username,created_at")
+      .in("id", ids)
+      .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return profiles ?? [];
   });

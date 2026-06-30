@@ -48,11 +48,12 @@ function WalletPage() {
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
   const [method, setMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState("0793542051");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<Tx[]>([]);
 
   const activeAccount = (profile?.active_account ?? "real") as "real" | "demo";
+  const isDemoWithdrawal = tab === "withdraw" && activeAccount === "demo";
 
   useEffect(() => {
     if (tab !== "history") return;
@@ -107,6 +108,15 @@ function WalletPage() {
       account: activeAccount,
       phone,
     });
+    if (activeAccount === "demo") {
+      logDebugEvent("warn", "wallet.withdraw", "Blocked demo withdrawal", {
+        method,
+        amount: amt,
+      });
+      toast.error("Demo funds cannot be withdrawn. Switch to your real account to withdraw.");
+      return;
+    }
+
     if (!amt || amt < (method === "mpesa" ? MIN_KSH : MIN_USD)) {
       logDebugEvent("warn", "wallet.withdraw", "Withdraw validation failed", {
         method,
@@ -234,9 +244,15 @@ function WalletPage() {
             </div>
           )}
 
+          {isDemoWithdrawal && (
+            <div className="rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-semibold text-bear">
+              Demo funds cannot be withdrawn. Switch to your real account to withdraw.
+            </div>
+          )}
+
           <button
             onClick={tab === "deposit" ? deposit : withdraw}
-            disabled={busy}
+            disabled={busy || isDemoWithdrawal}
             className={
               "w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 " +
               (tab === "deposit"
@@ -248,6 +264,8 @@ function WalletPage() {
               ? "Processing..."
               : tab === "deposit"
                 ? `Deposit ${method === "mpesa" ? "KSh" : "$"}${amount || 0}`
+                : isDemoWithdrawal
+                  ? "Demo withdrawals disabled"
                 : `Withdraw ${method === "mpesa" ? "KSh" : "$"}${amount || 0}`}
           </button>
         </>
@@ -314,7 +332,15 @@ function WalletPage() {
 }
 
 function errorMessage(error: unknown) {
-  return getErrorMessage(error, "Request failed. Check your payment settings and try again.");
+  const message = getErrorMessage(error, "Request failed. Please try again.");
+  if (
+    /daraja|access token|oauth|provider|stk|b2c|environment variable|consumer|passkey|shortcode/i.test(
+      message,
+    )
+  ) {
+    return "Payment service is temporarily unavailable. Please try again shortly or contact support.";
+  }
+  return message;
 }
 
 function MethodCard({

@@ -11,6 +11,7 @@ export interface DebugEvent {
 }
 
 const STORAGE_KEY = "tronix.debug.events";
+const ENABLED_KEY = "tronix.debug.enabled";
 const MAX_EVENTS = 250;
 const REDACT_KEYS = ["password", "passkey", "token", "authorization", "credential", "secret"];
 
@@ -24,6 +25,8 @@ export function logDebugEvent(level: DebugLevel, scope: string, message: string,
     createdAt: new Date().toISOString(),
     path: typeof window !== "undefined" ? window.location.pathname : undefined,
   };
+
+  if (typeof window !== "undefined" && !isDebugLoggingEnabled()) return event;
 
   const method = level === "error" ? "error" : level === "warn" ? "warn" : "info";
   console[method](`[debug:${event.scope}] ${event.message}`, event);
@@ -51,6 +54,17 @@ export function clearDebugEvents() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new CustomEvent("tronix-debug-log-cleared"));
+}
+
+export function setDebugLoggingEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  if (enabled) window.localStorage.setItem(ENABLED_KEY, "1");
+  else window.localStorage.removeItem(ENABLED_KEY);
+}
+
+function isDebugLoggingEnabled() {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(ENABLED_KEY) === "1";
 }
 
 export function serializeError(error: unknown) {

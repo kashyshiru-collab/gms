@@ -64,6 +64,10 @@ export const createWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
+    if (data.account === "demo") {
+      throw new Error("Demo funds cannot be withdrawn. Switch to your real account to withdraw.");
+    }
+
     validateMoney("withdraw", data.method, data.amount, data.phone);
 
     const tx = await createWalletTransaction({
@@ -97,6 +101,10 @@ async function createWalletTransaction(input: {
   phone?: string;
 }) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  if (input.kind === "withdraw" && input.account === "demo") {
+    throw new Error("Demo funds cannot be withdrawn. Switch to your real account to withdraw.");
+  }
+
   const currency = input.method === "mpesa" ? "KSH" : "USD";
   const amountUsd = toUsd(input.amount, currency);
   const isVirtual = input.account === "demo";

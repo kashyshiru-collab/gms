@@ -8,6 +8,79 @@ const SignUpInput = z.object({
   referralCode: z.string().max(16).optional(),
 });
 
+const AdminSetupInput = z.object({
+  setupPassword: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().min(2).max(120),
+});
+
+const AdminSetupPasswordInput = z.object({
+  setupPassword: z.string().min(1),
+});
+
+export async function createAdminUser(data: {
+  email: string;
+  password: string;
+  fullName: string;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const email = data.email.trim().toLowerCase();
+  const fullName = data.fullName.trim();
+  const username = fullName.split(/\s+/)[0] || email.split("@")[0];
+
+  const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: data.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      username,
+    },
+  });
+
+  if (error) {
+    const existingAccount = /already registered|already been registered|already exists/i.test(error.message);
+    if (!existingAccount) throw error;
+
+    const { data: list, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+    if (listErr) throw listErr;
+    const existing = list.users.find((u) => u.email?.toLowerCase() === email);
+    if (!existing) throw error;
+
+    await supabaseAdmin.from("profiles").upsert({
+      id: existing.id,
+      email,
+      username,
+      full_name: fullName,
+      active_account: "real",
+    });
+    await supabaseAdmin.from("user_settings").upsert({ user_id: existing.id });
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert([{ user_id: existing.id, role: "client" }, { user_id: existing.id, role: "admin" }], { onConflict: "user_id,role" });
+
+    return { ok: true, userId: existing.id, email, promotedExisting: true };
+  }
+
+  if (!created.user) throw new Error("Admin account could not be created");
+
+  await supabaseAdmin.from("profiles").upsert({
+    id: created.user.id,
+    email,
+    username,
+    full_name: fullName,
+    demo_balance_usd: 10000,
+    active_account: "real",
+  });
+  await supabaseAdmin.from("user_settings").upsert({ user_id: created.user.id });
+  await supabaseAdmin
+    .from("user_roles")
+    .upsert([{ user_id: created.user.id, role: "client" }, { user_id: created.user.id, role: "admin" }], { onConflict: "user_id,role" });
+
+  return { ok: true, userId: created.user.id, email, promotedExisting: false };
+}
+
 export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SignUpInput.parse(d))
   .handler(async ({ data }) => {
@@ -54,5 +127,25 @@ export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
       });
     }
 
+    return { ok: true };
+  });
+
+export const createAdminWithSetupPassword = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => AdminSetupInput.parse(d))
+  .handler(async ({ data }) => {
+    const expected = process.env.ADMIN_SETUP_PASSWORD ?? "@12Incorrect";
+    if (data.setupPassword !== expected) throw new Error("Incorrect admin setup password");
+    return createAdminUser({
+      email: data.email,
+      password: data.password,
+      fullName: data.fullName,
+    });
+  });
+
+export const verifyAdminSetupPassword = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => AdminSetupPasswordInput.parse(d))
+  .handler(async ({ data }) => {
+    const expected = process.env.ADMIN_SETUP_PASSWORD ?? "@12Incorrect";
+    if (data.setupPassword !== expected) throw new Error("Incorrect admin setup password");
     return { ok: true };
   });
