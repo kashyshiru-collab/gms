@@ -1,21 +1,4 @@
--- Repair deployed RPC permissions and refresh PostgREST's schema cache.
--- This is intentionally non-destructive so it can be applied to an existing project.
-
-create or replace function public.has_role(_user_id uuid, _role public.app_role)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.user_roles
-    where user_id = _user_id
-      and role = _role
-      and _user_id = auth.uid()
-  );
-$$;
+-- Enforce wallet minimums at the RPC layer for existing deployments.
 
 create or replace function public.create_transaction(
   _kind public.transaction_kind,
@@ -109,8 +92,6 @@ begin
 end;
 $$;
 
-grant execute on function public.has_role(uuid, public.app_role) to authenticated;
-revoke execute on function public.has_role(uuid, public.app_role) from public, anon;
 grant execute on function public.create_transaction(
   public.transaction_kind,
   public.payment_method,

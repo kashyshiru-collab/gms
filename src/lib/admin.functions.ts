@@ -146,6 +146,24 @@ export const listClients = createServerFn({ method: "GET" })
     return profiles ?? [];
   });
 
+export const failStaleMpesaWithdrawals = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      older_than_minutes: z.number().int().min(1).max(60).default(2),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await (supabaseAdmin as any).rpc("fail_stale_mpesa_withdrawals", {
+      _older_than: `${data.older_than_minutes} minutes`,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, repaired: rows ?? [] };
+  });
+
 export const createAdminAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

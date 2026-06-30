@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Shield, ShieldPlus, Users, TrendingUp, DollarSign, Plus, Search, X, Wallet } from "lucide-react";
+import { Eye, EyeOff, RotateCcw, Shield, ShieldPlus, Users, TrendingUp, DollarSign, Plus, Search, X, Wallet } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAdminAccount, createAgent, creditAgentVirtual, listAdmins, listAgents, listClients } from "@/lib/admin.functions";
+import { createAdminAccount, createAgent, creditAgentVirtual, failStaleMpesaWithdrawals, listAdmins, listAgents, listClients } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 
@@ -25,6 +25,19 @@ interface Trade { id: string; user_id: string; module: string; market: string; s
 
 function AdminPage() {
   const [tab, setTab] = useState<"users" | "trades" | "agents" | "admins">("users");
+  const repairWithdrawals = useServerFn(failStaleMpesaWithdrawals);
+  const qc = useQueryClient();
+
+  const repairMut = useMutation({
+    mutationFn: () => repairWithdrawals({ data: { older_than_minutes: 2 } }),
+    onSuccess: (r) => {
+      const count = (r.repaired as any[]).length;
+      toast.success(count ? `Refunded ${count} stale withdrawal${count === 1 ? "" : "s"}` : "No stale withdrawals found");
+      qc.invalidateQueries({ queryKey: ["admin-clients"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Repair failed"),
+  });
 
   return (
     <div className="space-y-3">
@@ -37,6 +50,15 @@ function AdminPage() {
           <p className="text-[10px] text-muted-foreground">Operator view · clients, trades, agents, virtual credits</p>
         </div>
       </div>
+
+      <button
+        onClick={() => repairMut.mutate()}
+        disabled={repairMut.isPending}
+        className="w-full rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-bold text-bear disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        <RotateCcw className="h-4 w-4" />
+        {repairMut.isPending ? "Checking withdrawals..." : "Refund stale B2C withdrawals"}
+      </button>
 
       <div className="grid grid-cols-4 gap-1 bg-card border border-border rounded-xl p-1">
         {(["users", "trades", "agents", "admins"] as const).map((k) => (

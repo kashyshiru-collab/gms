@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
@@ -24,8 +24,10 @@ export const Route = createFileRoute("/_authenticated/wallet")({
 });
 
 const USD_TO_KSH = 130;
-const MIN_USD = 3;
-const MIN_KSH = MIN_USD * USD_TO_KSH;
+const MIN_DEPOSIT_USD = 3;
+const MIN_WITHDRAW_USD = 1;
+const MIN_DEPOSIT_KSH = MIN_DEPOSIT_USD * USD_TO_KSH;
+const MIN_WITHDRAW_KSH = MIN_WITHDRAW_USD * USD_TO_KSH;
 
 interface Tx {
   id: string;
@@ -55,15 +57,24 @@ function WalletPage() {
   const activeAccount = (profile?.active_account ?? "real") as "real" | "demo";
   const isDemoWithdrawal = tab === "withdraw" && activeAccount === "demo";
 
-  useEffect(() => {
-    if (tab !== "history") return;
-    supabase
+  const loadHistory = useCallback(async () => {
+    const { data } = await supabase
       .from("transactions")
       .select("id, kind, method, amount, currency, status, account_type, created_at")
       .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => setHistory((data ?? []) as Tx[]));
-  }, [tab]);
+      .limit(50);
+    setHistory((data ?? []) as Tx[]);
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "history") return;
+    loadHistory();
+    const id = window.setInterval(() => {
+      loadHistory();
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [loadHistory, qc, tab]);
 
   async function deposit() {
     const amt = Number(amount);
@@ -73,9 +84,10 @@ function WalletPage() {
       account: activeAccount,
       phone,
     });
-    if (!amt || amt < (method === "mpesa" ? MIN_KSH : MIN_USD)) {
+    const minimum = minimumAmount("deposit", method);
+    if (!amt || amt < minimum) {
       logDebugEvent("warn", "wallet.deposit", "Deposit validation failed", { method, amount: amt });
-      toast.error(`Minimum deposit ${method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}`);
+      toast.error(`Minimum deposit ${minimumLabel("deposit", method)}`);
       return;
     }
 
@@ -117,12 +129,13 @@ function WalletPage() {
       return;
     }
 
-    if (!amt || amt < (method === "mpesa" ? MIN_KSH : MIN_USD)) {
+    const minimum = minimumAmount("withdraw", method);
+    if (!amt || amt < minimum) {
       logDebugEvent("warn", "wallet.withdraw", "Withdraw validation failed", {
         method,
         amount: amt,
       });
-      toast.error(`Minimum withdrawal ${method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}`);
+      toast.error(`Minimum withdrawal ${minimumLabel("withdraw", method)}`);
       return;
     }
 
@@ -132,8 +145,14 @@ function WalletPage() {
         data: { method, amount: amt, account: activeAccount, phone },
       });
       logDebugEvent("info", "wallet.withdraw", "Withdraw request succeeded", result);
-      toast.success("Withdrawal request submitted - processing in 1-24h");
+      toast.success(
+        method === "mpesa"
+          ? "Withdrawal pending. Waiting for Safaricom approval."
+          : "Withdrawal submitted.",
+      );
       setAmount("");
+      setTab("history");
+      loadHistory();
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
       logDebugEvent("error", "wallet.withdraw", "Withdraw request failed", serializeError(e));
@@ -196,7 +215,7 @@ function WalletPage() {
               onClick={() => setMethod("mpesa")}
               icon={<Smartphone className="h-5 w-5" />}
               title="M-Pesa"
-              sub="STK Push"
+              sub={tab === "withdraw" ? "B2C payout" : "STK Push"}
             />
             <MethodCard
               active={method === "crypto"}
@@ -218,13 +237,13 @@ function WalletPage() {
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={method === "mpesa" ? String(MIN_KSH) : String(MIN_USD)}
+                placeholder={String(minimumAmount(tab, method))}
                 inputMode="numeric"
                 className="flex-1 bg-transparent outline-none font-bold text-base tabular-nums"
               />
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground">
-              Minimum {method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}
+              Minimum {minimumLabel(tab, method)}
             </div>
           </div>
 
@@ -313,7 +332,9 @@ function WalletPage() {
                     {t.currency === "KSH" ? "KSh" : "$"}
                     {Number(t.amount).toFixed(2)}
                   </div>
-                  <div className="text-[10px] text-muted-foreground capitalize">{t.status}</div>
+                  <div className="text-[10px] text-muted-foreground capitalize">
+                    {statusLabel(t)}
+                  </div>
                 </div>
               </div>
             );
@@ -329,6 +350,29 @@ function WalletPage() {
       </button>
     </div>
   );
+}
+
+function statusLabel(tx: Tx) {
+  if (tx.kind === "withdraw" && tx.method === "mpesa" && ["pending", "processing"].includes(tx.status)) {
+    return "pending Safaricom";
+  }
+  if (tx.kind === "withdraw" && tx.method === "mpesa" && tx.status === "completed") {
+    return "successful";
+  }
+  if (tx.kind === "withdraw" && tx.method === "mpesa" && ["failed", "cancelled"].includes(tx.status)) {
+    return "failed";
+  }
+  return tx.status;
+}
+
+function minimumAmount(kind: "deposit" | "withdraw", method: "mpesa" | "crypto") {
+  if (kind === "deposit") return method === "mpesa" ? MIN_DEPOSIT_KSH : MIN_DEPOSIT_USD;
+  return method === "mpesa" ? MIN_WITHDRAW_KSH : MIN_WITHDRAW_USD;
+}
+
+function minimumLabel(kind: "deposit" | "withdraw", method: "mpesa" | "crypto") {
+  const amount = minimumAmount(kind, method);
+  return method === "mpesa" ? `KSh ${amount}` : `$${amount}`;
 }
 
 function errorMessage(error: unknown) {

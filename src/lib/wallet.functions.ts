@@ -3,8 +3,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const USD_TO_KSH = 130;
-const MIN_USD = 3;
-const MIN_KSH = MIN_USD * USD_TO_KSH;
+const MIN_DEPOSIT_USD = 3;
+const MIN_WITHDRAW_USD = 1;
+const MIN_DEPOSIT_KSH = MIN_DEPOSIT_USD * USD_TO_KSH;
+const MIN_WITHDRAW_KSH = MIN_WITHDRAW_USD * USD_TO_KSH;
 
 const MoneyInput = z.object({
   method: z.enum(["mpesa", "crypto"]),
@@ -210,7 +212,13 @@ async function sendB2cPayment(transaction: WalletTransaction, phone?: string) {
 
   const response = await darajaRequest("/mpesa/b2c/v1/paymentrequest", payload, "b2c");
   await recordPaymentRequest(transaction.id, "b2c", msisdn, payload, response);
-  await markTransaction(transaction.id, "processing", { daraja_request_sent: true });
+  await markTransaction(transaction.id, "processing", {
+    daraja_request_sent: true,
+    b2c_request_accepted: true,
+    conversation_id: response.ConversationID ?? null,
+    originator_conversation_id: response.OriginatorConversationID ?? null,
+    response_description: response.ResponseDescription ?? null,
+  });
   return response;
 }
 
@@ -320,12 +328,14 @@ function validateMoney(
   amount: number,
   phone?: string,
 ) {
-  const minimum = method === "mpesa" ? MIN_KSH : MIN_USD;
+  const minUsd = kind === "deposit" ? MIN_DEPOSIT_USD : MIN_WITHDRAW_USD;
+  const minKsh = kind === "deposit" ? MIN_DEPOSIT_KSH : MIN_WITHDRAW_KSH;
+  const minimum = method === "mpesa" ? minKsh : minUsd;
   if (amount < minimum) {
     throw new Error(
       method === "mpesa"
-        ? `Minimum ${kind} is KSh ${MIN_KSH} ($${MIN_USD})`
-        : `Minimum ${kind} is $${MIN_USD}`,
+        ? `Minimum ${kind} is KSh ${minKsh} ($${minUsd})`
+        : `Minimum ${kind} is $${minUsd}`,
     );
   }
   if (method === "mpesa") normalizeKenyanPhone(phone);

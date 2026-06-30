@@ -485,6 +485,12 @@ begin
   end if;
 
   _amount_usd := case when upper(_currency) = 'KSH' then round((_amount / 130.0)::numeric, 2) else round(_amount::numeric, 2) end;
+  if _kind = 'deposit' and _amount_usd < 3 then
+    raise exception 'Minimum deposit is $3';
+  end if;
+  if _kind = 'withdraw' and _amount_usd < 1 then
+    raise exception 'Minimum withdrawal is $1';
+  end if;
   _virtual := _account = 'demo';
 
   if _kind = 'withdraw' then
