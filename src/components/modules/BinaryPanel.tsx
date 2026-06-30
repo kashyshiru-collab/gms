@@ -90,7 +90,7 @@ const VOL_INDICES = [
 const TYPES = ["Buy/Sell", "Even/Odd", "Matches/Differs", "Over/Under"] as const;
 type TradeType = (typeof TYPES)[number];
 const QUICK = [1, 5, 10, 25, 50, 100];
-const WIN_PROFIT_RATE = 0.06;
+const WIN_PROFIT_RATE = 0.2;
 const WIN_PAYOUT_MULTIPLIER = 1 + WIN_PROFIT_RATE;
 
 type Tick = { d: number; tone: "neutral" | "bull" | "bear" };

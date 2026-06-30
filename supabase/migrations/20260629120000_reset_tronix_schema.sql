@@ -404,7 +404,7 @@ create or replace function public.settle_trade(
   _trade_id uuid,
   _won boolean,
   _exit_price numeric default null,
-  _multiplier numeric default 1.06
+  _multiplier numeric default 1.20
 )
 returns jsonb
 language plpgsql
