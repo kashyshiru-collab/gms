@@ -123,7 +123,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: repaired } = await supabaseAdmin
             .from("profiles")
-            .update({ demo_balance_usd: 10000, active_account: "demo" })
+            .update({ demo_balance_usd: 10000, active_account: "real" })
             .eq("id", context.userId)
             .select("*")
             .single();
@@ -154,7 +154,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
         username,
         full_name: fullName,
         demo_balance_usd: 10000,
-        active_account: "demo",
+        active_account: "real",
       })
       .select("*")
       .single();

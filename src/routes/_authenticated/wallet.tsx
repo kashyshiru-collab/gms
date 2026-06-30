@@ -23,6 +23,10 @@ export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
 });
 
+const USD_TO_KSH = 130;
+const MIN_USD = 3;
+const MIN_KSH = MIN_USD * USD_TO_KSH;
+
 interface Tx {
   id: string;
   kind: string;
@@ -48,7 +52,7 @@ function WalletPage() {
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<Tx[]>([]);
 
-  const activeAccount = (profile?.active_account ?? "demo") as "real" | "demo";
+  const activeAccount = (profile?.active_account ?? "real") as "real" | "demo";
 
   useEffect(() => {
     if (tab !== "history") return;
@@ -68,9 +72,9 @@ function WalletPage() {
       account: activeAccount,
       phone,
     });
-    if (!amt || amt < (method === "mpesa" ? 100 : 1)) {
+    if (!amt || amt < (method === "mpesa" ? MIN_KSH : MIN_USD)) {
       logDebugEvent("warn", "wallet.deposit", "Deposit validation failed", { method, amount: amt });
-      toast.error(`Minimum deposit ${method === "mpesa" ? "KSh 100" : "$1"}`);
+      toast.error(`Minimum deposit ${method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}`);
       return;
     }
 
@@ -103,12 +107,12 @@ function WalletPage() {
       account: activeAccount,
       phone,
     });
-    if (!amt || amt < (method === "mpesa" ? 100 : 5)) {
+    if (!amt || amt < (method === "mpesa" ? MIN_KSH : MIN_USD)) {
       logDebugEvent("warn", "wallet.withdraw", "Withdraw validation failed", {
         method,
         amount: amt,
       });
-      toast.error(`Minimum withdrawal ${method === "mpesa" ? "KSh 100" : "$5"}`);
+      toast.error(`Minimum withdrawal ${method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}`);
       return;
     }
 
@@ -149,7 +153,7 @@ function WalletPage() {
         </div>
         <div className="text-3xl font-extrabold tabular-nums">${balUSD.toFixed(2)}</div>
         <div className="text-xs text-muted-foreground mt-0.5">
-          ~ KSh {(balUSD * 130).toFixed(0)}
+          ~ KSh {(balUSD * USD_TO_KSH).toFixed(0)}
         </div>
       </div>
 
@@ -204,10 +208,13 @@ function WalletPage() {
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
+                placeholder={method === "mpesa" ? String(MIN_KSH) : String(MIN_USD)}
                 inputMode="numeric"
                 className="flex-1 bg-transparent outline-none font-bold text-base tabular-nums"
               />
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              Minimum {method === "mpesa" ? `KSh ${MIN_KSH}` : `$${MIN_USD}`}
             </div>
           </div>
 

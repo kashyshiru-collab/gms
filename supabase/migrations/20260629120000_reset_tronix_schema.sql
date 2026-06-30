@@ -96,7 +96,7 @@ create table public.profiles (
   balance_usd numeric(18,2) not null default 0 check (balance_usd >= 0),
   demo_balance_usd numeric(18,2) not null default 10000.00 check (demo_balance_usd >= 0),
   balance_ksh numeric(18,2) not null default 0 check (balance_ksh >= 0),
-  active_account public.account_type not null default 'demo',
+  active_account public.account_type not null default 'real',
   kyc_status public.kyc_status not null default 'not_started',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -567,6 +567,20 @@ begin
       update public.profiles
       set demo_balance_usd = demo_balance_usd + _tx.amount_usd,
           balance_ksh = balance_ksh + case when _tx.currency = 'KSH' then _tx.amount else 0 end
+      where id = _tx.user_id;
+    end if;
+  end if;
+
+  if _tx.kind = 'withdraw'
+     and _tx.status not in ('failed', 'cancelled')
+     and _status in ('failed', 'cancelled') then
+    if _tx.account_type = 'real' then
+      update public.profiles
+      set balance_usd = balance_usd + _tx.amount_usd
+      where id = _tx.user_id;
+    else
+      update public.profiles
+      set demo_balance_usd = demo_balance_usd + _tx.amount_usd
       where id = _tx.user_id;
     end if;
   end if;

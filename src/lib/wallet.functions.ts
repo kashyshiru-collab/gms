@@ -2,6 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+const USD_TO_KSH = 130;
+const MIN_USD = 3;
+const MIN_KSH = MIN_USD * USD_TO_KSH;
+
 const MoneyInput = z.object({
   method: z.enum(["mpesa", "crypto"]),
   amount: z.number().positive().max(10_000_000),
@@ -9,52 +13,46 @@ const MoneyInput = z.object({
   phone: z.string().optional(),
 });
 
-type RpcClient = {
-  rpc: (
-    name: string,
-    args?: Record<string, unknown>,
-  ) => Promise<{ data: WalletTransaction; error: { message?: string } | null }>;
-};
+type TransactionKind = "deposit" | "withdraw";
+type PaymentRequestType = "stk_push" | "b2c";
 
 type WalletTransaction = {
   id: string;
+  user_id: string;
+  kind: TransactionKind;
+  method: "mpesa" | "crypto";
   amount: number | string;
+  currency: "KSH" | "USD";
+  amount_usd: number | string;
+  account_type: "real" | "demo";
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  meta?: Record<string, unknown> | null;
 };
+
+type DarajaMode = "stk" | "b2c";
 
 export const createDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
-    const currency = data.method === "mpesa" ? "KSH" : "USD";
-    const { data: tx, error } = await (context.supabase as unknown as RpcClient).rpc(
-      "create_transaction",
-      {
-        _kind: "deposit",
-        _method: data.method,
-        _amount: data.amount,
-        _currency: currency,
-        _account: data.account,
-        _phone: data.phone ?? null,
-        _meta: {},
-        _provider_reference: null,
-      },
-    );
-    if (error) {
-      console.error("[Wallet] create deposit transaction failed", error);
-      throw new Error(`Could not create deposit transaction: ${error.message ?? String(error)}`);
-    }
+    validateMoney("deposit", data.method, data.amount, data.phone);
+
+    const tx = await createWalletTransaction({
+      userId: context.userId,
+      kind: "deposit",
+      method: data.method,
+      amount: data.amount,
+      account: data.account,
+      phone: data.phone,
+    });
 
     if (data.method === "mpesa" && data.account === "real") {
       try {
-        return await startDarajaStkPush(tx, data.phone);
-      } catch (e) {
-        console.error("[Daraja] STK push failed", e);
-        try {
-          await markTransactionFailed(tx.id, e);
-        } catch (markError) {
-          console.error("[Daraja] Could not mark failed transaction", markError);
-        }
-        throw e;
+        const daraja = await sendStkPush(tx, data.phone);
+        return { ok: true, transaction: tx, daraja };
+      } catch (error) {
+        await markTransaction(tx.id, "failed", { provider_error: getErrorMessage(error) });
+        throw error;
       }
     }
 
@@ -65,43 +63,104 @@ export const createWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
-    const currency = data.method === "mpesa" ? "KSH" : "USD";
-    const { data: tx, error } = await (context.supabase as unknown as RpcClient).rpc(
-      "create_transaction",
-      {
-        _kind: "withdraw",
-        _method: data.method,
-        _amount: data.amount,
-        _currency: currency,
-        _account: data.account,
-        _phone: data.phone ?? null,
-        _meta: {},
-        _provider_reference: null,
-      },
-    );
-    if (error) {
-      console.error("[Wallet] create withdrawal transaction failed", error);
-      throw new Error(`Could not create withdrawal transaction: ${error.message ?? String(error)}`);
-    }
+    validateMoney("withdraw", data.method, data.amount, data.phone);
+
+    const tx = await createWalletTransaction({
+      userId: context.userId,
+      kind: "withdraw",
+      method: data.method,
+      amount: data.amount,
+      account: data.account,
+      phone: data.phone,
+    });
 
     if (data.method === "mpesa" && data.account === "real") {
-      return startDarajaB2C(tx, data.phone);
+      try {
+        const daraja = await sendB2cPayment(tx, data.phone);
+        return { ok: true, transaction: tx, daraja };
+      } catch (error) {
+        await markTransaction(tx.id, "failed", { provider_error: getErrorMessage(error) });
+        throw error;
+      }
     }
 
     return { ok: true, transaction: tx };
   });
 
-async function startDarajaStkPush(transaction: WalletTransaction, phone?: string) {
+async function createWalletTransaction(input: {
+  userId: string;
+  kind: TransactionKind;
+  method: "mpesa" | "crypto";
+  amount: number;
+  account: "real" | "demo";
+  phone?: string;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const currency = input.method === "mpesa" ? "KSH" : "USD";
+  const amountUsd = toUsd(input.amount, currency);
+  const isVirtual = input.account === "demo";
+  const providerPending = input.method === "mpesa" && input.account === "real";
+  const status = providerPending ? "pending" : "completed";
+
+  if (input.kind === "withdraw") {
+    const { data: profile, error } = await supabaseAdmin
+      .from("profiles")
+      .select("balance_usd, demo_balance_usd")
+      .eq("id", input.userId)
+      .single();
+    if (error || !profile) throw new Error("Profile not found");
+
+    const balance =
+      input.account === "real"
+        ? Number(profile.balance_usd ?? 0)
+        : Number(profile.demo_balance_usd ?? 0);
+    if (balance < amountUsd) throw new Error("Insufficient balance");
+
+    await adjustBalance(input.userId, input.account, -amountUsd, currency, 0);
+  }
+
+  const { data: tx, error } = await supabaseAdmin
+    .from("transactions")
+    .insert({
+      user_id: input.userId,
+      kind: input.kind,
+      method: input.method,
+      account_type: input.account,
+      amount: input.amount,
+      currency,
+      amount_usd: amountUsd,
+      status,
+      is_virtual: isVirtual,
+      meta: {
+        phone: input.method === "mpesa" ? normalizeKenyanPhone(input.phone) : null,
+        usd_to_ksh: USD_TO_KSH,
+      },
+    } as Record<string, unknown>)
+    .select("*")
+    .single();
+  if (error || !tx) throw new Error(error?.message ?? "Could not create transaction");
+
+  if (input.kind === "deposit" && status === "completed") {
+    await adjustBalance(
+      input.userId,
+      input.account,
+      amountUsd,
+      currency,
+      currency === "KSH" ? input.amount : 0,
+    );
+  }
+
+  return tx as WalletTransaction;
+}
+
+async function sendStkPush(transaction: WalletTransaction, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
   const env = getDarajaEnv("stk");
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-:TZ.]/g, "")
-    .slice(0, 14);
+  const timestamp = darajaTimestamp();
   const password = Buffer.from(`${env.stkShortcode}${env.stkPasskey}${timestamp}`).toString(
     "base64",
   );
-  const body = {
+  const payload = {
     BusinessShortCode: env.stkShortcode,
     Password: password,
     Timestamp: timestamp,
@@ -115,24 +174,22 @@ async function startDarajaStkPush(transaction: WalletTransaction, phone?: string
     TransactionDesc: "TRONIXOPTION deposit",
   };
 
-  const response = await darajaFetch("/mpesa/stkpush/v1/processrequest", body, "stk");
+  const response = await darajaRequest("/mpesa/stkpush/v1/processrequest", payload, "stk");
   if (response.ResponseCode && response.ResponseCode !== "0") {
-    console.error("[Daraja] STK rejected", response);
-    throw new Error(
-      response.ResponseDescription ?? response.errorMessage ?? "Daraja rejected STK push",
-    );
+    throw new Error(response.ResponseDescription ?? response.errorMessage ?? "STK push rejected");
   }
-  await recordPaymentRequest(transaction.id, "stk_push", msisdn, body, response);
-  return { ok: true, transaction, daraja: response };
+
+  await recordPaymentRequest(transaction.id, "stk_push", msisdn, payload, response);
+  return response;
 }
 
-async function startDarajaB2C(transaction: WalletTransaction, phone?: string) {
+async function sendB2cPayment(transaction: WalletTransaction, phone?: string) {
   const msisdn = normalizeKenyanPhone(phone);
   const env = getDarajaEnv("b2c");
-  const body = {
+  const payload = {
     InitiatorName: env.b2cInitiatorName,
     SecurityCredential: env.b2cSecurityCredential,
-    CommandID: "BusinessPayment",
+    CommandID: env.b2cCommandId,
     Amount: Math.round(Number(transaction.amount)),
     PartyA: env.b2cShortcode,
     PartyB: msisdn,
@@ -142,12 +199,13 @@ async function startDarajaB2C(transaction: WalletTransaction, phone?: string) {
     Occasion: `TRONIX-${transaction.id.slice(0, 8)}`,
   };
 
-  const response = await darajaFetch("/mpesa/b2c/v1/paymentrequest", body, "b2c");
-  await recordPaymentRequest(transaction.id, "b2c", msisdn, body, response);
-  return { ok: true, transaction, daraja: response };
+  const response = await darajaRequest("/mpesa/b2c/v1/paymentrequest", payload, "b2c");
+  await recordPaymentRequest(transaction.id, "b2c", msisdn, payload, response);
+  await markTransaction(transaction.id, "processing", { daraja_request_sent: true });
+  return response;
 }
 
-async function darajaFetch(path: string, body: Record<string, unknown>, mode: "stk" | "b2c") {
+async function darajaRequest(path: string, payload: Record<string, unknown>, mode: DarajaMode) {
   const env = getDarajaEnv(mode);
   const token = await getDarajaToken(mode);
   const res = await fetch(`${env.baseUrl}${path}`, {
@@ -156,29 +214,21 @@ async function darajaFetch(path: string, body: Record<string, unknown>, mode: "s
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    console.error("[Daraja] HTTP request failed", {
-      mode,
-      path,
-      status: res.status,
-      response: json,
-    });
     throw new Error(
-      `Daraja ${mode.toUpperCase()} request failed (${res.status}): ${
-        json.errorMessage ??
+      json.errorMessage ??
         json.error_description ??
         json.ResponseDescription ??
-        "No response message"
-      }`,
+        `Daraja ${mode.toUpperCase()} request failed with ${res.status}`,
     );
   }
-  return json;
+  return json as Record<string, unknown>;
 }
 
-async function getDarajaToken(mode: "stk" | "b2c") {
+async function getDarajaToken(mode: DarajaMode) {
   const env = getDarajaEnv(mode);
   const credentials = Buffer.from(`${env.consumerKey}:${env.consumerSecret}`).toString("base64");
   const res = await fetch(`${env.baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
@@ -186,25 +236,70 @@ async function getDarajaToken(mode: "stk" | "b2c") {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.access_token) {
-    console.error("[Daraja] Token request failed", { mode, status: res.status, response: json });
     throw new Error(
-      `Could not authenticate with Daraja ${mode.toUpperCase()} (${res.status}): ${
-        json.errorMessage ?? json.error_description ?? "No access token returned"
-      }`,
+      json.errorMessage ??
+        json.error_description ??
+        `Could not authenticate Daraja ${mode.toUpperCase()}`,
     );
   }
   return json.access_token as string;
 }
 
+async function adjustBalance(
+  userId: string,
+  account: "real" | "demo",
+  usdDelta: number,
+  currency: "KSH" | "USD",
+  kshDelta: number,
+) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile, error } = await supabaseAdmin
+    .from("profiles")
+    .select("balance_usd, demo_balance_usd, balance_ksh")
+    .eq("id", userId)
+    .single();
+  if (error || !profile) throw new Error("Profile not found");
+
+  const update =
+    account === "real"
+      ? {
+          balance_usd: Number(profile.balance_usd ?? 0) + usdDelta,
+          balance_ksh: Number(profile.balance_ksh ?? 0) + (currency === "KSH" ? kshDelta : 0),
+        }
+      : {
+          demo_balance_usd: Number(profile.demo_balance_usd ?? 0) + usdDelta,
+          balance_ksh: Number(profile.balance_ksh ?? 0) + (currency === "KSH" ? kshDelta : 0),
+        };
+
+  const { error: updateError } = await supabaseAdmin
+    .from("profiles")
+    .update(update as Record<string, unknown>)
+    .eq("id", userId);
+  if (updateError) throw new Error(updateError.message);
+}
+
+async function markTransaction(
+  transactionId: string,
+  status: WalletTransaction["status"],
+  meta: Record<string, unknown>,
+) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.rpc("apply_transaction", {
+    _transaction_id: transactionId,
+    _status: status,
+    _meta: meta,
+  });
+}
+
 async function recordPaymentRequest(
   transactionId: string,
-  requestType: "stk_push" | "b2c",
+  requestType: PaymentRequestType,
   phone: string,
   requestPayload: Record<string, unknown>,
   responsePayload: Record<string, unknown>,
 ) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  await supabaseAdmin.from("payment_requests").insert({
+  const { error } = await supabaseAdmin.from("payment_requests").insert({
     transaction_id: transactionId,
     request_type: requestType,
     phone,
@@ -215,18 +310,32 @@ async function recordPaymentRequest(
     request_payload: requestPayload,
     response_payload: responsePayload,
   } as Record<string, unknown>);
+  if (error) throw new Error(error.message);
 }
 
-async function markTransactionFailed(transactionId: string, error: unknown) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  await (supabaseAdmin as unknown as RpcClient).rpc("apply_transaction", {
-    _transaction_id: transactionId,
-    _status: "failed",
-    _meta: {
-      provider_error: error instanceof Error ? error.message : String(error),
-      failed_at: new Date().toISOString(),
-    },
-  });
+function validateMoney(
+  kind: TransactionKind,
+  method: "mpesa" | "crypto",
+  amount: number,
+  phone?: string,
+) {
+  const minimum = method === "mpesa" ? MIN_KSH : MIN_USD;
+  if (amount < minimum) {
+    throw new Error(
+      method === "mpesa"
+        ? `Minimum ${kind} is KSh ${MIN_KSH} ($${MIN_USD})`
+        : `Minimum ${kind} is $${MIN_USD}`,
+    );
+  }
+  if (method === "mpesa") normalizeKenyanPhone(phone);
+}
+
+function toUsd(amount: number, currency: "KSH" | "USD") {
+  return currency === "KSH" ? roundMoney(amount / USD_TO_KSH) : roundMoney(amount);
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function normalizeKenyanPhone(phone?: string) {
@@ -237,8 +346,15 @@ function normalizeKenyanPhone(phone?: string) {
   throw new Error("Enter a valid Kenyan Safaricom number");
 }
 
-function getDarajaEnv(mode: "stk" | "b2c") {
-  const baseUrl = process.env.DARAJA_BASE_URL ?? "https://api.safaricom.co.ke";
+function darajaTimestamp() {
+  return new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+}
+
+function getDarajaEnv(mode: DarajaMode) {
+  const baseUrl = process.env.DARAJA_BASE_URL ?? "https://sandbox.safaricom.co.ke";
   const appUrl = getPublicAppUrl();
   const shared = {
     consumerKey: process.env.DARAJA_CONSUMER_KEY,
@@ -253,6 +369,7 @@ function getDarajaEnv(mode: "stk" | "b2c") {
     b2cInitiatorName: process.env.DARAJA_B2C_INITIATOR_NAME,
     b2cSecurityCredential: process.env.DARAJA_B2C_SECURITY_CREDENTIAL,
     b2cShortcode: process.env.DARAJA_B2C_SHORTCODE,
+    b2cCommandId: process.env.DARAJA_B2C_COMMAND_ID ?? "BusinessPayment",
     b2cResultUrl: process.env.DARAJA_B2C_RESULT_URL ?? `${appUrl}/api/daraja/b2c-result`,
     b2cTimeoutUrl: process.env.DARAJA_B2C_TIMEOUT_URL ?? `${appUrl}/api/daraja/b2c-timeout`,
   };
@@ -261,10 +378,7 @@ function getDarajaEnv(mode: "stk" | "b2c") {
     .filter(([, value]) => !value)
     .map(([key]) => key);
   if (missing.length) {
-    console.error("[Daraja] Missing environment variables", { mode, missing });
-    throw new Error(
-      `Missing Daraja environment variable(s): ${missing.join(", ")}. Set them in Vercel and your local .env file.`,
-    );
+    throw new Error(`Missing Daraja environment variable(s): ${missing.join(", ")}`);
   }
   return { baseUrl, ...(required as Record<string, string>) };
 }
@@ -274,13 +388,9 @@ function getPublicAppUrl() {
     process.env.DARAJA_PUBLIC_BASE_URL ?? process.env.PUBLIC_APP_URL ?? process.env.APP_URL;
   if (explicit) return explicit.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  console.error("[Daraja] Missing public app URL", {
-    hasDarajaPublicBaseUrl: Boolean(process.env.DARAJA_PUBLIC_BASE_URL),
-    hasPublicAppUrl: Boolean(process.env.PUBLIC_APP_URL),
-    hasAppUrl: Boolean(process.env.APP_URL),
-    hasVercelUrl: Boolean(process.env.VERCEL_URL),
-  });
-  throw new Error(
-    "Missing public app URL for Daraja callbacks. Set DARAJA_PUBLIC_BASE_URL or APP_URL.",
-  );
+  throw new Error("Missing public app URL. Set DARAJA_PUBLIC_BASE_URL or APP_URL.");
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

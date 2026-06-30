@@ -5,56 +5,69 @@ export const Route = createFileRoute("/api/daraja/b2c-result")({
     handlers: {
       POST: async ({ request }) => {
         const payload = await request.json().catch(() => ({}));
-        const result = payload?.Result ?? {};
-        await recordB2cCallback(payload, result, "b2c");
+        await handleB2cCallback(payload, "b2c");
         return Response.json({ ResultCode: 0, ResultDesc: "Accepted" });
       },
     },
   },
 });
 
-async function recordB2cCallback(payload: any, result: any, callbackType: string) {
+async function handleB2cCallback(
+  payload: Record<string, unknown>,
+  callbackType: "b2c" | "b2c_timeout",
+) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const conversationId = result.ConversationID;
-  const originatorConversationId = result.OriginatorConversationID;
+  const result = getRecord(payload.Result);
+  const conversationId = getString(result.ConversationID);
+  const originatorConversationId = getString(result.OriginatorConversationID);
   const resultCode = Number(result.ResultCode ?? -1);
-  const resultDescription = result.ResultDesc ?? "B2C callback received";
+  const resultDescription = getString(result.ResultDesc) ?? "B2C callback received";
 
-  let query = supabaseAdmin
-    .from("payment_requests")
-    .select("id, transaction_id")
-    .limit(1);
-
-  if (conversationId) {
-    query = query.eq("conversation_id", conversationId);
-  } else if (originatorConversationId) {
+  let query = supabaseAdmin.from("payment_requests").select("id, transaction_id").limit(1);
+  if (conversationId) query = query.eq("conversation_id", conversationId);
+  else if (originatorConversationId) {
     query = query.eq("originator_conversation_id", originatorConversationId);
   } else {
     query = query.eq("id", "00000000-0000-0000-0000-000000000000");
   }
 
-  const { data } = await query.maybeSingle();
+  const { data: paymentRequest } = await query.maybeSingle();
 
   await supabaseAdmin.from("daraja_callbacks").insert({
-    payment_request_id: data?.id ?? null,
-    transaction_id: data?.transaction_id ?? null,
+    payment_request_id: paymentRequest?.id ?? null,
+    transaction_id: paymentRequest?.transaction_id ?? null,
     callback_type: callbackType,
     conversation_id: conversationId ?? null,
     result_code: resultCode,
     result_description: resultDescription,
     payload,
-  } as any);
+  } as Record<string, unknown>);
 
-  if (!data?.transaction_id) return;
+  if (!paymentRequest?.transaction_id) return;
 
   const status = resultCode === 0 ? "completed" : "failed";
   await supabaseAdmin.rpc("apply_transaction", {
-    _transaction_id: data.transaction_id,
+    _transaction_id: paymentRequest.transaction_id,
     _status: status,
     _meta: {
       daraja_result_code: resultCode,
       daraja_result_description: resultDescription,
+      callback_at: new Date().toISOString(),
     },
   });
-  await supabaseAdmin.from("payment_requests").update({ status }).eq("id", data.id);
+
+  await supabaseAdmin
+    .from("payment_requests")
+    .update({ status, response_payload: payload } as Record<string, unknown>)
+    .eq("id", paymentRequest.id);
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
 }

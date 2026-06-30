@@ -5,60 +5,77 @@ export const Route = createFileRoute("/api/daraja/stk-callback")({
     handlers: {
       POST: async ({ request }) => {
         const payload = await request.json().catch(() => ({}));
-        const callback = payload?.Body?.stkCallback ?? {};
-        const checkoutRequestId = callback.CheckoutRequestID;
-        const resultCode = Number(callback.ResultCode ?? -1);
-        const resultDescription = callback.ResultDesc ?? "STK callback received";
-
-        await recordDarajaCallback({
-          callbackType: "stk",
-          checkoutRequestId,
-          resultCode,
-          resultDescription,
-          payload,
-        });
-
+        await handleStkCallback(payload);
         return Response.json({ ResultCode: 0, ResultDesc: "Accepted" });
       },
     },
   },
 });
 
-async function recordDarajaCallback(input: {
-  callbackType: string;
-  checkoutRequestId?: string;
-  resultCode: number;
-  resultDescription: string;
-  payload: unknown;
-}) {
+async function handleStkCallback(payload: Record<string, unknown>) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const callback = getRecord(getRecord(payload.Body).stkCallback);
+  const checkoutRequestId = getString(callback.CheckoutRequestID);
+  const resultCode = Number(callback.ResultCode ?? -1);
+  const resultDescription = getString(callback.ResultDesc) ?? "STK callback received";
+  const metadata = extractCallbackMetadata(getArray(getRecord(callback.CallbackMetadata).Item));
 
   const { data: paymentRequest } = await supabaseAdmin
     .from("payment_requests")
     .select("id, transaction_id")
-    .eq("checkout_request_id", input.checkoutRequestId ?? "")
+    .eq("checkout_request_id", checkoutRequestId ?? "")
     .maybeSingle();
 
   await supabaseAdmin.from("daraja_callbacks").insert({
     payment_request_id: paymentRequest?.id ?? null,
     transaction_id: paymentRequest?.transaction_id ?? null,
-    callback_type: input.callbackType,
-    checkout_request_id: input.checkoutRequestId ?? null,
-    result_code: input.resultCode,
-    result_description: input.resultDescription,
-    payload: input.payload,
-  } as any);
+    callback_type: "stk",
+    checkout_request_id: checkoutRequestId ?? null,
+    result_code: resultCode,
+    result_description: resultDescription,
+    payload,
+  } as Record<string, unknown>);
 
   if (!paymentRequest?.transaction_id) return;
 
-  const status = input.resultCode === 0 ? "completed" : "failed";
+  const status = resultCode === 0 ? "completed" : "failed";
   await supabaseAdmin.rpc("apply_transaction", {
     _transaction_id: paymentRequest.transaction_id,
     _status: status,
     _meta: {
-      daraja_result_code: input.resultCode,
-      daraja_result_description: input.resultDescription,
+      daraja_result_code: resultCode,
+      daraja_result_description: resultDescription,
+      mpesa_receipt_number: metadata.MpesaReceiptNumber ?? null,
+      callback_at: new Date().toISOString(),
     },
   });
-  await supabaseAdmin.from("payment_requests").update({ status }).eq("id", paymentRequest.id);
+
+  await supabaseAdmin
+    .from("payment_requests")
+    .update({
+      status,
+      response_payload: payload,
+    } as Record<string, unknown>)
+    .eq("id", paymentRequest.id);
+}
+
+function extractCallbackMetadata(items: Array<{ Name?: string; Value?: unknown }>) {
+  return items.reduce<Record<string, unknown>>((acc, item) => {
+    if (item.Name) acc[item.Name] = item.Value;
+    return acc;
+  }, {});
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getArray(value: unknown): Array<{ Name?: string; Value?: unknown }> {
+  return Array.isArray(value) ? (value as Array<{ Name?: string; Value?: unknown }>) : [];
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
 }

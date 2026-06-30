@@ -32,13 +32,12 @@ export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
       username,
       full_name: data.fullName.trim(),
       demo_balance_usd: 10000,
-      active_account: "demo",
+      active_account: "real",
     });
     await supabaseAdmin.from("user_settings").upsert({ user_id: created.user.id });
-    await supabaseAdmin.from("user_roles").upsert(
-      { user_id: created.user.id, role: "client" },
-      { onConflict: "user_id,role" },
-    );
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: created.user.id, role: "client" }, { onConflict: "user_id,role" });
 
     const referralCode = data.referralCode?.trim().toUpperCase();
     if (referralCode) {

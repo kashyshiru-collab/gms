@@ -20,7 +20,7 @@ export function AccountSwitcher() {
     refetchInterval: 5000,
   });
 
-  const active = (profile?.active_account ?? "demo") as "real" | "demo";
+  const active = (profile?.active_account ?? "real") as "real" | "demo";
   const realBal = Number(profile?.balance_usd ?? 0);
   const demoBal = Number(profile?.demo_balance_usd ?? 0);
   const activeBal = active === "real" ? realBal : demoBal;

@@ -1,5 +1,5 @@
-const FALLBACK_SUPABASE_URL = "https://pemuvhdibshvobzfxytg.supabase.co";
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Vj-rRI_6f_6OohDdEhQrww_ryOAy95C";
+const FALLBACK_SUPABASE_URL = "https://lopagdylpmrqhjfeskyj.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cmX8pET2UN-4JQJft4nc4Q_KIoJvmei";
 
 function getProcessEnv(name: string): string | undefined {
   if (typeof process === "undefined") return undefined;
