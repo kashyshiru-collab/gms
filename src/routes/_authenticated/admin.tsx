@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, RotateCcw, Shield, ShieldPlus, Users, TrendingUp, DollarSign, Plus, Search, X, Wallet } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAdminAccount, createAgent, creditAgentVirtual, failStaleMpesaWithdrawals, listAdmins, listAgents, listClients } from "@/lib/admin.functions";
+import { createAdminAccount, createAgent, creditAgentVirtual, failStaleMpesaWithdrawals, listAdmins, listAgents, listClients, reconcileSuccessfulB2cCallbacks } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 
@@ -26,6 +26,7 @@ interface Trade { id: string; user_id: string; module: string; market: string; s
 function AdminPage() {
   const [tab, setTab] = useState<"users" | "trades" | "agents" | "admins">("users");
   const repairWithdrawals = useServerFn(failStaleMpesaWithdrawals);
+  const reconcileB2c = useServerFn(reconcileSuccessfulB2cCallbacks);
   const qc = useQueryClient();
 
   const repairMut = useMutation({
@@ -37,6 +38,17 @@ function AdminPage() {
       qc.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Repair failed"),
+  });
+
+  const reconcileMut = useMutation({
+    mutationFn: () => reconcileB2c(),
+    onSuccess: (r) => {
+      const count = (r.repaired as any[]).length;
+      toast.success(count ? `Synced ${count} paid M-Pesa transaction${count === 1 ? "" : "s"}` : "No paid pending M-Pesa transactions found");
+      qc.invalidateQueries({ queryKey: ["admin-clients"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Reconcile failed"),
   });
 
   return (
@@ -51,14 +63,24 @@ function AdminPage() {
         </div>
       </div>
 
-      <button
-        onClick={() => repairMut.mutate()}
-        disabled={repairMut.isPending}
-        className="w-full rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-bold text-bear disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        <RotateCcw className="h-4 w-4" />
-        {repairMut.isPending ? "Checking withdrawals..." : "Refund stale B2C withdrawals"}
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => reconcileMut.mutate()}
+          disabled={reconcileMut.isPending}
+          className="rounded-xl border border-bull/30 bg-bull/10 px-3 py-2 text-xs font-bold text-bull disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <RotateCcw className="h-4 w-4" />
+          {reconcileMut.isPending ? "Checking paid..." : "Sync paid M-Pesa"}
+        </button>
+        <button
+          onClick={() => repairMut.mutate()}
+          disabled={repairMut.isPending}
+          className="rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-bold text-bear disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <RotateCcw className="h-4 w-4" />
+          {repairMut.isPending ? "Checking stale..." : "Refund stale B2C"}
+        </button>
+      </div>
 
       <div className="grid grid-cols-4 gap-1 bg-card border border-border rounded-xl p-1">
         {(["users", "trades", "agents", "admins"] as const).map((k) => (

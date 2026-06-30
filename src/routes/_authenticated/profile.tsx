@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
 import { changePassword, updateProfile } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { User, KeyRound, ShieldCheck, Eye, EyeOff, Lock } from "lucide-react";
+import { User, KeyRound, ShieldCheck, Eye, EyeOff, Lock, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 
@@ -26,6 +26,7 @@ function ProfilePage() {
 
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -40,15 +41,17 @@ function ProfilePage() {
     if (profile) {
       setFullName(profile.full_name ?? "");
       setUsername(profile.username ?? "");
+      setPhone(typeof (profile as any).phone === "string" ? (profile as any).phone : "");
     }
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, [profile]);
 
   async function saveProfile() {
     if (fullName.trim().length < 2) { toast.error("Full name too short"); return; }
+    if (!isValidKenyanPhone(phone)) { toast.error("Enter a valid Safaricom number"); return; }
     setSavingProfile(true);
     try {
-      await save({ data: { full_name: fullName.trim(), username: username.trim() || undefined } });
+      await save({ data: { full_name: fullName.trim(), username: username.trim() || undefined, phone } });
       qc.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Profile updated");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
@@ -91,6 +94,12 @@ function ProfilePage() {
         </Labeled>
         <Labeled label="Username">
           <input value={username} onChange={(e) => setUsername(e.target.value)} className="profile-input" />
+        </Labeled>
+        <Labeled label="M-Pesa number">
+          <div className="relative">
+            <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712345678" className="profile-input pl-9" />
+          </div>
         </Labeled>
         <Labeled label="Email (read only)">
           <input value={email} disabled className="profile-input opacity-60" />
@@ -152,6 +161,13 @@ function ProfilePage() {
       `}</style>
     </div>
   );
+}
+
+function isValidKenyanPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return (digits.startsWith("254") && digits.length === 12) ||
+    (digits.startsWith("0") && digits.length === 10) ||
+    digits.length === 9;
 }
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {

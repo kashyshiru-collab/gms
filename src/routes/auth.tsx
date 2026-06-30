@@ -18,6 +18,7 @@ function AuthPage() {
   const signUpNow = useServerFn(signUpWithoutEmailVerification);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -35,6 +36,7 @@ function AuthPage() {
   function validate(): string | null {
     if (mode === "signup") {
       if (!fullName.trim() || fullName.trim().length < 2) return "Enter your full name";
+      if (!isValidKenyanPhone(phone)) return "Enter a valid Safaricom number";
       if (password.length < 8) return "Password must be at least 8 characters";
       if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) return "Use an uppercase letter and a number";
       if (password !== confirm) return "Passwords don't match";
@@ -50,7 +52,7 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        await signUpNow({ data: { email, password, fullName, referralCode: referralCode || undefined } });
+        await signUpNow({ data: { email, password, fullName, phone, referralCode: referralCode || undefined } });
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Account created. Welcome aboard.");
@@ -92,6 +94,12 @@ function AuthPage() {
               <Field label="Full name">
                 <input type="text" autoComplete="name" required value={fullName} onChange={(e) => setFullName(e.target.value)}
                   placeholder="Jane Doe" className="auth-input" />
+              </Field>
+            )}
+            {mode === "signup" && (
+              <Field label="Safaricom number">
+                <input type="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0712345678" className="auth-input" />
               </Field>
             )}
             <Field label="Email">
@@ -144,6 +152,13 @@ function AuthPage() {
       `}</style>
     </div>
   );
+}
+
+function isValidKenyanPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return (digits.startsWith("254") && digits.length === 12) ||
+    (digits.startsWith("0") && digits.length === 10) ||
+    digits.length === 9;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

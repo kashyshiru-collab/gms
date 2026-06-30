@@ -90,6 +90,8 @@ const VOL_INDICES = [
 const TYPES = ["Buy/Sell", "Even/Odd", "Matches/Differs", "Over/Under"] as const;
 type TradeType = (typeof TYPES)[number];
 const QUICK = [1, 5, 10, 25, 50, 100];
+const WIN_PROFIT_RATE = 0.06;
+const WIN_PAYOUT_MULTIPLIER = 1 + WIN_PROFIT_RATE;
 
 type Tick = { d: number; tone: "neutral" | "bull" | "bear" };
 
@@ -218,7 +220,12 @@ export function BinaryPanel() {
 
     try {
       await settle({
-        data: { trade_id: trade.id, won, exit_price: priceRef.current, multiplier: 1.85 },
+        data: {
+          trade_id: trade.id,
+          won,
+          exit_price: priceRef.current,
+          multiplier: WIN_PAYOUT_MULTIPLIER,
+        },
       });
       logDebugEvent("info", "binary.trade", "Binary trade settled", {
         tradeId: trade.id,
@@ -235,9 +242,10 @@ export function BinaryPanel() {
     qc.invalidateQueries({ queryKey: ["trades"] });
 
     if (won) {
-      sessionPnLRef.current += useStake * 0.85;
+      const profit = useStake * WIN_PROFIT_RATE;
+      sessionPnLRef.current += profit;
       toast.success(
-        `WIN +$${(useStake * 0.85).toFixed(2)} · session $${sessionPnLRef.current.toFixed(2)}`,
+        `WIN +$${profit.toFixed(2)} · session $${sessionPnLRef.current.toFixed(2)}`,
       );
     } else {
       sessionPnLRef.current -= useStake;

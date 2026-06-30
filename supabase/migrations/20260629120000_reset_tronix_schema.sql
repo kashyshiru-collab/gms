@@ -93,6 +93,7 @@ create table public.profiles (
   email text,
   username text,
   full_name text,
+  phone text,
   balance_usd numeric(18,2) not null default 0 check (balance_usd >= 0),
   demo_balance_usd numeric(18,2) not null default 10000.00 check (demo_balance_usd >= 0),
   balance_ksh numeric(18,2) not null default 0 check (balance_ksh >= 0),
@@ -275,12 +276,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, username, full_name)
+  insert into public.profiles (id, email, username, full_name, phone)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    new.raw_user_meta_data->>'full_name'
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone'
   );
 
   insert into public.user_settings (user_id) values (new.id);
@@ -402,7 +404,7 @@ create or replace function public.settle_trade(
   _trade_id uuid,
   _won boolean,
   _exit_price numeric default null,
-  _multiplier numeric default 1.85
+  _multiplier numeric default 1.06
 )
 returns jsonb
 language plpgsql
@@ -702,7 +704,7 @@ using (public.has_role(auth.uid(), 'admin')) with check (public.has_role(auth.ui
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.profiles, public.user_settings, public.user_roles, public.trades, public.transactions, public.payment_requests, public.agents, public.referrals, public.polymarket_events, public.kyc_documents, public.agent_rollups to authenticated;
 grant insert on public.referrals, public.kyc_documents to authenticated;
-grant update (username, full_name, active_account) on public.profiles to authenticated;
+grant update (username, full_name, phone, active_account) on public.profiles to authenticated;
 grant update on public.user_settings to authenticated;
 grant all on all tables in schema public to service_role;
 grant execute on function public.set_active_account(public.account_type) to authenticated;

@@ -164,6 +164,17 @@ export const failStaleMpesaWithdrawals = createServerFn({ method: "POST" })
     return { ok: true, repaired: rows ?? [] };
   });
 
+export const reconcileSuccessfulB2cCallbacks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await (supabaseAdmin as any).rpc("reconcile_successful_b2c_callbacks");
+    if (error) throw new Error(error.message);
+    return { ok: true, repaired: rows ?? [] };
+  });
+
 export const createAdminAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -219,13 +230,23 @@ export const updateProfile = createServerFn({ method: "POST" })
     z.object({
       full_name: z.string().trim().min(2).max(120).optional(),
       username: z.string().trim().min(2).max(40).optional(),
+      phone: z.string().trim().min(9).max(16).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
+    const phone = data.phone ? normalizeKenyanPhone(data.phone) : undefined;
     const { error } = await context.supabase
       .from("profiles")
-      .update({ full_name: data.full_name, username: data.username })
+      .update({ full_name: data.full_name, username: data.username, phone })
       .eq("id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+function normalizeKenyanPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("254") && digits.length === 12) return digits;
+  if (digits.startsWith("0") && digits.length === 10) return `254${digits.slice(1)}`;
+  if (digits.length === 9) return `254${digits}`;
+  throw new Error("Enter a valid Kenyan Safaricom number");
+}

@@ -22,16 +22,13 @@ async function handleB2cCallback(
   const originatorConversationId = getString(result.OriginatorConversationID);
   const resultCode = Number(result.ResultCode ?? -1);
   const resultDescription = getString(result.ResultDesc) ?? "B2C callback received";
-
-  let query = supabaseAdmin.from("payment_requests").select("id, transaction_id").limit(1);
-  if (conversationId) query = query.eq("conversation_id", conversationId);
-  else if (originatorConversationId) {
-    query = query.eq("originator_conversation_id", originatorConversationId);
-  } else {
-    query = query.eq("id", "00000000-0000-0000-0000-000000000000");
-  }
-
-  const { data: paymentRequest } = await query.maybeSingle();
+  const transactionRef = extractTransactionRef(result);
+  const paymentRequest = await findB2cPaymentRequest(
+    supabaseAdmin,
+    conversationId,
+    originatorConversationId,
+    transactionRef,
+  );
 
   await supabaseAdmin.from("daraja_callbacks").insert({
     payment_request_id: paymentRequest?.id ?? null,
@@ -60,6 +57,77 @@ async function handleB2cCallback(
     .from("payment_requests")
     .update({ status, response_payload: payload } as Record<string, unknown>)
     .eq("id", paymentRequest.id);
+}
+
+async function findB2cPaymentRequest(
+  supabaseAdmin: any,
+  conversationId?: string,
+  originatorConversationId?: string,
+  transactionRef?: string,
+) {
+  const select = "id, transaction_id, request_payload";
+  if (conversationId) {
+    const { data } = await supabaseAdmin
+      .from("payment_requests")
+      .select(select)
+      .eq("request_type", "b2c")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  if (originatorConversationId) {
+    const { data } = await supabaseAdmin
+      .from("payment_requests")
+      .select(select)
+      .eq("request_type", "b2c")
+      .eq("originator_conversation_id", originatorConversationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  if (transactionRef) {
+    const { data } = await supabaseAdmin
+      .from("payment_requests")
+      .select(select)
+      .eq("request_type", "b2c")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const match = (data ?? []).find((row: { transaction_id?: string; request_payload?: Record<string, unknown> }) => {
+      const occasion = getString(row.request_payload?.Occasion);
+      return row.transaction_id?.toLowerCase().startsWith(transactionRef) ||
+        parseTronixRef(occasion) === transactionRef;
+    });
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function extractTransactionRef(result: Record<string, unknown>) {
+  const direct = getString(result.Occasion) ?? getString(result.OriginatorConversationID);
+  const fromDirect = parseTronixRef(direct);
+  if (fromDirect) return fromDirect;
+
+  const referenceData = getRecord(result.ReferenceData);
+  const item = referenceData.ReferenceItem;
+  const items = Array.isArray(item) ? item : item ? [item] : [];
+  for (const raw of items) {
+    const row = getRecord(raw);
+    const value = getString(row.Value) ?? getString(row.value);
+    const ref = parseTronixRef(value);
+    if (ref) return ref;
+  }
+  return undefined;
+}
+
+function parseTronixRef(value?: string) {
+  const match = value?.match(/TRONIX-([0-9a-f]{8})/i);
+  return match?.[1]?.toLowerCase();
 }
 
 function getRecord(value: unknown): Record<string, unknown> {

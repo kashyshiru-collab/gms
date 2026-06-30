@@ -38,7 +38,8 @@ export const createDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => MoneyInput.parse(d))
   .handler(async ({ data, context }) => {
-    validateMoney("deposit", data.method, data.amount, data.phone);
+    const phone = data.method === "mpesa" ? await getProfilePhone(context.userId) : data.phone;
+    validateMoney("deposit", data.method, data.amount, phone);
 
     const tx = await createWalletTransaction({
       userId: context.userId,
@@ -46,12 +47,12 @@ export const createDeposit = createServerFn({ method: "POST" })
       method: data.method,
       amount: data.amount,
       account: data.account,
-      phone: data.phone,
+      phone,
     });
 
     if (data.method === "mpesa" && data.account === "real") {
       try {
-        const daraja = await sendStkPush(tx, data.phone);
+        const daraja = await sendStkPush(tx, phone);
         return { ok: true, transaction: tx, daraja };
       } catch (error) {
         await markTransaction(tx.id, "failed", { provider_error: getErrorMessage(error) });
@@ -70,7 +71,8 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       throw new Error("Demo funds cannot be withdrawn. Switch to your real account to withdraw.");
     }
 
-    validateMoney("withdraw", data.method, data.amount, data.phone);
+    const phone = data.method === "mpesa" ? await getProfilePhone(context.userId) : data.phone;
+    validateMoney("withdraw", data.method, data.amount, phone);
 
     const tx = await createWalletTransaction({
       userId: context.userId,
@@ -78,12 +80,12 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       method: data.method,
       amount: data.amount,
       account: data.account,
-      phone: data.phone,
+      phone,
     });
 
     if (data.method === "mpesa" && data.account === "real") {
       try {
-        const daraja = await sendB2cPayment(tx, data.phone);
+        const daraja = await sendB2cPayment(tx, phone);
         return { ok: true, transaction: tx, daraja };
       } catch (error) {
         await markTransaction(tx.id, "failed", { provider_error: getErrorMessage(error) });
@@ -92,6 +94,64 @@ export const createWithdrawal = createServerFn({ method: "POST" })
     }
 
     return { ok: true, transaction: tx };
+  });
+
+export const syncPendingMpesaDeposits = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: requests, error } = await supabaseAdmin
+      .from("payment_requests")
+      .select("id, transaction_id, checkout_request_id, transactions!inner(id,user_id,kind,status)")
+      .eq("request_type", "stk_push")
+      .in("status", ["pending", "processing"])
+      .eq("transactions.user_id", context.userId)
+      .eq("transactions.kind", "deposit")
+      .in("transactions.status", ["pending", "processing"])
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (error) throw new Error(error.message);
+
+    const synced: Array<{ transaction_id: string; status: string }> = [];
+    for (const request of requests ?? []) {
+      const checkoutRequestId = getStringValue(request.checkout_request_id);
+      if (!checkoutRequestId) continue;
+
+      const result = await queryStkStatus(checkoutRequestId);
+      const resultCode = Number(result.ResultCode ?? result.ResponseCode ?? -1);
+      const resultDescription =
+        getStringValue(result.ResultDesc) ??
+        getStringValue(result.ResponseDescription) ??
+        "STK query response";
+
+      if (resultCode === 0) {
+        await markTransaction(request.transaction_id, "completed", {
+          daraja_result_code: resultCode,
+          daraja_result_description: resultDescription,
+          synced_by: "stk_query",
+          callback_at: new Date().toISOString(),
+        });
+        await supabaseAdmin
+          .from("payment_requests")
+          .update({ status: "completed", response_payload: result } as Record<string, unknown>)
+          .eq("id", request.id);
+        synced.push({ transaction_id: request.transaction_id, status: "completed" });
+      } else if ([1, 1032, 1037, 2001].includes(resultCode)) {
+        await markTransaction(request.transaction_id, "failed", {
+          daraja_result_code: resultCode,
+          daraja_result_description: resultDescription,
+          synced_by: "stk_query",
+          callback_at: new Date().toISOString(),
+        });
+        await supabaseAdmin
+          .from("payment_requests")
+          .update({ status: "failed", response_payload: result } as Record<string, unknown>)
+          .eq("id", request.id);
+        synced.push({ transaction_id: request.transaction_id, status: "failed" });
+      }
+    }
+
+    return { ok: true, synced };
   });
 
 async function createWalletTransaction(input: {
@@ -192,6 +252,35 @@ async function sendStkPush(transaction: WalletTransaction, phone?: string) {
 
   await recordPaymentRequest(transaction.id, "stk_push", msisdn, payload, response);
   return response;
+}
+
+async function queryStkStatus(checkoutRequestId: string) {
+  const env = getDarajaEnv("stk");
+  const token = await getDarajaToken("stk");
+  const timestamp = darajaTimestamp();
+  const password = Buffer.from(`${env.stkShortcode}${env.stkPasskey}${timestamp}`).toString(
+    "base64",
+  );
+  const payload = {
+    BusinessShortCode: env.stkShortcode,
+    Password: password,
+    Timestamp: timestamp,
+    CheckoutRequestID: checkoutRequestId,
+  };
+
+  const res = await fetch(`${env.baseUrl}/mpesa/stkpushquery/v1/query`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(formatDarajaError("stk", "stk_push", res.status, json, env.baseUrl));
+  }
+  return json as Record<string, unknown>;
 }
 
 async function sendB2cPayment(transaction: WalletTransaction, phone?: string) {
@@ -339,6 +428,19 @@ function validateMoney(
     );
   }
   if (method === "mpesa") normalizeKenyanPhone(phone);
+}
+
+async function getProfilePhone(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("phone")
+    .eq("id", userId)
+    .single();
+  if (error || !data?.phone) {
+    throw new Error("Add your M-Pesa phone number in Profile before using M-Pesa.");
+  }
+  return normalizeKenyanPhone(String(data.phone));
 }
 
 function toUsd(amount: number, currency: "KSH" | "USD") {

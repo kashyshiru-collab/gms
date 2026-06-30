@@ -63,7 +63,7 @@ const SettleTradeInput = z.object({
   trade_id: z.string().uuid(),
   won: z.boolean(),
   exit_price: z.number().nullable().optional(),
-  multiplier: z.number().positive().default(1.85), // ~7.5% house edge on binary
+  multiplier: z.number().positive().default(1.06),
 });
 
 export const settleTrade = createServerFn({ method: "POST" })

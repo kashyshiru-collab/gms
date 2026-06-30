@@ -5,6 +5,7 @@ const SignUpInput = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(2).max(120),
+  phone: z.string().min(9).max(16),
   referralCode: z.string().max(16).optional(),
 });
 
@@ -13,6 +14,7 @@ const AdminSetupInput = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(2).max(120),
+  phone: z.string().min(9).max(16).optional(),
 });
 
 const AdminSetupPasswordInput = z.object({
@@ -23,11 +25,13 @@ export async function createAdminUser(data: {
   email: string;
   password: string;
   fullName: string;
+  phone?: string;
 }) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const email = data.email.trim().toLowerCase();
   const fullName = data.fullName.trim();
   const username = fullName.split(/\s+/)[0] || email.split("@")[0];
+  const phone = data.phone ? normalizeKenyanPhone(data.phone) : null;
 
   const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -36,6 +40,7 @@ export async function createAdminUser(data: {
     user_metadata: {
       full_name: fullName,
       username,
+      phone,
     },
   });
 
@@ -53,6 +58,7 @@ export async function createAdminUser(data: {
       email,
       username,
       full_name: fullName,
+      phone,
       active_account: "real",
     });
     await supabaseAdmin.from("user_settings").upsert({ user_id: existing.id });
@@ -70,6 +76,7 @@ export async function createAdminUser(data: {
     email,
     username,
     full_name: fullName,
+    phone,
     demo_balance_usd: 10000,
     active_account: "real",
   });
@@ -86,6 +93,7 @@ export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const username = data.fullName.trim().split(/\s+/)[0] || data.email.split("@")[0];
+    const phone = normalizeKenyanPhone(data.phone);
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -94,6 +102,7 @@ export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
       user_metadata: {
         full_name: data.fullName.trim(),
         username,
+        phone,
       },
     });
     if (error) throw error;
@@ -104,6 +113,7 @@ export const signUpWithoutEmailVerification = createServerFn({ method: "POST" })
       email: data.email,
       username,
       full_name: data.fullName.trim(),
+      phone,
       demo_balance_usd: 10000,
       active_account: "real",
     });
@@ -139,6 +149,7 @@ export const createAdminWithSetupPassword = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       fullName: data.fullName,
+      phone: data.phone,
     });
   });
 
@@ -149,3 +160,11 @@ export const verifyAdminSetupPassword = createServerFn({ method: "POST" })
     if (data.setupPassword !== expected) throw new Error("Incorrect admin setup password");
     return { ok: true };
   });
+
+function normalizeKenyanPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("254") && digits.length === 12) return digits;
+  if (digits.startsWith("0") && digits.length === 10) return `254${digits.slice(1)}`;
+  if (digits.length === 9) return `254${digits}`;
+  throw new Error("Enter a valid Kenyan Safaricom number");
+}

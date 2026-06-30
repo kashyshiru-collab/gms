@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
-import { createDeposit, createWithdrawal } from "@/lib/wallet.functions";
+import { createDeposit, createWithdrawal, syncPendingMpesaDeposits } from "@/lib/wallet.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Plus,
@@ -44,18 +44,19 @@ function WalletPage() {
   const fetchProfile = useServerFn(getMyProfile);
   const depositFn = useServerFn(createDeposit);
   const withdrawFn = useServerFn(createWithdrawal);
+  const syncDeposits = useServerFn(syncPendingMpesaDeposits);
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
   const [method, setMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<Tx[]>([]);
 
   const activeAccount = (profile?.active_account ?? "real") as "real" | "demo";
   const isDemoWithdrawal = tab === "withdraw" && activeAccount === "demo";
+  const mpesaPhone = typeof (profile as any)?.phone === "string" ? (profile as any).phone : "";
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -69,12 +70,25 @@ function WalletPage() {
   useEffect(() => {
     if (tab !== "history") return;
     loadHistory();
+  }, [loadHistory, tab]);
+
+  useEffect(() => {
     const id = window.setInterval(() => {
-      loadHistory();
-      qc.invalidateQueries({ queryKey: ["profile"] });
+      syncDeposits()
+        .then((result) => {
+          if (result.synced.length > 0) {
+            qc.invalidateQueries({ queryKey: ["profile"] });
+            loadHistory();
+          } else {
+            qc.invalidateQueries({ queryKey: ["profile"] });
+          }
+        })
+        .catch(() => {
+          qc.invalidateQueries({ queryKey: ["profile"] });
+        });
     }, 5000);
     return () => window.clearInterval(id);
-  }, [loadHistory, qc, tab]);
+  }, [loadHistory, qc, syncDeposits]);
 
   async function deposit() {
     const amt = Number(amount);
@@ -82,7 +96,7 @@ function WalletPage() {
       method,
       amount: amt,
       account: activeAccount,
-      phone,
+      phone: mpesaPhone,
     });
     const minimum = minimumAmount("deposit", method);
     if (!amt || amt < minimum) {
@@ -94,7 +108,7 @@ function WalletPage() {
     setBusy(true);
     try {
       const result = await depositFn({
-        data: { method, amount: amt, account: activeAccount, phone },
+        data: { method, amount: amt, account: activeAccount },
       });
       logDebugEvent("info", "wallet.deposit", "Deposit request succeeded", result);
       toast.success(
@@ -103,6 +117,8 @@ function WalletPage() {
           : `Deposited to ${activeAccount.toUpperCase()} account`,
       );
       setAmount("");
+      setTab("history");
+      loadHistory();
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
       logDebugEvent("error", "wallet.deposit", "Deposit request failed", serializeError(e));
@@ -118,7 +134,7 @@ function WalletPage() {
       method,
       amount: amt,
       account: activeAccount,
-      phone,
+      phone: mpesaPhone,
     });
     if (activeAccount === "demo") {
       logDebugEvent("warn", "wallet.withdraw", "Blocked demo withdrawal", {
@@ -142,7 +158,7 @@ function WalletPage() {
     setBusy(true);
     try {
       const result = await withdrawFn({
-        data: { method, amount: amt, account: activeAccount, phone },
+        data: { method, amount: amt, account: activeAccount },
       });
       logDebugEvent("info", "wallet.withdraw", "Withdraw request succeeded", result);
       toast.success(
@@ -250,15 +266,13 @@ function WalletPage() {
           {method === "mpesa" && (
             <div>
               <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">
-                Safaricom Number
+                M-Pesa Number
               </div>
-              <div className="flex items-center bg-card border border-border rounded-xl px-3 py-2.5">
+              <div className="flex items-center bg-card border border-border rounded-xl px-3 py-2.5 opacity-90">
                 <span className="mr-2 text-xs font-bold text-muted-foreground">KE</span>
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="flex-1 bg-transparent outline-none font-bold tabular-nums text-sm"
-                />
+                <div className="flex-1 font-bold tabular-nums text-sm">
+                  {mpesaPhone || "Add phone in Profile"}
+                </div>
               </div>
             </div>
           )}

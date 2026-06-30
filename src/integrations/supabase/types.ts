@@ -84,8 +84,10 @@ export type Database = {
           balance_usd: number
           created_at: string
           demo_balance_usd: number
+          email: string | null
           full_name: string | null
           id: string
+          phone: string | null
           updated_at: string
           username: string | null
         }
@@ -95,8 +97,10 @@ export type Database = {
           balance_usd?: number
           created_at?: string
           demo_balance_usd?: number
+          email?: string | null
           full_name?: string | null
           id: string
+          phone?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -106,8 +110,10 @@ export type Database = {
           balance_usd?: number
           created_at?: string
           demo_balance_usd?: number
+          email?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           username?: string | null
         }
