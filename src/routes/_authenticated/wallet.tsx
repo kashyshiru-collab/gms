@@ -71,6 +71,7 @@ function WalletPage() {
     const { data } = await supabase
       .from("transactions")
       .select("id, kind, method, amount, currency, status, account_type, created_at")
+      .in("kind", ["deposit", "withdraw"])
       .order("created_at", { ascending: false })
       .limit(50);
     setHistory((data ?? []) as Tx[]);
@@ -348,7 +349,7 @@ function WalletPage() {
             </div>
           )}
           {history.map((t) => {
-            const isCredit = ["deposit", "trade_payout", "admin_credit"].includes(t.kind);
+            const isCredit = t.kind === "deposit";
             return (
               <div key={t.id} className="flex items-center gap-3 p-3">
                 <div

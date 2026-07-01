@@ -45,6 +45,25 @@ function ScannerPage() {
     }
   }
 
+  function loadBot() {
+    if (!result) {
+      toast.error("Run a scan first");
+      return;
+    }
+    window.sessionStorage.setItem(
+      "tronix-scanner-bot",
+      JSON.stringify({
+        category: cat,
+        market: result.bestMarket,
+        bias: result.bias,
+        edge: result.edge,
+        autotrade: true,
+      }),
+    );
+    toast.success("Scanner bot loaded and auto trade armed");
+    navigate({ to: "/binary" });
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
@@ -105,8 +124,12 @@ function ScannerPage() {
       >
         <Search className="h-4 w-4" /> {scanning ? "Scanning…" : "Deep scan for best market"}
       </button>
-      <button className="w-full py-3 rounded-xl border border-primary text-primary font-bold">
-        Load deep scanner bot
+      <button
+        onClick={loadBot}
+        disabled={!result || scanning}
+        className="w-full py-3 rounded-xl border border-primary text-primary font-bold disabled:opacity-50"
+      >
+        Load and start auto bot
       </button>
 
       {result && (
@@ -130,10 +153,10 @@ function ScannerPage() {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{result.rationale}</p>
           <button
-            onClick={() => navigate({ to: "/trade" })}
+            onClick={loadBot}
             className="w-full py-3 rounded-xl bg-bull/15 border border-bull text-bull font-bold"
           >
-            Apply & open trade
+            Apply and start auto bot
           </button>
         </div>
       )}

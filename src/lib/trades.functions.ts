@@ -13,6 +13,13 @@ type TradeResult = {
   id?: string;
 };
 
+type TradeCloseResult = {
+  ok?: boolean;
+  payout?: number;
+  pnl?: number;
+  status?: string;
+};
+
 const PlaceTradeInput = z.object({
   module: z.enum(["forex", "binary", "aviator", "predict", "crypto"]),
   market: z.string().min(1).max(64),
@@ -94,6 +101,35 @@ export const settleTrade = createServerFn({ method: "POST" })
       won: data.won,
     });
     return result;
+  });
+
+export const cancelTrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ trade_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as unknown as RpcClient).rpc(
+      "cancel_open_trade",
+      { _trade_id: data.trade_id },
+    );
+    if (error) throw new Error(`Could not cancel trade: ${error.message ?? String(error)}`);
+    return result as TradeCloseResult;
+  });
+
+export const closeTradeAtPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ trade_id: z.string().uuid(), exit_price: z.number().positive() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as unknown as RpcClient).rpc(
+      "close_trade_at_price",
+      {
+        _trade_id: data.trade_id,
+        _exit_price: data.exit_price,
+      },
+    );
+    if (error) throw new Error(`Could not close trade: ${error.message ?? String(error)}`);
+    return result as TradeCloseResult;
   });
 
 export const getMyProfile = createServerFn({ method: "GET" })

@@ -7,6 +7,7 @@ import { getForexQuote, getForexCandles } from "@/lib/forex.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logDebugEvent, serializeError } from "@/lib/debug-logger";
+import { OpenPositionLines, OpenPositionsPanel } from "@/components/OpenPositionsPanel";
 
 const PAIRS = [
   { sym: "EUR/USD", flag: "🇪🇺🇺🇸", base: 1.14066, spread: 0.0002 },
@@ -180,8 +181,13 @@ export function ForexPanel() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-2 h-56">
+        <div className="relative h-full">
         <CandleChart candles={candles} livePrice={price} className="h-full" />
+          <OpenPositionLines module="forex" market={pair.sym} livePrice={price} digits={digits} />
+        </div>
       </div>
+
+      <OpenPositionsPanel module="forex" market={pair.sym} livePrice={price} digits={digits} />
 
       <div className="grid grid-cols-2 gap-2">
         <button

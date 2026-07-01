@@ -7,6 +7,7 @@ import { getCryptoQuote, getCryptoCandles } from "@/lib/crypto.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logDebugEvent, serializeError } from "@/lib/debug-logger";
+import { OpenPositionLines, OpenPositionsPanel } from "@/components/OpenPositionsPanel";
 
 const COINS = [
   { sym: "BTC", name: "Bitcoin", mark: "₿", color: "#F7931A" },
@@ -159,8 +160,13 @@ export function CryptoPanel() {
       )}
 
       <div className="bg-card border border-border rounded-xl p-2 h-56">
+        <div className="relative h-full">
         <CandleChart candles={candles} livePrice={price} className="h-full" />
+          <OpenPositionLines module="crypto" market={`${coin.sym}/USD`} livePrice={price} digits={price < 1 ? 5 : 2} />
+        </div>
       </div>
+
+      <OpenPositionsPanel module="crypto" market={`${coin.sym}/USD`} livePrice={price} digits={price < 1 ? 5 : 2} />
 
       <div className="grid grid-cols-2 gap-2">
         <button

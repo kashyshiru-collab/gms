@@ -9,6 +9,7 @@ interface Props {
   /** Overlay text shown bottom-right (e.g. current digit) */
   badge?: string;
   badgeTone?: "neutral" | "bull" | "bear";
+  mode?: "line" | "candles";
 }
 
 /**
@@ -23,6 +24,7 @@ export function LiveChart({
   onPrice,
   badge,
   badgeTone = "neutral",
+  mode = "line",
 }: Props) {
   const buildInitialPoints = useCallback(() => {
     const nowStep = Math.floor(Date.now() / tickMs);
@@ -77,6 +79,12 @@ export function LiveChart({
   const first = points[0];
   const up = last >= first;
   const stroke = up ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
+  const candles = Array.from({ length: Math.floor(points.length / 3) }, (_, i) => {
+    const chunk = points.slice(i * 3, i * 3 + 3);
+    const o = chunk[0];
+    const c = chunk[chunk.length - 1];
+    return { o, c, h: Math.max(...chunk), l: Math.min(...chunk) };
+  });
 
   const badgeBg = badgeTone === "bull" ? "bg-bull text-bull-foreground" : badgeTone === "bear" ? "bg-bear text-bear-foreground" : "bg-surface text-foreground border border-border";
 
@@ -92,16 +100,43 @@ export function LiveChart({
         {[0.25, 0.5, 0.75].map((t) => (
           <line key={t} x1="0" x2={w} y1={h * t} y2={h * t} stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.2" />
         ))}
-        <path d={area} fill="url(#lc-fill)" />
-        <path d={path} fill="none" stroke={stroke} strokeWidth="0.7" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-        {/* live dot at tip */}
-        <circle
-          cx={w}
-          cy={h - ((last - min) / range) * h}
-          r="1.2"
-          fill={stroke}
-          vectorEffect="non-scaling-stroke"
-        />
+        {mode === "line" ? (
+          <>
+            <path d={area} fill="url(#lc-fill)" />
+            <path d={path} fill="none" stroke={stroke} strokeWidth="0.7" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+            <circle
+              cx={w}
+              cy={h - ((last - min) / range) * h}
+              r="1.2"
+              fill={stroke}
+              vectorEffect="non-scaling-stroke"
+            />
+          </>
+        ) : (
+          candles.map((c, i) => {
+            const candleUp = c.c >= c.o;
+            const color = candleUp ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
+            const step = w / candles.length;
+            const cx = i * step + step / 2;
+            const bodyTop = h - ((Math.max(c.o, c.c) - min) / range) * h;
+            const bodyBottom = h - ((Math.min(c.o, c.c) - min) / range) * h;
+            const bodyH = Math.max(0.7, bodyBottom - bodyTop);
+            return (
+              <g key={i}>
+                <line
+                  x1={cx}
+                  x2={cx}
+                  y1={h - ((c.h - min) / range) * h}
+                  y2={h - ((c.l - min) / range) * h}
+                  stroke={color}
+                  strokeWidth="0.25"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <rect x={cx - step * 0.28} y={bodyTop} width={step * 0.56} height={bodyH} fill={color} />
+              </g>
+            );
+          })
+        )}
       </svg>
       {badge !== undefined && (
         <div className={"absolute right-2 bottom-2 px-2 py-1 rounded-lg text-xs font-extrabold tabular-nums shadow-lg " + badgeBg}>

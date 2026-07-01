@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, History, Plane } from "lucide-react";
+import { Bot, History, Plane, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { placeTrade, settleTrade } from "@/lib/trades.functions";
+import { cancelTrade, placeTrade, settleTrade } from "@/lib/trades.functions";
 import { getAviatorServerTime } from "@/lib/aviator.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -89,6 +89,7 @@ function AviatorPage() {
   const serverTime = useServerFn(getAviatorServerTime);
   const place = useServerFn(placeTrade);
   const settle = useServerFn(settleTrade);
+  const cancel = useServerFn(cancelTrade);
   const qc = useQueryClient();
 
   const [now, setNow] = useState(Date.now());
@@ -212,6 +213,23 @@ function AviatorPage() {
     }
   }
 
+  async function cancelBet() {
+    if (!betActive || !tradeIdRef.current || phase !== "waiting" || tradeRoundRef.current !== roundId) return;
+    const tradeId = tradeIdRef.current;
+    tradeIdRef.current = null;
+    tradeRoundRef.current = null;
+    setBetActive(false);
+    setCashedAt(null);
+    try {
+      await cancel({ data: { trade_id: tradeId } });
+      toast.success(`Bet cancelled - $${stake} returned`);
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["trades"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    }
+  }
+
   const progress = Math.min(0.92, Math.log(Math.max(1, multiplier)) / Math.log(MAX_CRASH));
   const planeX = 8 + progress * 78;
   const planeY = 78 - progress * 60;
@@ -298,7 +316,13 @@ function AviatorPage() {
 
       <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
         <div className="text-center text-sm text-muted-foreground">
-          {betActive ? "Bet active - waiting to cash out" : cashedAt ? `Cashed out @ ${cashedAt.toFixed(2)}x` : "Place your bet"}
+          {betActive && phase === "waiting"
+            ? "Bet placed - you can cancel before launch"
+            : betActive
+              ? "Bet active - waiting to cash out"
+              : cashedAt
+                ? `Cashed out @ ${cashedAt.toFixed(2)}x`
+                : "Place your bet"}
         </div>
 
         <div className="flex items-center gap-2">
@@ -307,7 +331,14 @@ function AviatorPage() {
           <button onClick={() => setStake(stake + 1)} className="h-10 w-10 rounded-xl bg-surface border border-border">+</button>
         </div>
 
-        {phase === "flying" && betActive ? (
+        {phase === "waiting" && betActive ? (
+          <button
+            onClick={cancelBet}
+            className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
+          >
+            <X className="h-5 w-5" /> CANCEL BET
+          </button>
+        ) : phase === "flying" && betActive ? (
           <button onClick={cashout} className="w-full py-4 rounded-2xl bg-bull text-bull-foreground font-extrabold text-lg glow-bull">
             CASH OUT ${(stake * multiplier).toFixed(2)}
           </button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LiveChart } from "@/components/LiveChart";
-import { Plus, Minus, Bot, User, Square, ChevronDown } from "lucide-react";
+import { Plus, Minus, Bot, User, Square, ChevronDown, CandlestickChart, LineChart } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { placeTrade, settleTrade } from "@/lib/trades.functions";
 import { useQueryClient } from "@tanstack/react-query";
@@ -116,6 +116,7 @@ export function BinaryPanel() {
   const [index, setIndex] = useState("Vol 25");
   const [type, setType] = useState<TradeType>("Buy/Sell");
   const [marketOpen, setMarketOpen] = useState(false);
+  const [chartMode, setChartMode] = useState<"line" | "candles">("line");
   const [stake, setStake] = useState(10);
   const [selectedDigit, setSelectedDigit] = useState(5);
   const [botMode, setBotMode] = useState(false);
@@ -137,9 +138,15 @@ export function BinaryPanel() {
   const sessionPnLRef = useRef(0);
   const currentStakeRef = useRef(stake);
   const activeDirectionRef = useRef<string | null>(null);
+  const indexRef = useRef(index);
   const typeRef = useRef<TradeType>(type);
   const selectedDigitRef = useRef(selectedDigit);
   const priceRef = useRef(price);
+  const digitHistoryRef = useRef<number[]>([]);
+  const autoSignalConsumedRef = useRef(false);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
   useEffect(() => {
     typeRef.current = type;
   }, [type]);
@@ -149,6 +156,9 @@ export function BinaryPanel() {
   useEffect(() => {
     priceRef.current = price;
   }, [price]);
+  useEffect(() => {
+    digitHistoryRef.current = digitHistory;
+  }, [digitHistory]);
   useEffect(() => {
     setRhythmStep(0);
   }, [index]);
@@ -165,6 +175,30 @@ export function BinaryPanel() {
   const chartVolatility = market.volatility * (0.88 + intradayPace * 0.22);
   const showDigitStats = type !== "Buy/Sell";
   const showDigitPicker = type === "Over/Under" || type === "Matches/Differs";
+
+  useEffect(() => {
+    if (autoSignalConsumedRef.current) return;
+    const raw = window.sessionStorage.getItem("tronix-scanner-bot");
+    if (!raw) return;
+    autoSignalConsumedRef.current = true;
+    window.sessionStorage.removeItem("tronix-scanner-bot");
+    try {
+      const signal = JSON.parse(raw) as { category?: TradeType; market?: string; bias?: string };
+      if (signal.category && TYPES.includes(signal.category)) {
+        typeRef.current = signal.category;
+        setType(signal.category);
+      }
+      if (signal.market && VOL_INDICES.some((m) => m.value === signal.market)) {
+        indexRef.current = signal.market;
+        setIndex(signal.market);
+      }
+      setBotMode(true);
+      toast.success("Scanner bot loaded and auto trade started");
+      window.setTimeout(() => startBot("AUTO"), 450);
+    } catch {
+      toast.error("Could not load scanner bot signal");
+    }
+  }, []);
 
   // Track last digit + paint trail, then color active digit contracts by win/loss.
   useEffect(() => {
@@ -200,7 +234,7 @@ export function BinaryPanel() {
     activeDirectionRef.current = direction;
     let trade;
     logDebugEvent("info", "binary.trade", "Placing binary trade", {
-      market: index,
+      market: indexRef.current,
       type: ty,
       direction,
       stake: useStake,
@@ -211,7 +245,7 @@ export function BinaryPanel() {
       trade = await place({
         data: {
           module: "binary",
-          market: index,
+          market: indexRef.current,
           direction,
           stake: useStake,
           entry_price: priceRef.current,
@@ -288,6 +322,19 @@ export function BinaryPanel() {
     }
   }
 
+  function autoDirection() {
+    const ty = typeRef.current;
+    const activeMarket = VOL_INDICES.find((m) => m.value === indexRef.current) ?? VOL_INDICES[1];
+    const lastDigits = digitHistoryRef.current.slice(-24);
+    const even = lastDigits.filter((d) => d % 2 === 0).length;
+    const avg = lastDigits.length ? lastDigits.reduce((sum, d) => sum + d, 0) / lastDigits.length : 4.5;
+    const current = priceRef.current;
+    if (ty === "Buy/Sell") return current >= activeMarket.basePrice ? "SELL" : "BUY";
+    if (ty === "Even/Odd") return even > lastDigits.length / 2 ? "ODD" : "EVEN";
+    if (ty === "Over/Under") return avg >= selectedDigitRef.current ? "UNDER" : "OVER";
+    return avg >= selectedDigitRef.current ? "DIFFER" : "MATCH";
+  }
+
   async function startBot(direction: string) {
     if (botRunningRef.current) return;
     logDebugEvent("info", "binary.bot", "Binary bot started", {
@@ -297,7 +344,7 @@ export function BinaryPanel() {
       stop,
       martingale,
       type,
-      market: index,
+      market: indexRef.current,
     });
     botRunningRef.current = true;
     setBotRunning(true);
@@ -306,7 +353,8 @@ export function BinaryPanel() {
     toast.success(`Bot started — ${direction} · target $${target} · stop -$${stop}`);
     while (botRunningRef.current) {
       try {
-        const won = await placeAndSettle(direction, currentStakeRef.current);
+        const nextDirection = direction === "AUTO" ? autoDirection() : direction;
+        const won = await placeAndSettle(nextDirection, currentStakeRef.current);
         if (won) {
           currentStakeRef.current = stake; // reset on win
         } else {
@@ -455,6 +503,31 @@ export function BinaryPanel() {
         )}
       </div>
 
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setChartMode("line")}
+          className={
+            "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+            (chartMode === "line"
+              ? "bg-primary/20 text-primary border-primary/50"
+              : "bg-card border-border text-muted-foreground")
+          }
+        >
+          <LineChart className="h-3.5 w-3.5" /> Line
+        </button>
+        <button
+          onClick={() => setChartMode("candles")}
+          className={
+            "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+            (chartMode === "candles"
+              ? "bg-primary/20 text-primary border-primary/50"
+              : "bg-card border-border text-muted-foreground")
+          }
+        >
+          <CandlestickChart className="h-3.5 w-3.5" /> Candles
+        </button>
+      </div>
+
       <div className="bg-card border border-border rounded-xl p-2 h-56">
         <LiveChart
           basePrice={market.basePrice}
@@ -463,6 +536,7 @@ export function BinaryPanel() {
           onPrice={setPrice}
           badge={`${currentDigit}`}
           badgeTone={badgeTone}
+          mode={chartMode}
           className="h-full"
         />
       </div>
@@ -674,6 +748,14 @@ export function BinaryPanel() {
         </button>
       ) : (
         <div className="grid grid-cols-2 gap-2 pt-1">
+          {botMode && (
+            <button
+              onClick={() => startBot("AUTO")}
+              className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
+            >
+              AUTO TRADE
+            </button>
+          )}
           {actions.map(([label, tone]) => (
             <button
               key={label}
