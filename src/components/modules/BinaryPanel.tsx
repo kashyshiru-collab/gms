@@ -127,7 +127,6 @@ export function BinaryPanel() {
   const [price, setPrice] = useState(1000);
   const [tickTrail, setTickTrail] = useState<Tick[]>([]);
   const [digitHistory, setDigitHistory] = useState<number[]>([]);
-  const [rhythmStep, setRhythmStep] = useState(0);
 
   const place = useServerFn(placeTrade);
   const settle = useServerFn(settleTrade);
@@ -159,19 +158,10 @@ export function BinaryPanel() {
   useEffect(() => {
     digitHistoryRef.current = digitHistory;
   }, [digitHistory]);
-  useEffect(() => {
-    setRhythmStep(0);
-  }, [index]);
-  useEffect(() => {
-    const id = window.setInterval(() => setRhythmStep((step) => step + 1), 8500);
-    return () => window.clearInterval(id);
-  }, []);
-
   const market = VOL_INDICES.find((m) => m.value === index) ?? VOL_INDICES[1];
   const hour = new Date().getHours();
   const intradayPace = 0.76 + ((Math.sin((hour / 24) * Math.PI * 2 + 0.7) + 1) / 2) * 0.72;
-  const rhythmMs = market.rhythm[rhythmStep % market.rhythm.length];
-  const chartTickMs = Math.max(140, Math.round(rhythmMs / intradayPace));
+  const chartTickMs = Math.max(140, Math.round(market.tickMs / intradayPace));
   const chartCandleMs = Math.max(1600, Math.min(3600, Math.round(chartTickMs * 4.5)));
   const chartVolatility = market.volatility * (0.88 + intradayPace * 0.22);
   const showDigitStats = type !== "Buy/Sell";
