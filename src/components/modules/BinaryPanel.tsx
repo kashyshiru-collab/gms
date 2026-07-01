@@ -116,7 +116,7 @@ export function BinaryPanel() {
   const [index, setIndex] = useState("Vol 25");
   const [type, setType] = useState<TradeType>("Buy/Sell");
   const [marketOpen, setMarketOpen] = useState(false);
-  const [chartMode, setChartMode] = useState<"line" | "candles">("line");
+  const [chartMode, setChartMode] = useState<"line" | "candles">("candles");
   const [stake, setStake] = useState(10);
   const [selectedDigit, setSelectedDigit] = useState(5);
   const [botMode, setBotMode] = useState(false);
@@ -172,6 +172,7 @@ export function BinaryPanel() {
   const intradayPace = 0.76 + ((Math.sin((hour / 24) * Math.PI * 2 + 0.7) + 1) / 2) * 0.72;
   const rhythmMs = market.rhythm[rhythmStep % market.rhythm.length];
   const chartTickMs = Math.max(140, Math.round(rhythmMs / intradayPace));
+  const chartCandleMs = Math.max(1600, Math.min(3600, Math.round(chartTickMs * 4.5)));
   const chartVolatility = market.volatility * (0.88 + intradayPace * 0.22);
   const showDigitStats = type !== "Buy/Sell";
   const showDigitPicker = type === "Over/Under" || type === "Matches/Differs";
@@ -533,6 +534,7 @@ export function BinaryPanel() {
           basePrice={market.basePrice}
           volatility={chartVolatility}
           tickMs={chartTickMs}
+          candleMs={chartCandleMs}
           onPrice={setPrice}
           badge={`${currentDigit}`}
           badgeTone={badgeTone}

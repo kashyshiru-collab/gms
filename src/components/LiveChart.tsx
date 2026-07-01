@@ -5,6 +5,7 @@ interface Props {
   volatility?: number;
   className?: string;
   tickMs?: number;
+  candleMs?: number;
   onPrice?: (p: number) => void;
   /** Overlay text shown bottom-right (e.g. current digit) */
   badge?: string;
@@ -12,7 +13,7 @@ interface Props {
   mode?: "line" | "candles";
 }
 
-type Candle = { minute: number; o: number; h: number; l: number; c: number };
+type Candle = { bucket: number; o: number; h: number; l: number; c: number };
 
 /**
  * Smooth, realistic-feeling synthetic ticker.
@@ -23,13 +24,14 @@ export function LiveChart({
   volatility = 0.0008,
   className,
   tickMs = 500,
+  candleMs = 2200,
   onPrice,
   badge,
   badgeTone = "neutral",
   mode = "line",
 }: Props) {
   const buildInitialPoints = useCallback(() => {
-    const nowStep = Math.floor(Date.now() / tickMs);
+    const nowStep = Math.floor(Date.now() / 1000);
     let drift = Math.sin(nowStep / 19) * basePrice * volatility * 0.8;
     return Array.from({ length: 90 }, (_, i) => {
       const t = nowStep - (89 - i);
@@ -38,41 +40,48 @@ export function LiveChart({
       const pulse = Math.cos(t / 5) * basePrice * volatility * 0.9;
       return basePrice + wave + pulse + drift;
     });
-  }, [basePrice, tickMs, volatility]);
+  }, [basePrice, volatility]);
   const [points, setPoints] = useState<number[]>(buildInitialPoints);
-  const [candles, setCandles] = useState<Candle[]>(() => buildInitialCandles(buildInitialPoints()));
+  const [candles, setCandles] = useState<Candle[]>(() => buildInitialCandles(basePrice, volatility, candleMs));
   const driftRef = useRef(0);
+  const impulseRef = useRef(0);
 
   useEffect(() => {
     const seeded = buildInitialPoints();
     setPoints(seeded);
-    setCandles(buildInitialCandles(seeded));
+    setCandles(buildInitialCandles(basePrice, volatility, candleMs));
     onPrice?.(seeded[seeded.length - 1]);
-  }, [buildInitialPoints, onPrice]);
+  }, [basePrice, buildInitialPoints, candleMs, onPrice, volatility]);
 
   useEffect(() => {
     const id = setInterval(() => {
       setPoints((prev) => {
         const last = prev[prev.length - 1];
-        // Mean-revert toward basePrice + small random walk
-        const pull = (basePrice - last) * 0.02;
-        driftRef.current = driftRef.current * 0.85 + (Math.random() - 0.5) * volatility * basePrice * 0.4;
-        const next = last + pull + driftRef.current;
+        const pull = (basePrice - last) * 0.015;
+        const burst = Math.random() < 0.13 ? (Math.random() - 0.5) * volatility * basePrice * 7.5 : 0;
+        impulseRef.current = impulseRef.current * 0.68 + burst;
+        driftRef.current =
+          driftRef.current * 0.76 +
+          (Math.random() - 0.5) * volatility * basePrice * 1.35 +
+          Math.sin(Date.now() / 4100) * volatility * basePrice * 0.18;
+        const next = Math.max(0.01, last + pull + driftRef.current + impulseRef.current);
         const arr = [...prev.slice(1), next];
-        setCandles((current) => updateMinuteCandles(current, next));
+        setCandles((current) => updateCandles(current, next, candleMs));
         onPrice?.(next);
         return arr;
       });
     }, tickMs);
     return () => clearInterval(id);
-  }, [volatility, basePrice, tickMs, onPrice]);
+  }, [volatility, basePrice, tickMs, candleMs, onPrice]);
 
-  const candleHalfRange = Math.max(basePrice * volatility * 18, 1);
+  const candleMin = Math.min(...candles.map((c) => c.l));
+  const candleMax = Math.max(...candles.map((c) => c.h));
+  const candlePad = (candleMax - candleMin) * 0.12 || basePrice * volatility * 8 || 1;
   const rawMin = Math.min(...points);
   const rawMax = Math.max(...points);
   const pad = (rawMax - rawMin) * 0.08 || basePrice * volatility * 3 || 1;
-  const min = mode === "candles" ? basePrice - candleHalfRange : rawMin - pad;
-  const max = mode === "candles" ? basePrice + candleHalfRange : rawMax + pad;
+  const min = mode === "candles" ? candleMin - candlePad : rawMin - pad;
+  const max = mode === "candles" ? candleMax + candlePad : rawMax + pad;
   const range = max - min || 1;
   const w = 100;
   const h = 100;
@@ -86,8 +95,10 @@ export function LiveChart({
   const area = `${path} L${w},${h} L0,${h} Z`;
   const last = points[points.length - 1];
   const first = points[0];
+  const latestCandle = candles[candles.length - 1];
   const up = last >= first;
   const stroke = up ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
+  const priceY = h - (((mode === "candles" && latestCandle ? latestCandle.c : last) - min) / range) * h;
   const badgeBg = badgeTone === "bull" ? "bg-bull text-bull-foreground" : badgeTone === "bear" ? "bg-bear text-bear-foreground" : "bg-surface text-foreground border border-border";
 
   return (
@@ -115,31 +126,40 @@ export function LiveChart({
             />
           </>
         ) : (
-          candles.map((c, i) => {
-            const candleUp = c.c >= c.o;
-            const color = candleUp ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
-            const step = w / candles.length;
-            const cx = i * step + step / 2;
-            const bodyTop = h - ((Math.max(c.o, c.c) - min) / range) * h;
-            const bodyBottom = h - ((Math.min(c.o, c.c) - min) / range) * h;
-            const bodyH = Math.max(0.7, bodyBottom - bodyTop);
-            return (
-              <g key={i}>
-                <line
-                  x1={cx}
-                  x2={cx}
-                  y1={h - ((c.h - min) / range) * h}
-                  y2={h - ((c.l - min) / range) * h}
-                  stroke={color}
-                  strokeWidth="0.25"
-                  vectorEffect="non-scaling-stroke"
-                />
-                <rect x={cx - step * 0.28} y={bodyTop} width={step * 0.56} height={bodyH} fill={color} />
-              </g>
-            );
-          })
+          <>
+            {candles.map((c, i) => {
+              const candleUp = c.c >= c.o;
+              const color = candleUp ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
+              const step = w / candles.length;
+              const cx = i * step + step / 2;
+              const bodyTop = h - ((Math.max(c.o, c.c) - min) / range) * h;
+              const bodyBottom = h - ((Math.min(c.o, c.c) - min) / range) * h;
+              const bodyH = Math.max(1.05, bodyBottom - bodyTop);
+              return (
+                <g key={c.bucket}>
+                  <line
+                    x1={cx}
+                    x2={cx}
+                    y1={h - ((c.h - min) / range) * h}
+                    y2={h - ((c.l - min) / range) * h}
+                    stroke={color}
+                    strokeWidth="0.36"
+                    strokeOpacity="0.8"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <rect x={cx - step * 0.36} y={bodyTop} width={step * 0.72} height={bodyH} fill={color} rx="0.08" />
+                </g>
+              );
+            })}
+            <line x1="0" x2={w} y1={priceY} y2={priceY} stroke="oklch(0.78 0.13 86)" strokeOpacity="0.55" strokeDasharray="1 1" strokeWidth="0.25" vectorEffect="non-scaling-stroke" />
+          </>
         )}
       </svg>
+      {mode === "candles" && latestCandle && (
+        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded border border-border bg-surface/85 text-[10px] font-extrabold tabular-nums">
+          {latestCandle.c.toFixed(5)}
+        </div>
+      )}
       {badge !== undefined && (
         <div className={"absolute right-2 bottom-2 px-2 py-1 rounded-lg text-xs font-extrabold tabular-nums shadow-lg " + badgeBg}>
           {badge}
@@ -149,29 +169,41 @@ export function LiveChart({
   );
 }
 
-function buildInitialCandles(points: number[]): Candle[] {
-  const nowMinute = Math.floor(Date.now() / 60_000);
-  const candleCount = 30;
-  const chunkSize = Math.max(1, Math.floor(points.length / candleCount));
+function seededRandom(seed: number) {
+  let x = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+
+function buildInitialCandles(basePrice: number, volatility: number, candleMs: number): Candle[] {
+  const nowBucket = Math.floor(Date.now() / candleMs);
+  const candleCount = 46;
+  const unit = Math.max(basePrice * volatility * 3.2, 0.12);
+  let close = basePrice - basePrice * volatility * 6;
   return Array.from({ length: candleCount }, (_, i) => {
-    const start = i * chunkSize;
-    const chunk = points.slice(start, start + chunkSize);
-    const safe = chunk.length ? chunk : [points[points.length - 1] ?? 0];
-    return {
-      minute: nowMinute - (candleCount - 1 - i),
-      o: safe[0],
-      h: Math.max(...safe),
-      l: Math.min(...safe),
-      c: safe[safe.length - 1],
-    };
+    const bucket = nowBucket - (candleCount - 1 - i);
+    const r1 = seededRandom(Math.round(basePrice * 10) + bucket * 17);
+    const r2 = seededRandom(Math.round(basePrice * 10) + bucket * 31);
+    const r3 = seededRandom(Math.round(basePrice * 10) + bucket * 47);
+    const pulse = Math.sin((bucket + i) / 4) * unit * 1.15;
+    const body = (r1 - 0.48) * unit * 3.1 + pulse;
+    const o = close;
+    const c = Math.max(0.01, o + body);
+    const upperWick = (0.18 + r2 * 1.45) * unit;
+    const lowerWick = (0.18 + r3 * 1.45) * unit;
+    const h = Math.max(o, c) + upperWick;
+    const l = Math.max(0.01, Math.min(o, c) - lowerWick);
+    close = c + (basePrice - c) * 0.028;
+    return { bucket, o, h, l, c };
   });
 }
 
-function updateMinuteCandles(candles: Candle[], price: number) {
-  const minute = Math.floor(Date.now() / 60_000);
+function updateCandles(candles: Candle[], price: number, candleMs: number) {
+  const bucket = Math.floor(Date.now() / candleMs);
   const last = candles[candles.length - 1];
-  if (!last || last.minute !== minute) {
-    return [...candles.slice(-29), { minute, o: price, h: price, l: price, c: price }];
+  if (!last || last.bucket !== bucket) {
+    return [...candles.slice(-45), { bucket, o: price, h: price, l: price, c: price }];
   }
   return [
     ...candles.slice(0, -1),
