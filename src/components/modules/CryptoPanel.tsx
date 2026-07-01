@@ -168,42 +168,59 @@ export function CryptoPanel() {
 
       <OpenPositionsPanel module="crypto" market={`${coin.sym}/USD`} livePrice={price} digits={price < 1 ? 5 : 2} />
 
+      <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">
+              Amount to trade
+            </div>
+            <div className="text-xs text-muted-foreground">Margin amount in USD</div>
+          </div>
+          <div className="flex items-center bg-surface border border-border rounded-xl px-2 py-1.5 min-w-32">
+            <span className="text-sm font-bold text-muted-foreground mr-1">$</span>
+            <input
+              type="number"
+              value={stake}
+              min={5}
+              onChange={(e) => setStake(Math.max(5, Number(e.target.value) || 5))}
+              className="w-full bg-transparent outline-none text-right font-extrabold text-lg tabular-nums"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {[10, 25, 50, 100].map((value) => (
+            <button
+              key={value}
+              onClick={() => setStake(value)}
+              className={
+                "py-1.5 rounded-lg border text-xs font-bold " +
+                (stake === value
+                  ? "bg-primary/20 border-primary text-primary"
+                  : "bg-surface border-border text-muted-foreground")
+              }
+            >
+              ${value}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => submit("LONG")}
           className="py-3 rounded-xl bg-bull text-bull-foreground font-extrabold glow-bull text-sm"
         >
-          LONG ↑
+          LONG ${stake}
         </button>
         <button
           onClick={() => submit("SHORT")}
           className="py-3 rounded-xl bg-bear text-bear-foreground font-extrabold glow-bear text-sm"
         >
-          SHORT ↓
+          SHORT ${stake}
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="bg-card border border-border rounded-lg p-2">
-          <div className="text-[9px] uppercase text-muted-foreground font-bold tracking-wider mb-0.5">
-            Stake $
-          </div>
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStake(Math.max(5, stake - 5))}
-              className="h-5 w-5 rounded bg-surface grid place-items-center"
-            >
-              <Minus className="h-2.5 w-2.5" />
-            </button>
-            <span className="font-bold text-sm tabular-nums">${stake}</span>
-            <button
-              onClick={() => setStake(stake + 5)}
-              className="h-5 w-5 rounded bg-surface grid place-items-center"
-            >
-              <Plus className="h-2.5 w-2.5" />
-            </button>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-1.5">
         <div className="bg-card border border-border rounded-lg p-2">
           <div className="text-[9px] uppercase text-muted-foreground font-bold tracking-wider mb-0.5">
             Leverage

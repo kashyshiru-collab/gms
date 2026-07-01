@@ -30,6 +30,7 @@ const RESOLUTIONS: { label: string; value: "1" | "5" | "15" | "60" }[] = [
 
 export function ForexPanel() {
   const [pair, setPair] = useState(PAIRS[0]);
+  const [amount, setAmount] = useState(10);
   const [size, setSize] = useState(0.1);
   const [sl, setSl] = useState(25);
   const [tp, setTp] = useState(45);
@@ -85,6 +86,7 @@ export function ForexPanel() {
     logDebugEvent("info", "forex.trade", "Placing forex trade", {
       pair: pair.sym,
       direction,
+      amount,
       size,
       sl,
       tp,
@@ -96,9 +98,9 @@ export function ForexPanel() {
           module: "forex",
           market: pair.sym,
           direction,
-          stake: size * 100,
+          stake: amount,
           entry_price: price,
-          meta: { sl, tp, lot: size },
+          meta: { sl, tp, lot: size, amount_usd: amount },
         },
       });
       logDebugEvent("info", "forex.trade", "Forex trade placed", {
@@ -106,7 +108,7 @@ export function ForexPanel() {
         pair: pair.sym,
         direction,
       });
-      toast.success(`${direction} ${pair.sym} @ ${price.toFixed(digits)}`);
+      toast.success(`${direction} ${pair.sym} $${amount} @ ${price.toFixed(digits)}`);
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["trades"] });
     } catch (e) {
@@ -189,18 +191,55 @@ export function ForexPanel() {
 
       <OpenPositionsPanel module="forex" market={pair.sym} livePrice={price} digits={digits} />
 
+      <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">
+              Amount to trade
+            </div>
+            <div className="text-xs text-muted-foreground">Margin amount in USD</div>
+          </div>
+          <div className="flex items-center bg-surface border border-border rounded-xl px-2 py-1.5 min-w-32">
+            <span className="text-sm font-bold text-muted-foreground mr-1">$</span>
+            <input
+              type="number"
+              value={amount}
+              min={1}
+              onChange={(e) => setAmount(Math.max(1, Number(e.target.value) || 1))}
+              className="w-full bg-transparent outline-none text-right font-extrabold text-lg tabular-nums"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {[10, 25, 50, 100].map((value) => (
+            <button
+              key={value}
+              onClick={() => setAmount(value)}
+              className={
+                "py-1.5 rounded-lg border text-xs font-bold " +
+                (amount === value
+                  ? "bg-primary/20 border-primary text-primary"
+                  : "bg-surface border-border text-muted-foreground")
+              }
+            >
+              ${value}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => submit("BUY")}
           className="py-3 rounded-xl bg-bull text-bull-foreground font-extrabold glow-bull text-sm"
         >
-          BUY<div className="text-[10px] font-mono opacity-80">{ask}</div>
+          BUY ${amount}<div className="text-[10px] font-mono opacity-80">{ask}</div>
         </button>
         <button
           onClick={() => submit("SELL")}
           className="py-3 rounded-xl bg-bear text-bear-foreground font-extrabold glow-bear text-sm"
         >
-          SELL<div className="text-[10px] font-mono opacity-80">{bid}</div>
+          SELL ${amount}<div className="text-[10px] font-mono opacity-80">{bid}</div>
         </button>
       </div>
 

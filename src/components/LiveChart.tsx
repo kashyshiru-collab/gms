@@ -12,6 +12,8 @@ interface Props {
   mode?: "line" | "candles";
 }
 
+type Candle = { minute: number; o: number; h: number; l: number; c: number };
+
 /**
  * Smooth, realistic-feeling synthetic ticker.
  * Uses mean-reversion + small step size so movement isn't jittery/rapid.
@@ -38,11 +40,13 @@ export function LiveChart({
     });
   }, [basePrice, tickMs, volatility]);
   const [points, setPoints] = useState<number[]>(buildInitialPoints);
+  const [candles, setCandles] = useState<Candle[]>(() => buildInitialCandles(buildInitialPoints()));
   const driftRef = useRef(0);
 
   useEffect(() => {
     const seeded = buildInitialPoints();
     setPoints(seeded);
+    setCandles(buildInitialCandles(seeded));
     onPrice?.(seeded[seeded.length - 1]);
   }, [buildInitialPoints, onPrice]);
 
@@ -55,6 +59,7 @@ export function LiveChart({
         driftRef.current = driftRef.current * 0.85 + (Math.random() - 0.5) * volatility * basePrice * 0.4;
         const next = last + pull + driftRef.current;
         const arr = [...prev.slice(1), next];
+        setCandles((current) => updateMinuteCandles(current, next));
         onPrice?.(next);
         return arr;
       });
@@ -79,13 +84,6 @@ export function LiveChart({
   const first = points[0];
   const up = last >= first;
   const stroke = up ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
-  const candles = Array.from({ length: Math.floor(points.length / 3) }, (_, i) => {
-    const chunk = points.slice(i * 3, i * 3 + 3);
-    const o = chunk[0];
-    const c = chunk[chunk.length - 1];
-    return { o, c, h: Math.max(...chunk), l: Math.min(...chunk) };
-  });
-
   const badgeBg = badgeTone === "bull" ? "bg-bull text-bull-foreground" : badgeTone === "bear" ? "bg-bear text-bear-foreground" : "bg-surface text-foreground border border-border";
 
   return (
@@ -145,4 +143,39 @@ export function LiveChart({
       )}
     </div>
   );
+}
+
+function buildInitialCandles(points: number[]): Candle[] {
+  const nowMinute = Math.floor(Date.now() / 60_000);
+  const candleCount = 30;
+  const chunkSize = Math.max(1, Math.floor(points.length / candleCount));
+  return Array.from({ length: candleCount }, (_, i) => {
+    const start = i * chunkSize;
+    const chunk = points.slice(start, start + chunkSize);
+    const safe = chunk.length ? chunk : [points[points.length - 1] ?? 0];
+    return {
+      minute: nowMinute - (candleCount - 1 - i),
+      o: safe[0],
+      h: Math.max(...safe),
+      l: Math.min(...safe),
+      c: safe[safe.length - 1],
+    };
+  });
+}
+
+function updateMinuteCandles(candles: Candle[], price: number) {
+  const minute = Math.floor(Date.now() / 60_000);
+  const last = candles[candles.length - 1];
+  if (!last || last.minute !== minute) {
+    return [...candles.slice(-29), { minute, o: price, h: price, l: price, c: price }];
+  }
+  return [
+    ...candles.slice(0, -1),
+    {
+      ...last,
+      h: Math.max(last.h, price),
+      l: Math.min(last.l, price),
+      c: price,
+    },
+  ];
 }
