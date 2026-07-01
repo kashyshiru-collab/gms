@@ -67,8 +67,12 @@ export function LiveChart({
     return () => clearInterval(id);
   }, [volatility, basePrice, tickMs, onPrice]);
 
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+  const candleHalfRange = Math.max(basePrice * volatility * 18, 1);
+  const rawMin = Math.min(...points);
+  const rawMax = Math.max(...points);
+  const pad = (rawMax - rawMin) * 0.08 || basePrice * volatility * 3 || 1;
+  const min = mode === "candles" ? basePrice - candleHalfRange : rawMin - pad;
+  const max = mode === "candles" ? basePrice + candleHalfRange : rawMax + pad;
   const range = max - min || 1;
   const w = 100;
   const h = 100;
