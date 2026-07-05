@@ -10,6 +10,8 @@ interface Props {
   /** Overlay text shown bottom-right (e.g. current digit) */
   badge?: string;
   badgeTone?: "neutral" | "bull" | "bear";
+  note?: string;
+  noteTone?: "neutral" | "bull" | "bear";
   mode?: "line" | "candles";
 }
 
@@ -28,6 +30,8 @@ export function LiveChart({
   onPrice,
   badge,
   badgeTone = "neutral",
+  note,
+  noteTone = "neutral",
   mode = "line",
 }: Props) {
   const buildInitialPoints = useCallback(() => {
@@ -100,6 +104,7 @@ export function LiveChart({
   const stroke = up ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
   const priceY = h - (((mode === "candles" && latestCandle ? latestCandle.c : last) - min) / range) * h;
   const badgeBg = badgeTone === "bull" ? "bg-bull text-bull-foreground" : badgeTone === "bear" ? "bg-bear text-bear-foreground" : "bg-surface text-foreground border border-border";
+  const noteBg = noteTone === "bull" ? "bg-bull/10 text-bull border border-bull/30" : noteTone === "bear" ? "bg-bear/10 text-bear border border-bear/30" : "bg-surface/95 text-foreground border border-border";
 
   return (
     <div className={"relative w-full " + (className ?? "")}>
@@ -163,6 +168,11 @@ export function LiveChart({
       {badge !== undefined && (
         <div className={"absolute right-2 bottom-2 px-2 py-1 rounded-lg text-xs font-extrabold tabular-nums shadow-lg " + badgeBg}>
           {badge}
+        </div>
+      )}
+      {note && (
+        <div className={"absolute left-2 bottom-2 px-2 py-1 rounded-lg text-xs font-semibold tabular-nums shadow-lg " + noteBg}>
+          {note}
         </div>
       )}
     </div>

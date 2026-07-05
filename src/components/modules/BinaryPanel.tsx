@@ -13,7 +13,7 @@ const VOL_INDICES = [
     value: "Vol 10",
     basePrice: 1000,
     volatility: 0.00024,
-    tickMs: 980,
+    tickMs: 1480,
     rhythm: [2100, 1800, 1200, 2200, 900],
   },
   {
@@ -21,7 +21,7 @@ const VOL_INDICES = [
     value: "Vol 25",
     basePrice: 1000,
     volatility: 0.00038,
-    tickMs: 820,
+    tickMs: 1280,
     rhythm: [1800, 1300, 900, 1600, 520],
   },
   {
@@ -29,7 +29,7 @@ const VOL_INDICES = [
     value: "Vol 50",
     basePrice: 1000,
     volatility: 0.00058,
-    tickMs: 680,
+    tickMs: 1080,
     rhythm: [1500, 880, 620, 1200, 420],
   },
   {
@@ -37,7 +37,7 @@ const VOL_INDICES = [
     value: "Vol 75",
     basePrice: 1000,
     volatility: 0.00078,
-    tickMs: 560,
+    tickMs: 900,
     rhythm: [1200, 640, 420, 900, 320],
   },
   {
@@ -45,7 +45,7 @@ const VOL_INDICES = [
     value: "Vol 100",
     basePrice: 1000,
     volatility: 0.001,
-    tickMs: 480,
+    tickMs: 760,
     rhythm: [980, 520, 360, 740, 260],
   },
   {
@@ -125,6 +125,19 @@ export function BinaryPanel() {
   const [stop, setStop] = useState(50);
   const [martingale, setMartingale] = useState(2);
   const [price, setPrice] = useState(1000);
+  const [pendingTrade, setPendingTrade] = useState<{
+    tradeId: string;
+    direction: string;
+    stake: number;
+    type: TradeType;
+    market: string;
+    entryPrice: number;
+    status: "open" | "settled";
+    result?: "win" | "loss";
+    pnl?: number;
+  } | null>(null);
+  const [settleNote, setSettleNote] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
   const [tickTrail, setTickTrail] = useState<Tick[]>([]);
   const [digitHistory, setDigitHistory] = useState<number[]>([]);
 
@@ -218,6 +231,26 @@ export function BinaryPanel() {
   const maxPct = Math.max(...digitStats.map((s) => s.pct));
   const minPct = Math.min(...digitStats.map((s) => s.pct));
   const currentDigit = digitHistory[digitHistory.length - 1] ?? 0;
+  const chartNote = pendingTrade
+    ? pendingTrade.status === "open"
+      ? `Open ${pendingTrade.direction} ${pendingTrade.type} $${pendingTrade.stake}`
+      : settleNote
+    : settleNote;
+  const chartNoteTone = pendingTrade
+    ? pendingTrade.status === "open"
+      ? "neutral"
+      : pendingTrade.result === "win"
+      ? "bull"
+      : "bear"
+    : "neutral";
+  useEffect(() => {
+    if (pendingTrade?.status !== "settled") return;
+    const timeout = window.setTimeout(() => {
+      setPendingTrade(null);
+      setSettleNote(null);
+    }, 4000);
+    return () => clearTimeout(timeout);
+  }, [pendingTrade?.status]);
 
   async function placeAndSettle(direction: string, useStake: number): Promise<boolean> {
     const ty = typeRef.current;
@@ -232,6 +265,8 @@ export function BinaryPanel() {
       selectedDigit: ty === "Over/Under" || ty === "Matches/Differs" ? sel : undefined,
       price: priceRef.current,
     });
+    setPlacing(true);
+    setSettleNote(null);
     try {
       trade = await place({
         data: {
@@ -246,6 +281,17 @@ export function BinaryPanel() {
           },
         },
       });
+      const id = trade.id ?? `pending-${Date.now()}`;
+      setPendingTrade({
+        tradeId: id,
+        direction,
+        stake: useStake,
+        type: ty,
+        market: indexRef.current,
+        entryPrice: priceRef.current,
+        status: "open",
+      });
+      toast.success("Contract placed and open — waiting for result");
       logDebugEvent("info", "binary.trade", "Binary trade placed", {
         tradeId: trade.id,
         direction,
@@ -256,6 +302,7 @@ export function BinaryPanel() {
       logDebugEvent("error", "binary.trade", "Binary trade placement failed", serializeError(e));
       toast.error(e instanceof Error ? e.message : "Failed");
       activeDirectionRef.current = null;
+      setPendingTrade(null);
       throw e;
     }
     // wait 5s for tick result
@@ -279,6 +326,18 @@ export function BinaryPanel() {
           multiplier: 1 + winProfitRate,
         },
       });
+      const pnl = won ? useStake * winProfitRate : -useStake;
+      setPendingTrade((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "settled",
+              result: won ? "win" : "loss",
+              pnl,
+            }
+          : null,
+      );
+      setSettleNote(won ? `WIN +$${(useStake * winProfitRate).toFixed(2)}` : `LOSS -$${useStake}`);
       logDebugEvent("info", "binary.trade", "Binary trade settled", {
         tradeId: trade.id,
         won,
@@ -288,6 +347,8 @@ export function BinaryPanel() {
     } catch (e) {
       logDebugEvent("error", "binary.trade", "Binary trade settlement failed", serializeError(e));
       throw e;
+    } finally {
+      setPlacing(false);
     }
     activeDirectionRef.current = null;
     qc.invalidateQueries({ queryKey: ["profile"] });
@@ -519,7 +580,7 @@ export function BinaryPanel() {
         </button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-2 h-56">
+      <div className="bg-card border border-border rounded-xl p-2 h-56 relative">
         <LiveChart
           basePrice={market.basePrice}
           volatility={chartVolatility}
@@ -528,10 +589,33 @@ export function BinaryPanel() {
           onPrice={setPrice}
           badge={`${currentDigit}`}
           badgeTone={badgeTone}
+          note={chartNote ?? undefined}
+          noteTone={chartNote ? chartNoteTone : "neutral"}
           mode={chartMode}
           className="h-full"
         />
       </div>
+
+      {(placing || pendingTrade?.status === "open" || settleNote) && (
+        <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
+          {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
+          {pendingTrade?.status === "open" && (
+            <div className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-primary font-semibold">
+              Contract placed: {pendingTrade.direction} {pendingTrade.type} ${pendingTrade.stake} — waiting for result.
+            </div>
+          )}
+          {pendingTrade?.status === "settled" && settleNote && (
+            <div className={
+              "rounded-xl px-3 py-2 font-semibold " +
+              (pendingTrade.result === "win"
+                ? "bg-bull/10 text-bull border border-bull/30"
+                : "bg-bear/10 text-bear border border-bear/30")
+            }>
+              {settleNote} · settled on digit {currentDigit}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tick trail — shows each tick's last digit colored by win/loss */}
       <div className="bg-card border border-border rounded-xl px-2 py-2 flex items-center gap-1.5 overflow-x-auto">
