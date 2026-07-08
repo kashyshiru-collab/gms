@@ -348,6 +348,7 @@ function UsersTab() {
   });
   const agentRows = agents as AgentRow[];
   const userRows = users as ClientRow[];
+  const selectedClient = userRows.find((user) => user.id === selectedClientId) ?? null;
   const promoteMut = useMutation({
     mutationFn: (vars: { user_id: string; role: "admin" | "agent" }) =>
       promote({ data: { ...vars, commission_pct: 10 } }),
