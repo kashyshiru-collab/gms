@@ -1,6 +1,10 @@
 [install]
 # 24h supply-chain guard: skip package versions published less than a day ago.
 minimumReleaseAge = 86400
+<<<<<<< HEAD
 # Each entry bypasses the 24h guard for one package - confirm with the user
+=======
+# Each entry bypasses the 24h guard for one package — confirm with the user
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 # before adding any.
 minimumReleaseAgeExcludes = []

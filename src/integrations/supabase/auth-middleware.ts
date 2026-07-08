@@ -3,6 +3,7 @@ import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
+<<<<<<< HEAD
 
 
 
@@ -17,13 +18,52 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       process.env.SUPABASE_PUBLISHABLE_KEY ||
       process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
       process.env.VITE_SUPABASEE_PUBLISHABLE_KEY;
+=======
+import { getSupabasePublishableKey, getSupabaseUrl } from './env'
+
+
+
+function isNewSupabaseApiKey(value: string): boolean {
+  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
+}
+
+function createSupabaseFetch(supabaseKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(
+      typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+    );
+
+    if (init?.headers) {
+      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
+
+    // New Supabase API keys are opaque strings, not bearer JWTs.
+    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
+      headers.delete('Authorization');
+    }
+
+    headers.set('apikey', supabaseKey);
+    return fetch(input, { ...init, headers });
+  };
+}
+
+export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    
+    const SUPABASE_URL = getSupabaseUrl();
+    const SUPABASE_PUBLISHABLE_KEY = getSupabasePublishableKey();
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       const missing = [
         ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
         ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
       ];
+<<<<<<< HEAD
       const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Add them in Vercel project settings.`;
+=======
+      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Set them in Vercel and your local .env file.`;
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
       console.error(`[Supabase] ${message}`);
       throw new Error(message);
     }
@@ -49,11 +89,22 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No token provided');
     }
 
+<<<<<<< HEAD
+=======
+    if (token.split('.').length !== 3) {
+      throw new Error('Unauthorized: Invalid token');
+    }
+
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     const supabase = createClient<Database>(
       SUPABASE_URL!,
       SUPABASE_PUBLISHABLE_KEY!,
       {
         global: {
+<<<<<<< HEAD
+=======
+          fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY!),
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
           headers: {
             Authorization: `Bearer ${token}`,
           },

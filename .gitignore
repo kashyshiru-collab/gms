@@ -7,18 +7,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+<<<<<<< HEAD
 .env
 .env.*
 !.env.example
 
+=======
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 node_modules
 dist
 dist-ssr
 .output
+<<<<<<< HEAD
+=======
+.vercel
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 .vinxi
 .tanstack/**
 .nitro
 *.local
+<<<<<<< HEAD
+=======
+.env
+.env.*
+!.env.example
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 
 # Wrangler / Cloudflare
 .wrangler/

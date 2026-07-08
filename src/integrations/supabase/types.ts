@@ -14,6 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
+<<<<<<< HEAD
       activity_events: {
         Row: {
           amount_kes: number | null
@@ -97,10 +98,33 @@ export type Database = {
           resolved_at?: string | null
           stake_kes?: number
           status?: string
+=======
+      agents: {
+        Row: {
+          commission_pct: number
+          created_at: string
+          id: string
+          referral_code: string
+          user_id: string
+        }
+        Insert: {
+          commission_pct?: number
+          created_at?: string
+          id?: string
+          referral_code: string
+          user_id: string
+        }
+        Update: {
+          commission_pct?: number
+          created_at?: string
+          id?: string
+          referral_code?: string
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
           user_id?: string
         }
         Relationships: []
       }
+<<<<<<< HEAD
       market_overrides: {
         Row: {
           active: boolean
@@ -179,11 +203,50 @@ export type Database = {
           stake_kes?: number
           status?: string
           user_id?: string
+=======
+      polymarket_events: {
+        Row: {
+          category: string
+          created_at: string
+          ends_at: string
+          id: string
+          no_price: number
+          outcome: string | null
+          question: string
+          resolved: boolean
+          volume_usd: number
+          yes_price: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          ends_at: string
+          id?: string
+          no_price?: number
+          outcome?: string | null
+          question: string
+          resolved?: boolean
+          volume_usd?: number
+          yes_price?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          ends_at?: string
+          id?: string
+          no_price?: number
+          outcome?: string | null
+          question?: string
+          resolved?: boolean
+          volume_usd?: number
+          yes_price?: number
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
         }
         Relationships: []
       }
       profiles: {
         Row: {
+<<<<<<< HEAD
           created_at: string
           email: string | null
           force_loss: boolean
@@ -270,10 +333,88 @@ export type Database = {
             columns: ["source_tx_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+=======
+          active_account: string
+          balance_ksh: number
+          balance_usd: number
+          created_at: string
+          demo_balance_usd: number
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          active_account?: string
+          balance_ksh?: number
+          balance_usd?: number
+          created_at?: string
+          demo_balance_usd?: number
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          active_account?: string
+          balance_ksh?: number
+          balance_usd?: number
+          created_at?: string
+          demo_balance_usd?: number
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          agent_id: string | null
+          client_id: string
+          created_at: string
+          id: string
+          referral_code: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          referral_code?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          referral_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_rollups"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "referrals_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
             referencedColumns: ["id"]
           },
         ]
       }
+<<<<<<< HEAD
       referrals: {
         Row: {
           created_at: string
@@ -295,11 +436,62 @@ export type Database = {
           level?: number
           referred_id?: string
           referrer_id?: string
+=======
+      trades: {
+        Row: {
+          account_type: string
+          closed_at: string | null
+          created_at: string
+          direction: string
+          entry_price: number | null
+          exit_price: number | null
+          id: string
+          market: string
+          meta: Json | null
+          module: string
+          payout: number | null
+          stake: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string
+          closed_at?: string | null
+          created_at?: string
+          direction: string
+          entry_price?: number | null
+          exit_price?: number | null
+          id?: string
+          market: string
+          meta?: Json | null
+          module: string
+          payout?: number | null
+          stake: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string
+          closed_at?: string | null
+          created_at?: string
+          direction?: string
+          entry_price?: number | null
+          exit_price?: number | null
+          id?: string
+          market?: string
+          meta?: Json | null
+          module?: string
+          payout?: number | null
+          stake?: number
+          status?: string
+          user_id?: string
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
         }
         Relationships: []
       }
       transactions: {
         Row: {
+<<<<<<< HEAD
           amount_kes: number
           created_at: string
           id: string
@@ -336,6 +528,44 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+=======
+          account_type: string
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          is_virtual: boolean
+          kind: string
+          meta: Json | null
+          method: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          is_virtual?: boolean
+          kind: string
+          meta?: Json | null
+          method?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          is_virtual?: boolean
+          kind?: string
+          meta?: Json | null
+          method?: string | null
+          status?: string
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
           user_id?: string
         }
         Relationships: []
@@ -361,6 +591,7 @@ export type Database = {
         }
         Relationships: []
       }
+<<<<<<< HEAD
       wallets: {
         Row: {
           balance_kes: number
@@ -456,6 +687,26 @@ export type Database = {
         }
       }
       gen_referral_code: { Args: never; Returns: string }
+=======
+    }
+    Views: {
+      agent_rollups: {
+        Row: {
+          agent_id: string | null
+          agent_user_id: string | null
+          agent_username: string | null
+          client_count: number | null
+          commission_pct: number | null
+          house_retained: number | null
+          referral_code: string | null
+          total_deposits: number | null
+          total_withdrawals: number | null
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -463,6 +714,7 @@ export type Database = {
         }
         Returns: boolean
       }
+<<<<<<< HEAD
       mask_display_name: { Args: { p_user: string }; Returns: string }
       open_binary_trade: {
         Args: {
@@ -659,6 +911,11 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "agent" | "user"
+=======
+    }
+    Enums: {
+      app_role: "admin" | "agent" | "client"
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     }
     CompositeTypes: {
       [_ in never]: never
@@ -786,7 +1043,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+<<<<<<< HEAD
       app_role: ["admin", "agent", "user"],
+=======
+      app_role: ["admin", "agent", "client"],
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     },
   },
 } as const

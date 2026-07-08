@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+<<<<<<< HEAD
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWithdrawalsRouteImport } from './routes/_authenticated.withdrawals'
@@ -24,13 +25,42 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.
 import { Route as ApiPublicHooksResolveBinaryTradesRouteImport } from './routes/api/public/hooks/resolve-binary-trades'
 import { Route as ApiPublicDarajaWithdrawCallbackRouteImport } from './routes/api/public/daraja/withdraw-callback'
 import { Route as ApiPublicDarajaCallbackRouteImport } from './routes/api/public/daraja/callback'
+=======
+import { Route as AdminSetupRouteImport } from './routes/admin-setup'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as AuthenticatedTradeRouteImport } from './routes/_authenticated/trade'
+import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPredictRouteImport } from './routes/_authenticated/predict'
+import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
+import { Route as AuthenticatedForexRouteImport } from './routes/_authenticated/forex'
+import { Route as AuthenticatedCryptoRouteImport } from './routes/_authenticated/crypto'
+import { Route as AuthenticatedBinaryRouteImport } from './routes/_authenticated/binary'
+import { Route as AuthenticatedAviatorRouteImport } from './routes/_authenticated/aviator'
+import { Route as AuthenticatedAppsRouteImport } from './routes/_authenticated/apps'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiDarajaStkCallbackRouteImport } from './routes/api/daraja/stk-callback'
+import { Route as ApiDarajaB2cTimeoutRouteImport } from './routes/api/daraja/b2c-timeout'
+import { Route as ApiDarajaB2cResultRouteImport } from './routes/api/daraja/b2c-result'
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+<<<<<<< HEAD
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
+=======
+const AdminSetupRoute = AdminSetupRouteImport.update({
+  id: '/admin-setup',
+  path: '/admin-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -39,6 +69,7 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+<<<<<<< HEAD
 const AuthenticatedWithdrawalsRoute =
   AuthenticatedWithdrawalsRouteImport.update({
     id: '/withdrawals',
@@ -59,10 +90,27 @@ const AuthenticatedReferralsRoute = AuthenticatedReferralsRouteImport.update({
   id: '/referrals',
   path: '/referrals',
   getParentRoute: () => AuthenticatedRoute,
+=======
+const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTradeRoute = AuthenticatedTradeRouteImport.update({
+  id: '/trade',
+  path: '/trade',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
+  id: '/scanner',
+  path: '/scanner',
+  getParentRoute: () => AuthenticatedRouteRoute,
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+<<<<<<< HEAD
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPolymarketRoute = AuthenticatedPolymarketRouteImport.update({
@@ -74,15 +122,53 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
+=======
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPredictRoute = AuthenticatedPredictRouteImport.update({
+  id: '/predict',
+  path: '/predict',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPositionsRoute = AuthenticatedPositionsRouteImport.update({
+  id: '/positions',
+  path: '/positions',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedForexRoute = AuthenticatedForexRouteImport.update({
+  id: '/forex',
+  path: '/forex',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCryptoRoute = AuthenticatedCryptoRouteImport.update({
+  id: '/crypto',
+  path: '/crypto',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBinaryRoute = AuthenticatedBinaryRouteImport.update({
+  id: '/binary',
+  path: '/binary',
+  getParentRoute: () => AuthenticatedRouteRoute,
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 } as any)
 const AuthenticatedAviatorRoute = AuthenticatedAviatorRouteImport.update({
   id: '/aviator',
   path: '/aviator',
+<<<<<<< HEAD
   getParentRoute: () => AuthenticatedRoute,
+=======
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppsRoute = AuthenticatedAppsRouteImport.update({
+  id: '/apps',
+  path: '/apps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+<<<<<<< HEAD
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const ApiPublicHooksResolveBinaryTradesRoute =
@@ -100,11 +186,29 @@ const ApiPublicDarajaWithdrawCallbackRoute =
 const ApiPublicDarajaCallbackRoute = ApiPublicDarajaCallbackRouteImport.update({
   id: '/api/public/daraja/callback',
   path: '/api/public/daraja/callback',
+=======
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiDarajaStkCallbackRoute = ApiDarajaStkCallbackRouteImport.update({
+  id: '/api/daraja/stk-callback',
+  path: '/api/daraja/stk-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDarajaB2cTimeoutRoute = ApiDarajaB2cTimeoutRouteImport.update({
+  id: '/api/daraja/b2c-timeout',
+  path: '/api/daraja/b2c-timeout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDarajaB2cResultRoute = ApiDarajaB2cResultRouteImport.update({
+  id: '/api/daraja/b2c-result',
+  path: '/api/daraja/b2c-result',
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+<<<<<<< HEAD
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/aviator': typeof AuthenticatedAviatorRoute
@@ -134,10 +238,50 @@ export interface FileRoutesByTo {
   '/api/public/daraja/callback': typeof ApiPublicDarajaCallbackRoute
   '/api/public/daraja/withdraw-callback': typeof ApiPublicDarajaWithdrawCallbackRoute
   '/api/public/hooks/resolve-binary-trades': typeof ApiPublicHooksResolveBinaryTradesRoute
+=======
+  '/admin-setup': typeof AdminSetupRoute
+  '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/apps': typeof AuthenticatedAppsRoute
+  '/aviator': typeof AuthenticatedAviatorRoute
+  '/binary': typeof AuthenticatedBinaryRoute
+  '/crypto': typeof AuthenticatedCryptoRoute
+  '/forex': typeof AuthenticatedForexRoute
+  '/positions': typeof AuthenticatedPositionsRoute
+  '/predict': typeof AuthenticatedPredictRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/scanner': typeof AuthenticatedScannerRoute
+  '/trade': typeof AuthenticatedTradeRoute
+  '/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
+}
+export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/admin-setup': typeof AdminSetupRoute
+  '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/apps': typeof AuthenticatedAppsRoute
+  '/aviator': typeof AuthenticatedAviatorRoute
+  '/binary': typeof AuthenticatedBinaryRoute
+  '/crypto': typeof AuthenticatedCryptoRoute
+  '/forex': typeof AuthenticatedForexRoute
+  '/positions': typeof AuthenticatedPositionsRoute
+  '/predict': typeof AuthenticatedPredictRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/scanner': typeof AuthenticatedScannerRoute
+  '/trade': typeof AuthenticatedTradeRoute
+  '/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+<<<<<<< HEAD
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
@@ -152,11 +296,32 @@ export interface FileRoutesById {
   '/api/public/daraja/callback': typeof ApiPublicDarajaCallbackRoute
   '/api/public/daraja/withdraw-callback': typeof ApiPublicDarajaWithdrawCallbackRoute
   '/api/public/hooks/resolve-binary-trades': typeof ApiPublicHooksResolveBinaryTradesRoute
+=======
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/admin-setup': typeof AdminSetupRoute
+  '/auth': typeof AuthRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/apps': typeof AuthenticatedAppsRoute
+  '/_authenticated/aviator': typeof AuthenticatedAviatorRoute
+  '/_authenticated/binary': typeof AuthenticatedBinaryRoute
+  '/_authenticated/crypto': typeof AuthenticatedCryptoRoute
+  '/_authenticated/forex': typeof AuthenticatedForexRoute
+  '/_authenticated/positions': typeof AuthenticatedPositionsRoute
+  '/_authenticated/predict': typeof AuthenticatedPredictRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/scanner': typeof AuthenticatedScannerRoute
+  '/_authenticated/trade': typeof AuthenticatedTradeRoute
+  '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/api/daraja/b2c-result': typeof ApiDarajaB2cResultRoute
+  '/api/daraja/b2c-timeout': typeof ApiDarajaB2cTimeoutRoute
+  '/api/daraja/stk-callback': typeof ApiDarajaStkCallbackRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+<<<<<<< HEAD
     | '/auth'
     | '/admin'
     | '/aviator'
@@ -186,10 +351,50 @@ export interface FileRouteTypes {
     | '/api/public/daraja/callback'
     | '/api/public/daraja/withdraw-callback'
     | '/api/public/hooks/resolve-binary-trades'
+=======
+    | '/admin-setup'
+    | '/auth'
+    | '/admin'
+    | '/apps'
+    | '/aviator'
+    | '/binary'
+    | '/crypto'
+    | '/forex'
+    | '/positions'
+    | '/predict'
+    | '/profile'
+    | '/scanner'
+    | '/trade'
+    | '/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/admin-setup'
+    | '/auth'
+    | '/admin'
+    | '/apps'
+    | '/aviator'
+    | '/binary'
+    | '/crypto'
+    | '/forex'
+    | '/positions'
+    | '/predict'
+    | '/profile'
+    | '/scanner'
+    | '/trade'
+    | '/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+<<<<<<< HEAD
     | '/auth'
     | '/_authenticated/admin'
     | '/_authenticated/aviator'
@@ -203,15 +408,43 @@ export interface FileRouteTypes {
     | '/api/public/daraja/callback'
     | '/api/public/daraja/withdraw-callback'
     | '/api/public/hooks/resolve-binary-trades'
+=======
+    | '/admin-setup'
+    | '/auth'
+    | '/_authenticated/admin'
+    | '/_authenticated/apps'
+    | '/_authenticated/aviator'
+    | '/_authenticated/binary'
+    | '/_authenticated/crypto'
+    | '/_authenticated/forex'
+    | '/_authenticated/positions'
+    | '/_authenticated/predict'
+    | '/_authenticated/profile'
+    | '/_authenticated/scanner'
+    | '/_authenticated/trade'
+    | '/_authenticated/wallet'
+    | '/api/daraja/b2c-result'
+    | '/api/daraja/b2c-timeout'
+    | '/api/daraja/stk-callback'
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+<<<<<<< HEAD
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicDarajaCallbackRoute: typeof ApiPublicDarajaCallbackRoute
   ApiPublicDarajaWithdrawCallbackRoute: typeof ApiPublicDarajaWithdrawCallbackRoute
   ApiPublicHooksResolveBinaryTradesRoute: typeof ApiPublicHooksResolveBinaryTradesRoute
+=======
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AdminSetupRoute: typeof AdminSetupRoute
+  AuthRoute: typeof AuthRoute
+  ApiDarajaB2cResultRoute: typeof ApiDarajaB2cResultRoute
+  ApiDarajaB2cTimeoutRoute: typeof ApiDarajaB2cTimeoutRoute
+  ApiDarajaStkCallbackRoute: typeof ApiDarajaStkCallbackRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 }
 
 declare module '@tanstack/react-router' {
@@ -223,11 +456,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+<<<<<<< HEAD
+=======
+    '/admin-setup': {
+      id: '/admin-setup'
+      path: '/admin-setup'
+      fullPath: '/admin-setup'
+      preLoaderRoute: typeof AdminSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
       fullPath: '/'
+<<<<<<< HEAD
       preLoaderRoute: typeof AuthenticatedRouteImport
+=======
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -237,6 +484,7 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+<<<<<<< HEAD
     '/_authenticated/withdrawals': {
       id: '/_authenticated/withdrawals'
       path: '/withdrawals'
@@ -244,11 +492,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWithdrawalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+=======
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     '/_authenticated/wallet': {
       id: '/_authenticated/wallet'
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof AuthenticatedWalletRouteImport
+<<<<<<< HEAD
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/support': {
@@ -264,12 +515,30 @@ declare module '@tanstack/react-router' {
       fullPath: '/referrals'
       preLoaderRoute: typeof AuthenticatedReferralsRouteImport
       parentRoute: typeof AuthenticatedRoute
+=======
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/trade': {
+      id: '/_authenticated/trade'
+      path: '/trade'
+      fullPath: '/trade'
+      preLoaderRoute: typeof AuthenticatedTradeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/scanner': {
+      id: '/_authenticated/scanner'
+      path: '/scanner'
+      fullPath: '/scanner'
+      preLoaderRoute: typeof AuthenticatedScannerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+<<<<<<< HEAD
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/polymarket': {
@@ -285,19 +554,69 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
+=======
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/predict': {
+      id: '/_authenticated/predict'
+      path: '/predict'
+      fullPath: '/predict'
+      preLoaderRoute: typeof AuthenticatedPredictRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/positions': {
+      id: '/_authenticated/positions'
+      path: '/positions'
+      fullPath: '/positions'
+      preLoaderRoute: typeof AuthenticatedPositionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/forex': {
+      id: '/_authenticated/forex'
+      path: '/forex'
+      fullPath: '/forex'
+      preLoaderRoute: typeof AuthenticatedForexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/crypto': {
+      id: '/_authenticated/crypto'
+      path: '/crypto'
+      fullPath: '/crypto'
+      preLoaderRoute: typeof AuthenticatedCryptoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/binary': {
+      id: '/_authenticated/binary'
+      path: '/binary'
+      fullPath: '/binary'
+      preLoaderRoute: typeof AuthenticatedBinaryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     }
     '/_authenticated/aviator': {
       id: '/_authenticated/aviator'
       path: '/aviator'
       fullPath: '/aviator'
       preLoaderRoute: typeof AuthenticatedAviatorRouteImport
+<<<<<<< HEAD
       parentRoute: typeof AuthenticatedRoute
+=======
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/apps': {
+      id: '/_authenticated/apps'
+      path: '/apps'
+      fullPath: '/apps'
+      preLoaderRoute: typeof AuthenticatedAppsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
     }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+<<<<<<< HEAD
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/hooks/resolve-binary-trades': {
@@ -319,11 +638,35 @@ declare module '@tanstack/react-router' {
       path: '/api/public/daraja/callback'
       fullPath: '/api/public/daraja/callback'
       preLoaderRoute: typeof ApiPublicDarajaCallbackRouteImport
+=======
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/daraja/stk-callback': {
+      id: '/api/daraja/stk-callback'
+      path: '/api/daraja/stk-callback'
+      fullPath: '/api/daraja/stk-callback'
+      preLoaderRoute: typeof ApiDarajaStkCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/daraja/b2c-timeout': {
+      id: '/api/daraja/b2c-timeout'
+      path: '/api/daraja/b2c-timeout'
+      fullPath: '/api/daraja/b2c-timeout'
+      preLoaderRoute: typeof ApiDarajaB2cTimeoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/daraja/b2c-result': {
+      id: '/api/daraja/b2c-result'
+      path: '/api/daraja/b2c-result'
+      fullPath: '/api/daraja/b2c-result'
+      preLoaderRoute: typeof ApiDarajaB2cResultRouteImport
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+<<<<<<< HEAD
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAviatorRoute: typeof AuthenticatedAviatorRoute
@@ -360,6 +703,49 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicDarajaWithdrawCallbackRoute: ApiPublicDarajaWithdrawCallbackRoute,
   ApiPublicHooksResolveBinaryTradesRoute:
     ApiPublicHooksResolveBinaryTradesRoute,
+=======
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAppsRoute: typeof AuthenticatedAppsRoute
+  AuthenticatedAviatorRoute: typeof AuthenticatedAviatorRoute
+  AuthenticatedBinaryRoute: typeof AuthenticatedBinaryRoute
+  AuthenticatedCryptoRoute: typeof AuthenticatedCryptoRoute
+  AuthenticatedForexRoute: typeof AuthenticatedForexRoute
+  AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
+  AuthenticatedPredictRoute: typeof AuthenticatedPredictRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedScannerRoute: typeof AuthenticatedScannerRoute
+  AuthenticatedTradeRoute: typeof AuthenticatedTradeRoute
+  AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAppsRoute: AuthenticatedAppsRoute,
+  AuthenticatedAviatorRoute: AuthenticatedAviatorRoute,
+  AuthenticatedBinaryRoute: AuthenticatedBinaryRoute,
+  AuthenticatedCryptoRoute: AuthenticatedCryptoRoute,
+  AuthenticatedForexRoute: AuthenticatedForexRoute,
+  AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,
+  AuthenticatedPredictRoute: AuthenticatedPredictRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedScannerRoute: AuthenticatedScannerRoute,
+  AuthenticatedTradeRoute: AuthenticatedTradeRoute,
+  AuthenticatedWalletRoute: AuthenticatedWalletRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AdminSetupRoute: AdminSetupRoute,
+  AuthRoute: AuthRoute,
+  ApiDarajaB2cResultRoute: ApiDarajaB2cResultRoute,
+  ApiDarajaB2cTimeoutRoute: ApiDarajaB2cTimeoutRoute,
+  ApiDarajaStkCallbackRoute: ApiDarajaStkCallbackRoute,
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

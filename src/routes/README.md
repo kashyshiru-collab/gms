@@ -1,7 +1,11 @@
 # Routes
 
 TanStack Start uses **file-based routing**. Every `.tsx` file in this directory
+<<<<<<< HEAD
 is a route. Do **not** create `src/pages/`, `src/routes/_app/index.tsx`, or
+=======
+defines a route. Do **not** create `src/pages/`, `src/routes/_app/index.tsx`, or
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
 `app/layout.tsx` — those are Next.js / Remix conventions. The only root layout
 is `src/routes/__root.tsx`.
 

@@ -1,1 +1,8 @@
+<<<<<<< HEAD
 project_id = "xeeryhhnvzfbdpdcohos"
+=======
+project_id = "lopagdylpmrqhjfeskyj"
+
+[auth.email]
+enable_confirmations = false
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)

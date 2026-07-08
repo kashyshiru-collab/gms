@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { createHash, randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -94,3 +95,10 @@ export const playAviatorRound = createServerFn({ method: "POST" })
       seedHash,
     };
   });
+=======
+import { createServerFn } from "@tanstack/react-start";
+
+export const getAviatorServerTime = createServerFn({ method: "GET" }).handler(async () => ({
+  now: Date.now(),
+}));
+>>>>>>> 7af7b59 (binary: optimistic trades, tick selection, 1s mapping to normal speeds; livechart: SMA/EMA/BOLL/RSI/MACD indicators)
