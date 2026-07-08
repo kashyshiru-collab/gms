@@ -276,6 +276,18 @@ function SettingsTab() {
   const [minWithdrawal, setMinWithdrawal] = useState("3");
   const [taxPct, setTaxPct] = useState("5");
   const [rtp, setRtp] = useState("95");
+  const [minStake, setMinStake] = useState("1");
+  const [maxStake, setMaxStake] = useState("1000");
+  const [volatilityModel, setVolatilityModel] = useState("standard");
+  const [segmentTags, setSegmentTags] = useState("VIP,HIGH ROLLER");
+  const [marketLiability, setMarketLiability] = useState("5000");
+  const [userLiability, setUserLiability] = useState("2000");
+  const [fraudEnabled, setFraudEnabled] = useState(true);
+  const [fraudRules, setFraudRules] = useState("bot,arbitrage");
+  const [engagementTriggers, setEngagementTriggers] = useState("trade,withdrawal");
+  const [dailyLossCap, setDailyLossCap] = useState("10000");
+  const [weeklyLossCap, setWeeklyLossCap] = useState("50000");
+  const [monthlyLossCap, setMonthlyLossCap] = useState("100000");
 
   useEffect(() => {
     if (!settings) return;
@@ -283,6 +295,18 @@ function SettingsTab() {
     setMinWithdrawal(String(Number(settings.min_withdrawal_usd ?? 3)));
     setTaxPct(String(Number(settings.withdrawal_tax_pct ?? 5)));
     setRtp(String(Number(settings.rtp_percent ?? 95)));
+    setMinStake(String(Number(settings.limits_min_stake_usd ?? 1)));
+    setMaxStake(String(Number(settings.limits_max_stake_usd ?? 1000)));
+    setVolatilityModel(String(settings.volatility_model_variant ?? "standard"));
+    setSegmentTags(String(settings.user_segmentation_tags ?? "VIP,HIGH ROLLER"));
+    setMarketLiability(String(Number(settings.liability_limits_market_usd ?? 5000)));
+    setUserLiability(String(Number(settings.liability_limits_user_usd ?? 2000)));
+    setFraudEnabled(Boolean(settings.fraud_detection_enabled ?? true));
+    setFraudRules(String(settings.fraud_detection_rules ?? "bot,arbitrage"));
+    setEngagementTriggers(String(settings.engagement_notification_triggers ?? "trade,withdrawal"));
+    setDailyLossCap(String(Number(settings.caps_daily_loss_usd ?? 10000)));
+    setWeeklyLossCap(String(Number(settings.caps_weekly_loss_usd ?? 50000)));
+    setMonthlyLossCap(String(Number(settings.caps_monthly_loss_usd ?? 100000)));
   }, [settings]);
 
   const saveMut = useMutation({
@@ -293,6 +317,18 @@ function SettingsTab() {
           min_withdrawal_usd: Number(minWithdrawal || 0),
           withdrawal_tax_pct: Number(taxPct || 0),
           rtp_percent: Number(rtp || 0),
+          limits_min_stake_usd: Number(minStake || 0),
+          limits_max_stake_usd: Number(maxStake || 0),
+          volatility_model_variant: volatilityModel,
+          user_segmentation_tags: segmentTags,
+          liability_limits_market_usd: Number(marketLiability || 0),
+          liability_limits_user_usd: Number(userLiability || 0),
+          fraud_detection_enabled: fraudEnabled,
+          fraud_detection_rules: fraudRules,
+          engagement_notification_triggers: engagementTriggers,
+          caps_daily_loss_usd: Number(dailyLossCap || 0),
+          caps_weekly_loss_usd: Number(weeklyLossCap || 0),
+          caps_monthly_loss_usd: Number(monthlyLossCap || 0),
         },
       }),
     onSuccess: () => {
@@ -310,22 +346,82 @@ function SettingsTab() {
         <SlidersHorizontal className="h-4 w-4 text-primary" /> System settings
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Adjust minimum deposits and withdrawals, the system retention tax, and the global RTP/house edge for forex, aviator, crypto, and other modules.
+        Control staking limits, volatility behavior, risk caps, segmentation tags, fraud automation, engagement events, and VAT retention from one admin dashboard.
       </p>
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading settings…</div>
       ) : (
-        <div className="space-y-2">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <LabeledInput label="Minimum deposit (USD)" value={minDeposit} onChange={setMinDeposit} />
-            <LabeledInput label="Minimum withdrawal (USD)" value={minWithdrawal} onChange={setMinWithdrawal} />
-            <LabeledInput label="Withdrawal tax (%)" value={taxPct} onChange={setTaxPct} />
-            <LabeledInput label="RTP (%)" value={rtp} onChange={setRtp} />
+        <div className="space-y-3">
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Core economics</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LabeledInput label="Minimum deposit (USD)" value={minDeposit} onChange={setMinDeposit} />
+              <LabeledInput label="Minimum withdrawal (USD)" value={minWithdrawal} onChange={setMinWithdrawal} />
+              <LabeledInput label="VAT retention (%)" value={taxPct} onChange={setTaxPct} />
+              <LabeledInput label="RTP (%)" value={rtp} onChange={setRtp} />
+            </div>
+            <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
+              <div className="font-semibold">House edge</div>
+              <div className="text-muted-foreground">{houseEdge.toFixed(2)}% ({(100 - houseEdge).toFixed(2)}% RTP)</div>
+            </div>
           </div>
-          <div className="rounded-lg border border-border bg-surface/80 p-2 text-sm">
-            <div className="font-semibold">House edge</div>
-            <div className="text-muted-foreground">{houseEdge.toFixed(2)}% ({(100 - houseEdge).toFixed(2)}% RTP)</div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LabeledInput label="Minimum stake (USD)" value={minStake} onChange={setMinStake} />
+              <LabeledInput label="Maximum stake (USD)" value={maxStake} onChange={setMaxStake} />
+            </div>
           </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Volatility</div>
+            <LabeledSelect
+              label="Math model variant"
+              value={volatilityModel}
+              onChange={setVolatilityModel}
+              options={["standard", "aggressive", "conservative"]}
+            />
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User segmentation</div>
+            <LabeledInput label="Auto tags" value={segmentTags} onChange={setSegmentTags} />
+            <div className="text-[10px] text-muted-foreground">Enter tags as a comma-separated list such as VIP,HIGH ROLLER.</div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Liability limits</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LabeledInput label="Exposure per market (USD)" value={marketLiability} onChange={setMarketLiability} />
+              <LabeledInput label="Exposure per user (USD)" value={userLiability} onChange={setUserLiability} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fraud detection</div>
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <input type="checkbox" checked={fraudEnabled} onChange={(e) => setFraudEnabled(e.target.checked)} />
+              Enable automated fraud detection
+            </label>
+            <LabeledInput label="Rules / patterns" value={fraudRules} onChange={setFraudRules} />
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Engagements</div>
+            <LabeledInput label="Event triggers" value={engagementTriggers} onChange={setEngagementTriggers} />
+            <div className="text-[10px] text-muted-foreground">Example: trade,withdrawal,deposit,bonus.</div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Caps</div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <LabeledInput label="Daily loss cap (USD)" value={dailyLossCap} onChange={setDailyLossCap} />
+              <LabeledInput label="Weekly loss cap (USD)" value={weeklyLossCap} onChange={setWeeklyLossCap} />
+              <LabeledInput label="Monthly loss cap (USD)" value={monthlyLossCap} onChange={setMonthlyLossCap} />
+            </div>
+          </div>
+
           <button
             onClick={() => saveMut.mutate()}
             disabled={saveMut.isPending}
@@ -674,14 +770,16 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricInput({
+function LabeledInput({
   label,
   value,
   onChange,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  type?: string;
 }) {
   return (
     <label className="space-y-1">
@@ -689,9 +787,38 @@ function MetricInput({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        type="number"
+        type={type}
         className="w-full px-2 py-1.5 rounded-lg bg-surface border border-border text-sm font-bold tabular-nums outline-none"
       />
+    </label>
+  );
+}
+
+function LabeledSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <label className="space-y-1">
+      <span className="text-[9px] uppercase font-bold text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-sm font-semibold outline-none"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

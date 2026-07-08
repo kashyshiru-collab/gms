@@ -53,9 +53,9 @@ function AuthedLayout() {
   }, [isAdmin, lastUnread, supportUnread?.count]);
 
   return (
-    <div className="min-h-screen pb-20 max-w-3xl mx-auto">
+    <div className="min-h-screen pb-20 lg:pb-0 max-w-7xl mx-auto">
       <AppHeader />
-      <main className="px-3 py-3">
+      <main className="px-3 py-3 lg:px-6 lg:py-6">
         {isAdmin && (supportUnread?.count ?? 0) > 0 && (
           <div className="mx-3 mt-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary">
             Support: {supportUnread?.count} unread user message
@@ -65,7 +65,9 @@ function AuthedLayout() {
         <Outlet />
       </main>
       {isAdmin && <DebugConsole />}
-      <BottomNav />
+      <div className="lg:hidden">
+        <BottomNav />
+      </div>
     </div>
   );
 }
