@@ -6,6 +6,7 @@ import { placeTrade, settleTrade, getMyProfile } from "@/lib/trades.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logDebugEvent, serializeError } from "@/lib/debug-logger";
+import { getProfitRateForContract, getTickLabel, normalizeTickCount, resolveContractOutcome } from "@/lib/binary-simulation";
 
 const VOL_INDICES = [
   {
@@ -13,80 +14,100 @@ const VOL_INDICES = [
     value: "Vol 10",
     basePrice: 1000,
     volatility: 0.00024,
-    tickMs: 1480,
+    tickMs: 1400,
     rhythm: [2100, 1800, 1200, 2200, 900],
+    volatilityLabel: "Low",
+    tickSpeedLabel: "≈1 tick/sec",
   },
   {
     label: "Volatility 25 Index",
     value: "Vol 25",
     basePrice: 1000,
     volatility: 0.00038,
-    tickMs: 1280,
+    tickMs: 1200,
     rhythm: [1800, 1300, 900, 1600, 520],
+    volatilityLabel: "Low-Medium",
+    tickSpeedLabel: "≈1 tick/sec",
   },
   {
     label: "Volatility 50 Index",
     value: "Vol 50",
     basePrice: 1000,
     volatility: 0.00058,
-    tickMs: 1080,
+    tickMs: 1000,
     rhythm: [1500, 880, 620, 1200, 420],
+    volatilityLabel: "Medium",
+    tickSpeedLabel: "≈1 tick/sec",
   },
   {
     label: "Volatility 75 Index",
     value: "Vol 75",
     basePrice: 1000,
     volatility: 0.00078,
-    tickMs: 900,
+    tickMs: 850,
     rhythm: [1200, 640, 420, 900, 320],
+    volatilityLabel: "High",
+    tickSpeedLabel: "≈1 tick/sec",
   },
   {
     label: "Volatility 100 Index",
     value: "Vol 100",
     basePrice: 1000,
     volatility: 0.001,
-    tickMs: 760,
+    tickMs: 750,
     rhythm: [980, 520, 360, 740, 260],
+    volatilityLabel: "Very High",
+    tickSpeedLabel: "≈1 tick/sec",
   },
   {
     label: "Volatility 10 (1s) Index",
     value: "Vol 10 (1s)",
     basePrice: 1000,
     volatility: 0.00036,
-    tickMs: 260,
+    tickMs: 1000,
     rhythm: [2000, 1400, 650, 420, 250],
+    volatilityLabel: "Low",
+    tickSpeedLabel: "1 tick/sec",
   },
   {
     label: "Volatility 25 (1s) Index",
     value: "Vol 25 (1s)",
     basePrice: 1000,
     volatility: 0.00054,
-    tickMs: 220,
+    tickMs: 1000,
     rhythm: [1600, 900, 500, 300, 220],
+    volatilityLabel: "Low-Medium",
+    tickSpeedLabel: "1 tick/sec",
   },
   {
     label: "Volatility 50 (1s) Index",
     value: "Vol 50 (1s)",
     basePrice: 1000,
     volatility: 0.00072,
-    tickMs: 200,
+    tickMs: 1000,
     rhythm: [1300, 760, 440, 260, 190],
+    volatilityLabel: "Medium",
+    tickSpeedLabel: "1 tick/sec",
   },
   {
     label: "Volatility 75 (1s) Index",
     value: "Vol 75 (1s)",
     basePrice: 1000,
     volatility: 0.00094,
-    tickMs: 180,
+    tickMs: 1000,
     rhythm: [1100, 620, 340, 220, 170],
+    volatilityLabel: "High",
+    tickSpeedLabel: "1 tick/sec",
   },
   {
     label: "Volatility 100 (1s) Index",
     value: "Vol 100 (1s)",
     basePrice: 1000,
     volatility: 0.00115,
-    tickMs: 160,
+    tickMs: 1000,
     rhythm: [900, 500, 280, 190, 150],
+    volatilityLabel: "Very High",
+    tickSpeedLabel: "1 tick/sec",
   },
   {
     label: "Crash 500 Index",
@@ -123,7 +144,6 @@ const INDICATOR_OPTIONS = [
 ] as const;
 type IndicatorOption = (typeof INDICATOR_OPTIONS)[number];
 const QUICK = [1, 5, 10, 25, 50, 100];
-const DEFAULT_WIN_PROFIT_RATE = 0.2;
 
 type Tick = { d: number; tone: "neutral" | "bull" | "bear" };
 
@@ -134,7 +154,7 @@ export function BinaryPanel() {
   const [chartMode, setChartMode] = useState<"line" | "candles">("candles");
   const [stake, setStake] = useState(10);
   const [selectedDigit, setSelectedDigit] = useState(5);
-  const [tickProgression, setTickProgression] = useState(3);
+  const [tickProgression, setTickProgression] = useState(4);
   const [selectedIndicators, setSelectedIndicators] = useState<IndicatorOption[]>(["SMA", "RSI", "MACD"]);
   const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
   const [botMode, setBotMode] = useState(false);
@@ -179,6 +199,7 @@ export function BinaryPanel() {
   const selectedDigitRef = useRef(selectedDigit);
   const priceRef = useRef(price);
   const digitHistoryRef = useRef<number[]>([]);
+  const priceTickCountRef = useRef(0);
   const autoSignalConsumedRef = useRef(false);
   useEffect(() => {
     indexRef.current = index;
@@ -204,6 +225,8 @@ export function BinaryPanel() {
   );
   const chartCandleMs = Math.max(1600, Math.min(3600, Math.round(chartTickMs * 4.5)));
   const chartVolatility = market.volatility * (0.88 + intradayPace * 0.22);
+  const settlementTicks = normalizeTickCount(tickProgression);
+  const settlementTickLabel = getTickLabel(settlementTicks);
   const showDigitStats = type !== "Buy/Sell";
   const showDigitPicker = type === "Over/Under" || type === "Matches/Differs";
 
@@ -233,6 +256,7 @@ export function BinaryPanel() {
 
   // Track last digit + paint trail, then color active digit contracts by win/loss.
   useEffect(() => {
+    priceTickCountRef.current += 1;
     const d = Math.floor(price * 10000) % 10;
     setDigitHistory((prev) => [...prev.slice(-99), d]);
     setTickTrail((prev) => {
@@ -261,9 +285,9 @@ export function BinaryPanel() {
   const isDemoAccount = profile?.active_account === "demo";
   const chartNote = pendingTrade
     ? pendingTrade.status === "open"
-      ? `Open ${pendingTrade.direction} ${pendingTrade.type} $${pendingTrade.stake}`
+      ? `Open ${pendingTrade.direction} ${pendingTrade.type} $${pendingTrade.stake} · ${settlementTickLabel}`
       : settleNote
-    : settleNote;
+    : settleNote ?? `Settles on ${settlementTickLabel}`;
   const chartNoteTone = pendingTrade
     ? pendingTrade.status === "open"
       ? "neutral"
@@ -283,6 +307,8 @@ export function BinaryPanel() {
   async function placeAndSettle(direction: string, useStake: number): Promise<boolean> {
     const ty = typeRef.current;
     const sel = selectedDigitRef.current;
+    const entryPrice = priceRef.current;
+    const neededTicks = settlementTicks;
     activeDirectionRef.current = direction;
     let trade;
     logDebugEvent("info", "binary.trade", "Placing binary trade", {
@@ -333,25 +359,27 @@ export function BinaryPanel() {
       setPendingTrade(null);
       throw e;
     }
-    // wait 5s for tick result
-    await new Promise((r) => setTimeout(r, 5000));
-    const finalDigit = Math.floor(priceRef.current * 10000) % 10;
-    const won = simulateContractResult(
-      ty,
+    const priceCursor = priceTickCountRef.current;
+    while (priceTickCountRef.current - priceCursor < neededTicks) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    const settlementPrice = priceRef.current;
+    const finalDigit = Math.floor(settlementPrice * 10000) % 10;
+    const won = resolveContractOutcome({
+      type: ty,
       direction,
-      finalDigit,
-      sel,
-      isDemoAccount,
-      market.basePrice,
-    );
+      entryPrice,
+      settlementPrice,
+      selectedDigit: sel,
+    });
 
-    const winProfitRate = profitRateForContract(ty, direction);
+    const winProfitRate = getProfitRateForContract(ty, direction, neededTicks);
     try {
       await settle({
         data: {
           trade_id: trade.id,
           won,
-          exit_price: priceRef.current,
+          exit_price: settlementPrice,
           multiplier: 1 + winProfitRate,
         },
       });
@@ -371,7 +399,7 @@ export function BinaryPanel() {
         tradeId: trade.id,
         won,
         finalDigit,
-        exitPrice: priceRef.current,
+        exitPrice: settlementPrice,
       });
     } catch (e) {
       logDebugEvent("error", "binary.trade", "Binary trade settlement failed", serializeError(e));
@@ -540,11 +568,7 @@ export function BinaryPanel() {
             <div className="min-w-0">
               <div className="font-bold text-sm truncate">{market.label}</div>
               <div className="text-[10px] text-muted-foreground">
-                {chartTickMs <= 280
-                  ? "rapid 1s ticks"
-                  : chartTickMs >= 800
-                    ? "slow session"
-                    : "live synthetic ticks"}
+                {market.volatilityLabel} · {market.tickSpeedLabel}
               </div>
             </div>
           </div>
@@ -576,7 +600,7 @@ export function BinaryPanel() {
               >
                 <span className="font-semibold truncate">{m.label}</span>
                 <span className="text-[10px] text-muted-foreground shrink-0">
-                  {m.tickMs <= 260 ? "1s" : "standard"}
+                  {m.volatilityLabel} · {m.tickSpeedLabel}
                 </span>
               </button>
             ))}
@@ -628,7 +652,7 @@ export function BinaryPanel() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
           <span className="rounded-full border border-border bg-surface px-2 py-1">Indicators: {selectedIndicators.length}</span>
-          <span className="rounded-full border border-border bg-surface px-2 py-1">Progression: {tickProgression + 1} ticks</span>
+          <span className="rounded-full border border-border bg-surface px-2 py-1">Progression: {settlementTicks} tick{settlementTicks === 1 ? "" : "s"}</span>
           {showDigitPicker && (
             <span className="rounded-full border border-border bg-surface px-2 py-1">Selected digit: {selectedDigit}</span>
           )}
@@ -993,32 +1017,6 @@ export function BinaryPanel() {
   );
 }
 
-function profitRateForContract(type: TradeType, direction: string) {
-  if (type === "Buy/Sell" || type === "Even/Odd") return 0.7;
-  if (type === "Matches/Differs") return direction === "MATCH" ? 4 : 0.06;
-  return DEFAULT_WIN_PROFIT_RATE;
-}
-
-function simulateContractResult(
-  type: TradeType,
-  direction: string,
-  finalDigit: number,
-  selectedDigit: number,
-  isDemoAccount: boolean,
-  basePrice: number,
-) {
-  if (isDemoAccount) {
-    const baseWin = 0.75;
-    const bonus = type === "Buy/Sell" ? 0.06 : 0.1;
-    const feel = Math.min(0.95, baseWin + bonus + Math.max(0, (1000 - basePrice) / 10000));
-    return Math.random() < feel;
-  }
-
-  if (type === "Buy/Sell") return direction === "BUY" ? Math.random() > 0.48 : Math.random() > 0.52;
-  if (type === "Even/Odd") return direction === "EVEN" ? finalDigit % 2 === 0 : finalDigit % 2 === 1;
-  if (type === "Over/Under") return direction === "OVER" ? finalDigit > selectedDigit : finalDigit < selectedDigit;
-  return direction === "MATCH" ? finalDigit === selectedDigit : finalDigit !== selectedDigit;
-}
 
 function BotField({
   label,
