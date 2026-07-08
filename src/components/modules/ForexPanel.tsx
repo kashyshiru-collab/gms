@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CandleChart } from "@/components/CandleChart";
-import { Plus, Minus, Radio } from "lucide-react";
+import { Plus, Minus, Radio, ChevronDown } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { placeTrade } from "@/lib/trades.functions";
 import { getForexQuote, getForexCandles } from "@/lib/forex.functions";
@@ -35,7 +35,25 @@ export function ForexPanel() {
   const [sl, setSl] = useState(25);
   const [tp, setTp] = useState(45);
   const [resolution, setResolution] = useState<"1" | "5" | "15" | "60">("5");
+  const INDICATOR_OPTIONS = [
+    "SMA",
+    "EMA",
+    "Bollinger",
+    "RSI",
+    "MACD",
+    "ATR",
+    "VWAP",
+    "Stochastic",
+    "Momentum",
+    "OBV",
+    "ADX",
+    "CCI",
+  ] as const;
+  type IndicatorOption = (typeof INDICATOR_OPTIONS)[number];
+
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
+  const [selectedIndicators, setSelectedIndicators] = useState<IndicatorOption[]>(["SMA", "EMA", "Bollinger"]);
 
   const place = useServerFn(placeTrade);
   const quoteFn = useServerFn(getForexQuote);
@@ -182,10 +200,56 @@ export function ForexPanel() {
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-2 h-56">
-        <div className="relative h-full">
-        <CandleChart candles={candles} livePrice={price} className="h-full" />
-          <OpenPositionLines module="forex" market={pair.sym} livePrice={price} digits={digits} />
+      <div className="bg-card border border-border rounded-xl p-3">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">
+              Chart controls
+            </div>
+            <div className="text-sm font-semibold">Indicators</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setChartOptionsOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground"
+          >
+            <span>{chartOptionsOpen ? "Hide" : "Show"} indicators</span>
+            <ChevronDown className={"h-4 w-4 transition " + (chartOptionsOpen ? "rotate-180" : "")} />
+          </button>
+        </div>
+        {chartOptionsOpen && (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {INDICATOR_OPTIONS.map((indicator) => {
+              const active = selectedIndicators.includes(indicator);
+              return (
+                <button
+                  key={indicator}
+                  type="button"
+                  onClick={() =>
+                    setSelectedIndicators((prev) =>
+                      prev.includes(indicator)
+                        ? prev.filter((item) => item !== indicator)
+                        : [...prev, indicator],
+                    )
+                  }
+                  className={
+                    "rounded-xl border px-2 py-2 text-[11px] font-semibold transition " +
+                    (active
+                      ? "bg-primary/15 border-primary text-primary"
+                      : "bg-card border-border text-muted-foreground")
+                  }
+                >
+                  {indicator}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="bg-card border border-border rounded-xl p-2 h-56">
+          <div className="relative h-full">
+            <CandleChart candles={candles} livePrice={price} indicators={selectedIndicators} className="h-full" />
+            <OpenPositionLines module="forex" market={pair.sym} livePrice={price} digits={digits} />
+          </div>
         </div>
       </div>
 

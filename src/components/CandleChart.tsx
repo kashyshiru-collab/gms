@@ -4,10 +4,11 @@ interface Props {
   candles: Candle[];
   livePrice?: number;
   className?: string;
+  indicators?: string[];
 }
 
 /** Compact OHLC candlestick chart. Pure SVG, no deps. */
-export function CandleChart({ candles, livePrice, className }: Props) {
+export function CandleChart({ candles, livePrice, className, indicators = [] }: Props) {
   if (!candles.length) {
     return <div className={"flex items-center justify-center text-xs text-muted-foreground " + (className ?? "")}>Loading candles...</div>;
   }
@@ -29,6 +30,14 @@ export function CandleChart({ candles, livePrice, className }: Props) {
   const gap = 0.2;
   const cw = (W / data.length) * (1 - gap);
   const step = W / data.length;
+  const closes = data.map((c) => c.c);
+  const selected = new Set(indicators ?? []);
+  const sma = selected.has("SMA") ? computeSMA(closes, 20) : [];
+  const ema = selected.has("EMA") ? computeEMA(closes, 20) : [];
+  const boll = selected.has("Bollinger") ? computeBollinger(closes, 20, 2) : null;
+  const smaPath = sma.length ? buildLinePath(sma, W, H, lo, range) : "";
+  const emaPath = ema.length ? buildLinePath(ema, W, H, lo, range) : "";
+  const bollFill = boll ? buildBandPath(boll, W, H, lo, range) : "";
 
   const y = (v: number) => H - ((v - lo) / range) * H;
   const last = data[data.length - 1];
@@ -41,6 +50,9 @@ export function CandleChart({ candles, livePrice, className }: Props) {
         {[0.25, 0.5, 0.75].map((t) => (
           <line key={t} x1="0" x2={W} y1={H * t} y2={H * t} stroke="currentColor" strokeOpacity="0.06" strokeWidth="0.2" />
         ))}
+        {bollFill && <path d={bollFill} fill="oklch(0.5 0.18 222 / 0.16)" />}
+        {smaPath && <path d={smaPath} fill="none" stroke="oklch(0.61 0.21 259)" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />}
+        {emaPath && <path d={emaPath} fill="none" stroke="oklch(0.91 0.14 41)" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />}
         {data.map((c, i) => {
           const up = c.c >= c.o;
           const color = up ? bullColor : bearColor;

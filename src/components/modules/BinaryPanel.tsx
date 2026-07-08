@@ -136,6 +136,7 @@ export function BinaryPanel() {
   const [selectedDigit, setSelectedDigit] = useState(5);
   const [tickProgression, setTickProgression] = useState(3);
   const [selectedIndicators, setSelectedIndicators] = useState<IndicatorOption[]>(["SMA", "RSI", "MACD"]);
+  const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
   const [botMode, setBotMode] = useState(false);
   const [botRunning, setBotRunning] = useState(false);
   const [target, setTarget] = useState(200);
@@ -608,6 +609,112 @@ export function BinaryPanel() {
         </button>
       </div>
 
+      <div className="bg-card border border-border rounded-xl p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">
+              Chart controls
+            </div>
+            <div className="text-sm font-semibold">Indicators & tick progression</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setChartOptionsOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground"
+          >
+            <span>{chartOptionsOpen ? "Hide" : "Show"} options</span>
+            <ChevronDown className={"h-4 w-4 transition " + (chartOptionsOpen ? "rotate-180" : "")} />
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+          <span className="rounded-full border border-border bg-surface px-2 py-1">Indicators: {selectedIndicators.length}</span>
+          <span className="rounded-full border border-border bg-surface px-2 py-1">Progression: {tickProgression + 1} ticks</span>
+          {showDigitPicker && (
+            <span className="rounded-full border border-border bg-surface px-2 py-1">Selected digit: {selectedDigit}</span>
+          )}
+        </div>
+        {chartOptionsOpen && (
+          <div className="mt-3 space-y-3">
+            <div>
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold mb-2">
+                Chart indicators
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {INDICATOR_OPTIONS.map((indicator) => {
+                  const active = selectedIndicators.includes(indicator);
+                  return (
+                    <button
+                      key={indicator}
+                      type="button"
+                      onClick={() =>
+                        setSelectedIndicators((prev) =>
+                          prev.includes(indicator)
+                            ? prev.filter((item) => item !== indicator)
+                            : [...prev, indicator],
+                        )
+                      }
+                      className={
+                        "rounded-xl border px-2 py-2 text-[11px] font-semibold transition " +
+                        (active
+                          ? "bg-primary/15 border-primary text-primary"
+                          : "bg-card border-border text-muted-foreground")
+                      }
+                    >
+                      {indicator}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold mb-2">
+                Tick progression
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {Array.from({ length: 5 }, (_, i) => i + 1).map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setTickProgression(count)}
+                    className={
+                      "rounded-xl py-2 text-xs font-bold transition " +
+                      (tickProgression === count
+                        ? "bg-primary text-primary-foreground border border-primary"
+                        : "bg-card border border-border text-muted-foreground")
+                    }
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {showDigitPicker && (
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold mb-2">
+                  Select digit
+                </div>
+                <div className="grid grid-cols-10 gap-1">
+                  {Array.from({ length: 10 }).map((_, d) => (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedDigit(d)}
+                      className={
+                        "h-9 rounded-full font-bold text-sm border-2 " +
+                        (selectedDigit === d
+                          ? "bg-primary text-primary-foreground border-primary glow-primary"
+                          : "bg-surface border-border")
+                      }
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="bg-card border border-border rounded-xl p-2 h-56 relative">
         <LiveChart
           basePrice={market.basePrice}
@@ -653,7 +760,8 @@ export function BinaryPanel() {
         </span>
         {tickTrail.length === 0 && <span className="text-xs text-muted-foreground">waiting…</span>}
         {tickTrail.map((t, i) => {
-          const isRecent = i >= tickTrail.length - tickProgression;
+          const highlightCount = tickProgression + 1;
+          const isRecent = i >= tickTrail.length - highlightCount;
           return (
             <span
               key={i}
@@ -730,60 +838,6 @@ export function BinaryPanel() {
               </div>
             </div>
           )}
-          <div className="rounded-3xl border border-border bg-surface p-3">
-            <div className="flex items-center justify-between gap-2 mb-2 text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-              <span>Chart indicators</span>
-              <span className="text-foreground/70">{selectedIndicators.length} selected</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {INDICATOR_OPTIONS.map((indicator) => {
-                const active = selectedIndicators.includes(indicator);
-                return (
-                  <button
-                    key={indicator}
-                    type="button"
-                    onClick={() =>
-                      setSelectedIndicators((prev) =>
-                        prev.includes(indicator)
-                          ? prev.filter((item) => item !== indicator)
-                          : [...prev, indicator],
-                      )
-                    }
-                    className={
-                      "rounded-xl border px-2 py-2 text-[11px] font-semibold transition " +
-                      (active
-                        ? "bg-primary/15 border-primary text-primary"
-                        : "bg-card border-border text-muted-foreground")
-                    }
-                  >
-                    {indicator}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="rounded-3xl border border-border bg-surface p-3">
-            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
-              Tick progression
-            </div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {Array.from({ length: 5 }, (_, i) => i + 1).map((count) => (
-                <button
-                  key={count}
-                  type="button"
-                  onClick={() => setTickProgression(count)}
-                  className={
-                    "rounded-xl py-2 text-xs font-bold transition " +
-                    (tickProgression === count
-                      ? "bg-primary text-primary-foreground border border-primary"
-                      : "bg-card border border-border text-muted-foreground")
-                  }
-                >
-                  {count}
-                </button>
-              ))}
-            </div>
-          </div>
           {showDigitPicker && (
             <>
               <div className="text-[10px] uppercase text-muted-foreground text-center font-bold tracking-wider">

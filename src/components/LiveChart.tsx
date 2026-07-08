@@ -85,12 +85,19 @@ export function LiveChart({
   const candlePad = (candleMax - candleMin) * 0.12 || basePrice * volatility * 8 || 1;
   const rawMin = Math.min(...points);
   const rawMax = Math.max(...points);
+  const w = 100;
+  const h = 100;
   const pad = (rawMax - rawMin) * 0.08 || basePrice * volatility * 3 || 1;
   const min = mode === "candles" ? candleMin - candlePad : rawMin - pad;
   const max = mode === "candles" ? candleMax + candlePad : rawMax + pad;
   const range = max - min || 1;
-  const w = 100;
-  const h = 100;
+  const selected = new Set(indicators);
+  const sma = selected.has("SMA") ? computeSMA(points, 20) : [];
+  const ema = selected.has("EMA") ? computeEMA(points, 20) : [];
+  const boll = selected.has("Bollinger") ? computeBollinger(points, 20, 2) : null;
+  const smaPath = sma.length ? buildLinePath(sma, w, h, min, range) : "";
+  const emaPath = ema.length ? buildLinePath(ema, w, h, min, range) : "";
+  const bollFill = boll ? buildBandPath(boll, w, h, min, range) : "";
   const path = points
     .map((p, i) => {
       const x = (i / (points.length - 1)) * w;
@@ -122,6 +129,9 @@ export function LiveChart({
         ))}
         {mode === "line" ? (
           <>
+            {bollFill && <path d={bollFill} fill="oklch(0.5 0.18 222 / 0.16)" />}
+            {smaPath && <path d={smaPath} fill="none" stroke="oklch(0.61 0.21 259)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {emaPath && <path d={emaPath} fill="none" stroke="oklch(0.91 0.14 41)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             <path d={area} fill="url(#lc-fill)" />
             <path d={path} fill="none" stroke={stroke} strokeWidth="0.7" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
             <circle
@@ -134,6 +144,9 @@ export function LiveChart({
           </>
         ) : (
           <>
+            {boll && <path d={buildBandPath(boll, w, h, min, range)} fill="oklch(0.5 0.18 222 / 0.16)" />}
+            {smaPath && <path d={smaPath} fill="none" stroke="oklch(0.61 0.21 259)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {emaPath && <path d={emaPath} fill="none" stroke="oklch(0.91 0.14 41)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             {candles.map((c, i) => {
               const candleUp = c.c >= c.o;
               const color = candleUp ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
@@ -172,23 +185,6 @@ export function LiveChart({
           {badge}
         </div>
       )}
-      {indicators.length > 0 && (
-        <div className="absolute left-2 top-2 space-y-1 text-[10px] text-muted-foreground">
-          <div className="font-bold uppercase tracking-[0.18em]">Indicators</div>
-          <div className="flex flex-wrap gap-1">
-            {indicators.slice(0, 6).map((indicator) => (
-              <span key={indicator} className="rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-semibold text-foreground border border-border">
-                {indicator}
-              </span>
-            ))}
-            {indicators.length > 6 && (
-              <span className="rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-semibold text-foreground border border-border">
-                +{indicators.length - 6}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
       {note && (
         <div className={"absolute left-2 bottom-2 px-2 py-1 rounded-lg text-xs font-semibold tabular-nums shadow-lg " + noteBg}>
           {note}
@@ -203,6 +199,102 @@ function seededRandom(seed: number) {
   x ^= x >>> 13;
   x = Math.imul(x, 0xc2b2ae35);
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+
+function computeSMA(values: number[], period: number) {
+  const result: Array<number | null> = [];
+  for (let i = 0; i < values.length; i += 1) {
+    if (i < period - 1) {
+      result.push(null);
+      continue;
+    }
+    const slice = values.slice(i - period + 1, i + 1);
+    const avg = slice.reduce((sum, value) => sum + value, 0) / period;
+    result.push(avg);
+  }
+  return result;
+}
+
+function computeEMA(values: number[], period: number) {
+  const result: Array<number | null> = [];
+  const k = 2 / (period + 1);
+  let prev: number | null = null;
+  for (let i = 0; i < values.length; i += 1) {
+    if (i < period - 1) {
+      result.push(null);
+      continue;
+    }
+    if (i === period - 1) {
+      const slice = values.slice(0, period);
+      prev = slice.reduce((sum, value) => sum + value, 0) / period;
+      result.push(prev);
+      continue;
+    }
+    if (prev === null) {
+      result.push(null);
+      continue;
+    }
+    prev = values[i] * k + prev * (1 - k);
+    result.push(prev);
+  }
+  return result;
+}
+
+function computeBollinger(values: number[], period: number, multiplier: number) {
+  const middle = computeSMA(values, period);
+  const upper: Array<number | null> = [];
+  const lower: Array<number | null> = [];
+  for (let i = 0; i < values.length; i += 1) {
+    if (i < period - 1 || middle[i] === null) {
+      upper.push(null);
+      lower.push(null);
+      continue;
+    }
+    const slice = values.slice(i - period + 1, i + 1);
+    const mean = middle[i]!;
+    const variance = slice.reduce((sum, value) => sum + (value - mean) ** 2, 0) / period;
+    const std = Math.sqrt(variance);
+    upper.push(mean + multiplier * std);
+    lower.push(mean - multiplier * std);
+  }
+  return { upper, lower };
+}
+
+function buildLinePath(values: Array<number | null>, width: number, height: number, min: number, range: number) {
+  return values
+    .reduce((acc, value, index) => {
+      if (value === null) return acc;
+      const x = (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return acc + `${acc === "" ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    }, "");
+}
+
+function buildBandPath(
+  bands: { upper: Array<number | null>; lower: Array<number | null> },
+  width: number,
+  height: number,
+  min: number,
+  range: number,
+) {
+  const upperPoints = bands.upper
+    .map((value, index) => {
+      if (value === null) return "";
+      const x = (index / (bands.upper.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .filter(Boolean);
+  const lowerPoints = bands.lower
+    .map((value, index) => {
+      if (value === null) return "";
+      const x = (index / (bands.lower.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .filter(Boolean)
+    .reverse();
+  return [...upperPoints, ...lowerPoints, "Z"].join(" ");
 }
 
 function buildInitialCandles(basePrice: number, volatility: number, candleMs: number): Candle[] {
