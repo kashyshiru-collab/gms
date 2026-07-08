@@ -19,6 +19,7 @@ async function handleStkCallback(payload: Record<string, unknown>) {
   const resultCode = Number(callback.ResultCode ?? -1);
   const resultDescription = getString(callback.ResultDesc) ?? "STK callback received";
   const metadata = extractCallbackMetadata(getArray(getRecord(callback.CallbackMetadata).Item));
+  const receiptNumber = getString(metadata.MpesaReceiptNumber);
 
   const { data: paymentRequest } = await supabaseAdmin
     .from("payment_requests")
@@ -38,17 +39,32 @@ async function handleStkCallback(payload: Record<string, unknown>) {
 
   if (!paymentRequest?.transaction_id) return;
 
-  const status = resultCode === 0 ? "completed" : "failed";
-  await supabaseAdmin.rpc("apply_transaction", {
-    _transaction_id: paymentRequest.transaction_id,
-    _status: status,
-    _meta: {
-      daraja_result_code: resultCode,
-      daraja_result_description: resultDescription,
-      mpesa_receipt_number: metadata.MpesaReceiptNumber ?? null,
-      callback_at: new Date().toISOString(),
-    },
-  });
+  const hasReceipt = Boolean(receiptNumber);
+  const status = resultCode === 0 && hasReceipt ? "completed" : resultCode === 0 ? "processing" : "failed";
+
+  if (status === "completed") {
+    await supabaseAdmin.rpc("apply_transaction", {
+      _transaction_id: paymentRequest.transaction_id,
+      _status: status,
+      _meta: {
+        daraja_result_code: resultCode,
+        daraja_result_description: resultDescription,
+        mpesa_receipt_number: receiptNumber,
+        callback_at: new Date().toISOString(),
+      },
+    });
+  } else {
+    await supabaseAdmin.from("transactions").update({
+      status,
+      meta: {
+        daraja_result_code: resultCode,
+        daraja_result_description: resultDescription,
+        mpesa_receipt_number: receiptNumber ?? null,
+        callback_at: new Date().toISOString(),
+        callback_guard: status === "processing" ? "missing_receipt_number" : "callback_failed",
+      },
+    } as Record<string, unknown>).eq("id", paymentRequest.transaction_id);
+  }
 
   await supabaseAdmin
     .from("payment_requests")

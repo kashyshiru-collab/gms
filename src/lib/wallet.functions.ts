@@ -507,6 +507,7 @@ function getDarajaEnv(mode: DarajaMode) {
   const baseUrl = normalizeDarajaBaseUrl(
     readEnv("DARAJA_BASE_URL") ?? "https://sandbox.safaricom.co.ke",
   );
+  assertDarajaEnvironment(mode, baseUrl);
   const appUrl = getPublicAppUrl();
   const shared = {
     consumerKey: readEnv("DARAJA_CONSUMER_KEY"),
@@ -553,6 +554,20 @@ function readEnv(name: string) {
 
 function normalizeDarajaBaseUrl(value: string) {
   return value.replace(/\/+$/, "");
+}
+
+function assertDarajaEnvironment(mode: DarajaMode, baseUrl: string) {
+  const isProdRuntime =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NITRO_PRESET === "vercel";
+  const usesSandbox = /sandbox/i.test(baseUrl);
+
+  if (isProdRuntime && usesSandbox) {
+    throw new Error(
+      `Deposits are blocked because Daraja is configured for sandbox in production. Update DARAJA_BASE_URL and the related shortcode/keys to production values before processing ${mode.toUpperCase()} payments.`,
+    );
+  }
 }
 
 function formatDarajaError(

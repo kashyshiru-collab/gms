@@ -14,6 +14,29 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("account_state,freeze_until")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profile?.account_state === "deleted") {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
+    if (profile?.account_state === "closed") {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
+    if (profile?.account_state === "frozen" && profile.freeze_until && new Date(profile.freeze_until).getTime() > Date.now()) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
+    if (profile?.account_state === "frozen") {
+      await supabase.from("profiles").update({ account_state: "active", freeze_until: null }).eq("id", data.user.id);
+    }
+
     return { user: data.user };
   },
   component: AuthedLayout,

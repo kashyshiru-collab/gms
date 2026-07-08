@@ -32,6 +32,7 @@ import {
   listAdmins,
   listAgents,
   listClients,
+  moderateClientAccount,
   promoteUserRole,
   reconcileSuccessfulB2cCallbacks,
   resetAdminAccountsSummary,
@@ -77,6 +78,9 @@ type ClientRow = {
   full_name?: string | null;
   username?: string | null;
   active_account?: string | null;
+  account_state?: string | null;
+  freeze_until?: string | null;
+  deleted_at?: string | null;
   balance_usd?: number | string | null;
   demo_balance_usd?: number | string | null;
   created_at: string;
@@ -513,9 +517,11 @@ function UsersTab() {
   const list = useServerFn(listClients);
   const promote = useServerFn(promoteUserRole);
   const resetBalances = useServerFn(resetUserBalances);
+  const moderate = useServerFn(moderateClientAccount);
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<string | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [freezeDaysByUser, setFreezeDaysByUser] = useState<Record<string, number>>({});
   const agentsFn = useServerFn(listAgents);
   const qc = useQueryClient();
   const { data: agents = [] } = useQuery({ queryKey: ["admin-agents"], queryFn: () => agentsFn() });
@@ -547,6 +553,17 @@ function UsersTab() {
       qc.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Reset failed"),
+  });
+  const moderateMut = useMutation({
+    mutationFn: (vars: { user_id: string; action: "freeze" | "close" | "delete"; duration_days?: number; note?: string }) =>
+      moderate({ data: vars }),
+    onSuccess: (_, vars) => {
+      const label = vars.action === "freeze" ? "frozen" : vars.action === "close" ? "closed" : "deleted";
+      toast.success(`Account ${label}`);
+      qc.invalidateQueries({ queryKey: ["admin-clients"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Account action failed"),
   });
 
   const totalReal = userRows.reduce((s, u) => s + Number(u.balance_usd), 0);
@@ -626,7 +643,10 @@ function UsersTab() {
               <div className="font-bold tabular-nums text-primary text-[10px]">
                 D ${Number(u.demo_balance_usd ?? 0).toFixed(2)}
               </div>
-              <div className="mt-1 flex justify-end gap-1">
+              <div className="mt-1 flex flex-wrap justify-end gap-1">
+                <span className="rounded-full border border-border px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
+                  {String(u.account_state ?? "active").toUpperCase()}
+                </span>
                 <button
                   onClick={() => {
                     if (window.confirm("Reset this user's demo balance to zero?")) {
@@ -651,6 +671,50 @@ function UsersTab() {
                   className="rounded border border-bull/40 px-1.5 py-0.5 text-[9px] font-bold text-bull disabled:opacity-50"
                 >
                   <ShieldPlus className="mr-0.5 inline h-2.5 w-2.5" /> Admin
+                </button>
+              </div>
+              <div className="mt-1 flex flex-wrap justify-end gap-1">
+                <select
+                  value={freezeDaysByUser[u.id] ?? 1}
+                  onChange={(e) => setFreezeDaysByUser((prev) => ({ ...prev, [u.id]: Number(e.target.value) }))}
+                  className="rounded border border-border bg-surface px-1.5 py-0.5 text-[9px] font-semibold"
+                >
+                  <option value={1}>1 day</option>
+                  <option value={3}>3 days</option>
+                  <option value={7}>1 week</option>
+                </select>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Freeze this account for the selected duration?")) {
+                      moderateMut.mutate({ user_id: u.id, action: "freeze", duration_days: freezeDaysByUser[u.id] ?? 1 });
+                    }
+                  }}
+                  disabled={moderateMut.isPending}
+                  className="rounded border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-500 disabled:opacity-50"
+                >
+                  Freeze
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Close this account so it can sign in but stays inert?")) {
+                      moderateMut.mutate({ user_id: u.id, action: "close" });
+                    }
+                  }}
+                  disabled={moderateMut.isPending}
+                  className="rounded border border-primary/40 px-1.5 py-0.5 text-[9px] font-bold text-primary disabled:opacity-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Permanently delete this account and remove its data from the platform?")) {
+                      moderateMut.mutate({ user_id: u.id, action: "delete" });
+                    }
+                  }}
+                  disabled={moderateMut.isPending}
+                  className="rounded border border-bear/40 px-1.5 py-0.5 text-[9px] font-bold text-bear disabled:opacity-50"
+                >
+                  Delete
                 </button>
               </div>
             </div>
@@ -707,6 +771,8 @@ function ClientDetailsDrawer({ client, onClose }: { client: ClientRow; onClose: 
             <Row label="Email" value={String(details.profile?.email ?? "—")} />
             <Row label="Phone" value={String(details.profile?.phone ?? "—")} />
             <Row label="Active account" value={String(details.profile?.active_account ?? client.active_account ?? "—")} />
+            <Row label="Account state" value={String(details.profile?.account_state ?? client.account_state ?? "active").toUpperCase()} />
+            <Row label="Freeze until" value={details.profile?.freeze_until ? new Date(String(details.profile.freeze_until)).toLocaleString() : "—"} />
             <Row label="Real balance" value={`$${Number(details.profile?.balance_usd ?? client.balance_usd ?? 0).toFixed(2)}`} />
             <Row label="Demo balance" value={`$${Number(details.profile?.demo_balance_usd ?? client.demo_balance_usd ?? 0).toFixed(2)}`} />
             <Row label="Joined" value={new Date(String(details.profile?.created_at ?? client.created_at)).toLocaleString()} />

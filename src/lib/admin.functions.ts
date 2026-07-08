@@ -260,6 +260,66 @@ export const listClients = createServerFn({ method: "GET" })
     return profiles ?? [];
   });
 
+export const moderateClientAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        action: z.enum(["freeze", "close", "delete"]),
+        duration_days: z.number().int().min(1).max(365).optional(),
+        note: z.string().trim().max(500).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("id", data.user_id)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    if (!profile) throw new Error("Client profile not found");
+
+    if (data.action === "delete") {
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+      if (authError && !/not found|does not exist|already been deleted/i.test(authError.message)) {
+        throw new Error(authError.message);
+      }
+
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+      await supabaseAdmin.from("agents").delete().eq("user_id", data.user_id);
+      await supabaseAdmin.from("referrals").delete().eq("client_id", data.user_id);
+      await supabaseAdmin.from("user_settings").delete().eq("user_id", data.user_id);
+      await supabaseAdmin.from("trades").delete().eq("user_id", data.user_id);
+      await supabaseAdmin.from("transactions").delete().eq("user_id", data.user_id);
+      await supabaseAdmin.from("profiles").delete().eq("id", data.user_id);
+
+      return { ok: true, state: "deleted" };
+    }
+
+    const freezeUntil =
+      data.action === "freeze"
+        ? new Date(Date.now() + (data.duration_days ?? 1) * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        account_state: data.action === "freeze" ? "frozen" : "closed",
+        freeze_until: freezeUntil,
+        deleted_at: null,
+        moderation_note: data.note ?? null,
+      })
+      .eq("id", data.user_id);
+    if (updateError) throw new Error(updateError.message);
+
+    return { ok: true, state: data.action === "freeze" ? "frozen" : "closed", freeze_until: freezeUntil };
+  });
+
 export const promoteUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

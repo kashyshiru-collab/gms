@@ -57,8 +57,24 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Account created. Welcome aboard.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("account_state,freeze_until")
+          .eq("id", signInData.user.id)
+          .maybeSingle();
+        if (profile?.account_state === "closed") {
+          await supabase.auth.signOut();
+          throw new Error("This account has been closed by an administrator.");
+        }
+        if (profile?.account_state === "frozen" && profile.freeze_until && new Date(profile.freeze_until).getTime() > Date.now()) {
+          await supabase.auth.signOut();
+          throw new Error("This account is frozen until the selected unlock date.");
+        }
+        if (profile?.account_state === "frozen") {
+          await supabase.from("profiles").update({ account_state: "active", freeze_until: null }).eq("id", signInData.user.id);
+        }
       }
       navigate({ to: "/binary" });
     } catch (err) {
