@@ -5,6 +5,9 @@ import {
   computeIndicatorSeries,
   computeSMA,
   getIndicatorColor,
+  alignIndicatorWithPrices,
+  buildIndicatorPath,
+  buildBandPath,
 } from "@/lib/indicator-engine";
 
 interface Props {
@@ -99,12 +102,16 @@ export function LiveChart({
   const max = mode === "candles" ? candleMax + candlePad : rawMax + pad;
   const range = max - min || 1;
   const selected = new Set(indicators);
-  const sma = selected.has("SMA") ? computeIndicatorSeries(points, "SMA", 20) : [];
-  const ema = selected.has("EMA") ? computeIndicatorSeries(points, "EMA", 20) : [];
+  const sma = selected.has("SMA") ? alignIndicatorWithPrices(computeIndicatorSeries(points, "SMA", 20), points) : [];
+  const ema = selected.has("EMA") ? alignIndicatorWithPrices(computeIndicatorSeries(points, "EMA", 20), points) : [];
   const boll = selected.has("Bollinger") ? computeIndicatorSeries(points, "Bollinger", 20) : null;
-  const smaPath = sma.length ? buildLinePath(sma, w, h, min, range) : "";
-  const emaPath = ema.length ? buildLinePath(ema, w, h, min, range) : "";
-  const bollFill = boll && typeof boll === "object" ? buildBandPath(boll as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
+  const bollAligned = boll && typeof boll === "object" ? {
+    upper: alignIndicatorWithPrices(boll.upper, points),
+    lower: alignIndicatorWithPrices(boll.lower, points),
+  } : null;
+  const smaPath = sma.length ? buildIndicatorPath(sma, w, h, min, range) : "";
+  const emaPath = ema.length ? buildIndicatorPath(ema, w, h, min, range) : "";
+  const bollFill = bollAligned ? buildBandPath(bollAligned as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
   const path = points
     .map((p, i) => {
       const x = (i / (points.length - 1)) * w;

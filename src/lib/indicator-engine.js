@@ -318,3 +318,270 @@ export function getIndicatorScale(indicator, value) {
   if (indicator === "CCI") return clamp(value, -200, 200);
   return value;
 }
+
+// ============================================================================
+// TICK-BASED HELPERS: Support for efficient line graph and candle rendering
+// ============================================================================
+
+/**
+ * Build SVG path for indicator series on line graphs
+ * Properly handles null values and maintains alignment with chart from start
+ * Used for SMA, EMA, RSI, etc.
+ */
+export function buildIndicatorPath(values, width, height, minPrice, rangePrice) {
+  if (!values || values.length === 0) return "";
+  
+  const points = [];
+  let pathCommands = [];
+
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    const x = (i / (values.length - 1)) * width;
+    
+    if (v === null || v === undefined) {
+      // Break the line at null values
+      if (points.length > 0) {
+        // Finish current segment
+        if (pathCommands.length === 0) {
+          pathCommands.push(`M${points[0].x},${points[0].y}`);
+        }
+        for (let j = 1; j < points.length; j++) {
+          pathCommands.push(`L${points[j].x},${points[j].y}`);
+        }
+        points = [];
+      }
+    } else {
+      const y = height - ((v - minPrice) / rangePrice) * height;
+      points.push({ x: x.toFixed(2), y: y.toFixed(2) });
+    }
+  }
+
+  // Add remaining points
+  if (points.length > 0) {
+    if (pathCommands.length === 0) {
+      pathCommands.push(`M${points[0].x},${points[0].y}`);
+    }
+    for (let i = 1; i < points.length; i++) {
+      pathCommands.push(`L${points[i].x},${points[i].y}`);
+    }
+  }
+
+  return pathCommands.join(" ");
+}
+
+/**
+ * Build SVG path for Bollinger Bands (filled area between upper and lower bands)
+ * Ensures proper alignment with chart from beginning to end
+ */
+export function buildBandPath(bands, width, height, minPrice, rangePrice) {
+  if (!bands.upper || !bands.lower) return "";
+  
+  const length = Math.min(bands.upper.length, bands.lower.length);
+  const upperSegments = [];
+  const lowerSegments = [];
+
+  for (let i = 0; i < length; i++) {
+    const upper = bands.upper[i];
+    const lower = bands.lower[i];
+    const x = (i / (length - 1)) * width;
+
+    if (upper !== null && upper !== undefined) {
+      const y = height - ((upper - minPrice) / rangePrice) * height;
+      upperSegments.push({ x: x.toFixed(2), y: y.toFixed(2), i });
+    }
+
+    if (lower !== null && lower !== undefined) {
+      const y = height - ((lower - minPrice) / rangePrice) * height;
+      lowerSegments.push({ x: x.toFixed(2), y: y.toFixed(2), i });
+    }
+  }
+
+  if (upperSegments.length < 2 || lowerSegments.length < 2) return "";
+
+  let path = `M${upperSegments[0].x},${upperSegments[0].y}`;
+  
+  // Draw upper band
+  for (let i = 1; i < upperSegments.length; i++) {
+    path += ` L${upperSegments[i].x},${upperSegments[i].y}`;
+  }
+
+  // Draw lower band (reversed for proper filling)
+  for (let i = lowerSegments.length - 1; i >= 0; i--) {
+    path += ` L${lowerSegments[i].x},${lowerSegments[i].y}`;
+  }
+
+  path += " Z";
+  return path;
+}
+
+/**
+ * Build SVG path for line graph (smooth connection of prices)
+ * Optimized for tick data
+ */
+export function buildLinePath(prices, width, height, minPrice, rangePrice) {
+  if (!prices || prices.length === 0) return "";
+  
+  const points = prices
+    .map((p, i) => {
+      if (p === null || p === undefined) return null;
+      const x = (i / (prices.length - 1)) * width;
+      const y = height - ((p - minPrice) / rangePrice) * height;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .filter(Boolean);
+
+  return points.join(" ");
+}
+
+/**
+ * Calculate indicator values only for visible range (optimization)
+ * Useful when you have thousands of ticks but only display 100 points
+ */
+export function getVisibleIndicators(prices, indicatorNames, visibleCount = 100) {
+  const results = {};
+  const step = Math.max(1, Math.floor(prices.length / visibleCount));
+  const sampledPrices = prices.filter((_, i) => i % step === 0);
+
+  for (const name of indicatorNames) {
+    const series = computeIndicatorSeries(sampledPrices, name);
+    const aligned = alignIndicatorWithPrices(series, sampledPrices);
+    results[name] = padIndicatorToPrices(aligned, prices.length);
+  }
+
+  return results;
+}
+
+/**
+ * Prepare all indicators for rendering with proper alignment
+ * Ensures indicators start at the beginning of the chart, not in the middle
+ */
+export function prepareIndicatorsForRendering(prices, indicatorNames = []) {
+  const result = {};
+
+  for (const name of indicatorNames) {
+    let series = computeIndicatorSeries(prices, name);
+    
+    // Handle complex indicators that return objects
+    if (typeof series === 'object' && series.middle) {
+      // Bollinger Bands
+      series = {
+        middle: alignIndicatorWithPrices(series.middle, prices),
+        upper: alignIndicatorWithPrices(series.upper, prices),
+        lower: alignIndicatorWithPrices(series.lower, prices),
+      };
+    } else if (typeof series === 'object' && series.macd) {
+      // MACD
+      series = {
+        macd: alignIndicatorWithPrices(series.macd, prices),
+        signalLine: alignIndicatorWithPrices(series.signalLine, prices),
+      };
+    } else {
+      // Standard indicators
+      series = alignIndicatorWithPrices(series, prices);
+    }
+
+    result[name] = series;
+  }
+
+  return result;
+}
+
+/**
+ * Format indicator value for display based on type
+ */
+export function formatIndicatorValue(indicator, value) {
+  if (value === null || value === undefined) return "—";
+  
+  switch (indicator) {
+    case "RSI":
+    case "Stochastic":
+    case "ADX":
+      return value.toFixed(1);
+    case "MACD":
+      return value.toFixed(5);
+    case "SMA":
+    case "EMA":
+    case "Bollinger":
+      return value.toFixed(2);
+    case "ATR":
+      return value.toFixed(4);
+    default:
+      return value.toFixed(2);
+  }
+}
+
+/**
+ * Align indicator series with price data length
+ * Fills the beginning with forward-filled values so indicator displays from start
+ * Common practice in trading platforms (e.g., TradingView)
+ */
+export function alignIndicatorWithPrices(indicatorSeries, prices) {
+  if (!indicatorSeries || !prices) return [];
+  
+  const result = [...indicatorSeries];
+
+  // Find first non-null value
+  let firstValidIndex = -1;
+  for (let i = 0; i < result.length; i++) {
+    if (result[i] !== null && result[i] !== undefined) {
+      firstValidIndex = i;
+      break;
+    }
+  }
+
+  // If we found a valid value, forward-fill from start
+  if (firstValidIndex > 0) {
+    const firstValue = result[firstValidIndex];
+    for (let i = 0; i < firstValidIndex; i++) {
+      result[i] = firstValue;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Pad indicator to match price length (for sampling/decimation scenarios)
+ */
+export function padIndicatorToPrices(indicatorSeries, priceLength) {
+  if (!indicatorSeries || indicatorSeries.length === 0) return Array(priceLength).fill(null);
+  if (indicatorSeries.length === priceLength) return indicatorSeries;
+
+  const result = [];
+  const step = priceLength / indicatorSeries.length;
+
+  for (let i = 0; i < priceLength; i++) {
+    const idx = Math.floor(i / step);
+    result.push(indicatorSeries[Math.min(idx, indicatorSeries.length - 1)]);
+  }
+
+  return result;
+}
+
+/**
+ * Calculate crossover points between two indicator series
+ * Useful for detecting buy/sell signals
+ */
+export function findCrossovers(indicator1, indicator2) {
+  const crossovers = [];
+  
+  for (let i = 1; i < Math.min(indicator1.length, indicator2.length); i++) {
+    const curr1 = indicator1[i];
+    const curr2 = indicator2[i];
+    const prev1 = indicator1[i - 1];
+    const prev2 = indicator2[i - 1];
+
+    if (curr1 === null || curr2 === null || prev1 === null || prev2 === null) continue;
+
+    // Golden cross (up)
+    if (prev1 <= prev2 && curr1 > curr2) {
+      crossovers.push({ index: i, type: "golden" });
+    }
+    // Death cross (down)
+    else if (prev1 >= prev2 && curr1 < curr2) {
+      crossovers.push({ index: i, type: "death" });
+    }
+  }
+
+  return crossovers;
+}
