@@ -296,7 +296,7 @@ function WalletPage() {
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground">
               Minimum {minimumLabel(tab, method, settings?.min_deposit_usd, settings?.min_withdrawal_usd)}
-              {tab === "withdraw" && settings?.withdrawal_tax_pct != null ? ` · ${Number(settings.withdrawal_tax_pct).toFixed(0)}% retained by system` : ""}
+              {tab === "withdraw" && settings?.withdrawal_tax_pct != null ? ` · ${Number(settings.withdrawal_tax_pct).toFixed(0)}% VAT retention applied` : ""}
             </div>
           </div>
 

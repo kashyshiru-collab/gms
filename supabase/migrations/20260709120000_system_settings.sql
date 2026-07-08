@@ -4,8 +4,34 @@ create table if not exists public.system_settings (
   min_withdrawal_usd numeric not null default 3,
   withdrawal_tax_pct numeric not null default 5,
   rtp_percent numeric not null default 95,
+  limits_min_stake_usd numeric not null default 1,
+  limits_max_stake_usd numeric not null default 1000,
+  volatility_model_variant text not null default 'standard',
+  user_segmentation_tags text not null default 'VIP,HIGH ROLLER',
+  liability_limits_market_usd numeric not null default 5000,
+  liability_limits_user_usd numeric not null default 2000,
+  fraud_detection_enabled boolean not null default true,
+  fraud_detection_rules text not null default 'bot,arbitrage',
+  engagement_notification_triggers text not null default 'trade,withdrawal',
+  caps_daily_loss_usd numeric not null default 10000,
+  caps_weekly_loss_usd numeric not null default 50000,
+  caps_monthly_loss_usd numeric not null default 100000,
   updated_at timestamptz default now()
 );
+
+alter table public.system_settings
+  add column if not exists limits_min_stake_usd numeric default 1,
+  add column if not exists limits_max_stake_usd numeric default 1000,
+  add column if not exists volatility_model_variant text default 'standard',
+  add column if not exists user_segmentation_tags text default 'VIP,HIGH ROLLER',
+  add column if not exists liability_limits_market_usd numeric default 5000,
+  add column if not exists liability_limits_user_usd numeric default 2000,
+  add column if not exists fraud_detection_enabled boolean default true,
+  add column if not exists fraud_detection_rules text default 'bot,arbitrage',
+  add column if not exists engagement_notification_triggers text default 'trade,withdrawal',
+  add column if not exists caps_daily_loss_usd numeric default 10000,
+  add column if not exists caps_weekly_loss_usd numeric default 50000,
+  add column if not exists caps_monthly_loss_usd numeric default 100000;
 
 insert into public.system_settings (
   id,
@@ -13,6 +39,18 @@ insert into public.system_settings (
   min_withdrawal_usd,
   withdrawal_tax_pct,
   rtp_percent,
+  limits_min_stake_usd,
+  limits_max_stake_usd,
+  volatility_model_variant,
+  user_segmentation_tags,
+  liability_limits_market_usd,
+  liability_limits_user_usd,
+  fraud_detection_enabled,
+  fraud_detection_rules,
+  engagement_notification_triggers,
+  caps_daily_loss_usd,
+  caps_weekly_loss_usd,
+  caps_monthly_loss_usd,
   updated_at
 )
 values (
@@ -21,6 +59,18 @@ values (
   3,
   5,
   95,
+  1,
+  1000,
+  'standard',
+  'VIP,HIGH ROLLER',
+  5000,
+  2000,
+  true,
+  'bot,arbitrage',
+  'trade,withdrawal',
+  10000,
+  50000,
+  100000,
   now()
 )
 on conflict (id) do update set
@@ -28,4 +78,16 @@ on conflict (id) do update set
   min_withdrawal_usd = excluded.min_withdrawal_usd,
   withdrawal_tax_pct = excluded.withdrawal_tax_pct,
   rtp_percent = excluded.rtp_percent,
+  limits_min_stake_usd = excluded.limits_min_stake_usd,
+  limits_max_stake_usd = excluded.limits_max_stake_usd,
+  volatility_model_variant = excluded.volatility_model_variant,
+  user_segmentation_tags = excluded.user_segmentation_tags,
+  liability_limits_market_usd = excluded.liability_limits_market_usd,
+  liability_limits_user_usd = excluded.liability_limits_user_usd,
+  fraud_detection_enabled = excluded.fraud_detection_enabled,
+  fraud_detection_rules = excluded.fraud_detection_rules,
+  engagement_notification_triggers = excluded.engagement_notification_triggers,
+  caps_daily_loss_usd = excluded.caps_daily_loss_usd,
+  caps_weekly_loss_usd = excluded.caps_weekly_loss_usd,
+  caps_monthly_loss_usd = excluded.caps_monthly_loss_usd,
   updated_at = excluded.updated_at;
