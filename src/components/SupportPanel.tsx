@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle, Send } from "lucide-react";
-import { getSupportInbox, getSupportMessages, sendSupportMessage } from "@/lib/support.functions";
+import { MessageCircle, Send, Megaphone } from "lucide-react";
+import {
+  broadcastSupportMessage,
+  getSupportInbox,
+  getSupportMessages,
+  sendSupportMessage,
+} from "@/lib/support.functions";
 import { toast } from "sonner";
 
 type SupportThread = {
@@ -27,9 +32,12 @@ export function SupportPanel({ adminMode = false }: { adminMode?: boolean }) {
   const inboxFn = useServerFn(getSupportInbox);
   const messagesFn = useServerFn(getSupportMessages);
   const sendFn = useServerFn(sendSupportMessage);
+  const broadcastFn = useServerFn(broadcastSupportMessage);
   const qc = useQueryClient();
   const [activeThreadId, setActiveThreadId] = useState("");
   const [body, setBody] = useState("");
+  const [broadcastSubject, setBroadcastSubject] = useState("Broadcast");
+  const [showBroadcast, setShowBroadcast] = useState(false);
 
   const { data: inbox } = useQuery({
     queryKey: ["support-inbox", adminMode],
@@ -65,10 +73,33 @@ export function SupportPanel({ adminMode = false }: { adminMode?: boolean }) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send message"),
   });
 
+  const broadcastMut = useMutation({
+    mutationFn: () => broadcastFn({ data: { body: body.trim(), subject: broadcastSubject.trim() } }),
+    onSuccess: (result) => {
+      toast.success(`Broadcast sent to ${result.sent} user${result.sent === 1 ? "" : "s"}`);
+      setBody("");
+      setBroadcastSubject("Broadcast");
+      setShowBroadcast(false);
+      qc.invalidateQueries({ queryKey: ["support-inbox"] });
+      qc.invalidateQueries({ queryKey: ["admin-notifications"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not broadcast message"),
+  });
+
   return (
     <div className="space-y-2">
       {adminMode && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              setShowBroadcast((value) => !value);
+              setBody("");
+            }}
+            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary"
+          >
+            <Megaphone className="mr-1 inline h-3.5 w-3.5" /> Broadcast
+          </button>
           {threads.length === 0 && (
             <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
               No support chats yet.
@@ -96,6 +127,32 @@ export function SupportPanel({ adminMode = false }: { adminMode?: boolean }) {
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {adminMode && showBroadcast && (
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <input
+            value={broadcastSubject}
+            onChange={(e) => setBroadcastSubject(e.target.value)}
+            placeholder="Broadcast subject"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            placeholder="Send a message to everyone"
+            className="min-h-24 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={() => broadcastMut.mutate()}
+            disabled={broadcastMut.isPending || !body.trim()}
+            className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          >
+            {broadcastMut.isPending ? "Broadcasting…" : "Send broadcast"}
+          </button>
         </div>
       )}
 
@@ -149,8 +206,14 @@ export function SupportPanel({ adminMode = false }: { adminMode?: boolean }) {
             className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
           />
           <button
-            onClick={() => sendMut.mutate()}
-            disabled={sendMut.isPending || !body.trim() || (adminMode && !activeThreadId)}
+            onClick={() => {
+              if (adminMode && showBroadcast) {
+                broadcastMut.mutate();
+              } else {
+                sendMut.mutate();
+              }
+            }}
+            disabled={sendMut.isPending || broadcastMut.isPending || !body.trim() || (adminMode && !showBroadcast && !activeThreadId)}
             className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
           >
             <Send className="h-4 w-4" />

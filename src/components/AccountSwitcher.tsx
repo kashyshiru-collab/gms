@@ -2,23 +2,38 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
 import { setActiveAccount } from "@/lib/account.functions";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getErrorMessage, logDebugEvent, serializeError } from "@/lib/debug-logger";
+import { AdminNotifications } from "@/components/AdminNotifications";
 
 export function AccountSwitcher() {
   const fetchProfile = useServerFn(getMyProfile);
   const setAccount = useServerFn(setActiveAccount);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: () => fetchProfile(),
     refetchInterval: 5000,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", userData.user.id);
+      if (!cancelled) setIsAdmin(!!data?.some((row) => row.role === "admin"));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const active = (profile?.active_account ?? "real") as "real" | "demo";
   const realBal = Number(profile?.balance_usd ?? 0);
@@ -66,7 +81,8 @@ export function AccountSwitcher() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-2">
+      <AdminNotifications isAdmin={isAdmin} />
       <button
         onClick={() => setOpen(!open)}
         className={

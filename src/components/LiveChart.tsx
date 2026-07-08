@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  computeBollinger,
+  computeEMA,
+  computeIndicatorSeries,
+  computeSMA,
+  getIndicatorColor,
+} from "@/lib/indicator-engine";
 
 interface Props {
   basePrice?: number;
@@ -92,12 +99,12 @@ export function LiveChart({
   const max = mode === "candles" ? candleMax + candlePad : rawMax + pad;
   const range = max - min || 1;
   const selected = new Set(indicators);
-  const sma = selected.has("SMA") ? computeSMA(points, 20) : [];
-  const ema = selected.has("EMA") ? computeEMA(points, 20) : [];
-  const boll = selected.has("Bollinger") ? computeBollinger(points, 20, 2) : null;
+  const sma = selected.has("SMA") ? computeIndicatorSeries(points, "SMA", 20) : [];
+  const ema = selected.has("EMA") ? computeIndicatorSeries(points, "EMA", 20) : [];
+  const boll = selected.has("Bollinger") ? computeIndicatorSeries(points, "Bollinger", 20) : null;
   const smaPath = sma.length ? buildLinePath(sma, w, h, min, range) : "";
   const emaPath = ema.length ? buildLinePath(ema, w, h, min, range) : "";
-  const bollFill = boll ? buildBandPath(boll, w, h, min, range) : "";
+  const bollFill = boll && typeof boll === "object" ? buildBandPath(boll as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
   const path = points
     .map((p, i) => {
       const x = (i / (points.length - 1)) * w;
@@ -130,8 +137,8 @@ export function LiveChart({
         {mode === "line" ? (
           <>
             {bollFill && <path d={bollFill} fill="oklch(0.5 0.18 222 / 0.16)" />}
-            {smaPath && <path d={smaPath} fill="none" stroke="oklch(0.61 0.21 259)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
-            {emaPath && <path d={emaPath} fill="none" stroke="oklch(0.91 0.14 41)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {smaPath && <path d={smaPath} fill="none" stroke={getIndicatorColor("SMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {emaPath && <path d={emaPath} fill="none" stroke={getIndicatorColor("EMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             <path d={area} fill="url(#lc-fill)" />
             <path d={path} fill="none" stroke={stroke} strokeWidth="0.7" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
             <circle
@@ -144,9 +151,9 @@ export function LiveChart({
           </>
         ) : (
           <>
-            {boll && <path d={buildBandPath(boll, w, h, min, range)} fill="oklch(0.5 0.18 222 / 0.16)" />}
-            {smaPath && <path d={smaPath} fill="none" stroke="oklch(0.61 0.21 259)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
-            {emaPath && <path d={emaPath} fill="none" stroke="oklch(0.91 0.14 41)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {boll && typeof boll === "object" && <path d={buildBandPath(boll as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range)} fill="oklch(0.5 0.18 222 / 0.16)" />}
+            {smaPath && <path d={smaPath} fill="none" stroke={getIndicatorColor("SMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
+            {emaPath && <path d={emaPath} fill="none" stroke={getIndicatorColor("EMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             {candles.map((c, i) => {
               const candleUp = c.c >= c.o;
               const color = candleUp ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
@@ -199,65 +206,6 @@ function seededRandom(seed: number) {
   x ^= x >>> 13;
   x = Math.imul(x, 0xc2b2ae35);
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
-}
-
-function computeSMA(values: number[], period: number) {
-  const result: Array<number | null> = [];
-  for (let i = 0; i < values.length; i += 1) {
-    if (i < period - 1) {
-      result.push(null);
-      continue;
-    }
-    const slice = values.slice(i - period + 1, i + 1);
-    const avg = slice.reduce((sum, value) => sum + value, 0) / period;
-    result.push(avg);
-  }
-  return result;
-}
-
-function computeEMA(values: number[], period: number) {
-  const result: Array<number | null> = [];
-  const k = 2 / (period + 1);
-  let prev: number | null = null;
-  for (let i = 0; i < values.length; i += 1) {
-    if (i < period - 1) {
-      result.push(null);
-      continue;
-    }
-    if (i === period - 1) {
-      const slice = values.slice(0, period);
-      prev = slice.reduce((sum, value) => sum + value, 0) / period;
-      result.push(prev);
-      continue;
-    }
-    if (prev === null) {
-      result.push(null);
-      continue;
-    }
-    prev = values[i] * k + prev * (1 - k);
-    result.push(prev);
-  }
-  return result;
-}
-
-function computeBollinger(values: number[], period: number, multiplier: number) {
-  const middle = computeSMA(values, period);
-  const upper: Array<number | null> = [];
-  const lower: Array<number | null> = [];
-  for (let i = 0; i < values.length; i += 1) {
-    if (i < period - 1 || middle[i] === null) {
-      upper.push(null);
-      lower.push(null);
-      continue;
-    }
-    const slice = values.slice(i - period + 1, i + 1);
-    const mean = middle[i]!;
-    const variance = slice.reduce((sum, value) => sum + (value - mean) ** 2, 0) / period;
-    const std = Math.sqrt(variance);
-    upper.push(mean + multiplier * std);
-    lower.push(mean - multiplier * std);
-  }
-  return { upper, lower };
 }
 
 function buildLinePath(values: Array<number | null>, width: number, height: number, min: number, range: number) {

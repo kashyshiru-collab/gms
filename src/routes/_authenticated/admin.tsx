@@ -17,6 +17,7 @@ import {
   UserPlus,
   UserMinus,
   SlidersHorizontal,
+  ChevronRight,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -336,6 +337,7 @@ function UsersTab() {
   const resetBalances = useServerFn(resetUserBalances);
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<string | undefined>(undefined);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const agentsFn = useServerFn(listAgents);
   const qc = useQueryClient();
   const { data: agents = [] } = useQuery({ queryKey: ["admin-agents"], queryFn: () => agentsFn() });
@@ -423,15 +425,21 @@ function UsersTab() {
         )}
         {userRows.map((u) => (
           <div key={u.id} className="flex items-center justify-between p-2.5 text-sm">
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold truncate">
-                {u.full_name || u.username || u.id.slice(0, 8)}
+            <button
+              type="button"
+              onClick={() => setSelectedClientId(u.id)}
+              className="flex min-w-0 flex-1 items-center justify-between text-left"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate">
+                  {u.full_name || u.username || u.id.slice(0, 8)}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Active: {u.active_account?.toUpperCase()} · joined {new Date(u.created_at).toLocaleDateString()}
+                </div>
               </div>
-              <div className="text-[10px] text-muted-foreground">
-                Active: {u.active_account?.toUpperCase()} · joined{" "}
-                {new Date(u.created_at).toLocaleDateString()}
-              </div>
-            </div>
+              <ChevronRight className="ml-2 h-4 w-4 text-muted-foreground" />
+            </button>
             <div className="text-right">
               <div className="font-bold tabular-nums text-bull text-xs">
                 🇺🇸 ${Number(u.balance_usd).toFixed(2)}
@@ -470,6 +478,115 @@ function UsersTab() {
           </div>
         ))}
       </div>
+
+      {selectedClient && <ClientDetailsDrawer client={selectedClient} onClose={() => setSelectedClientId(null)} />}
+    </div>
+  );
+}
+
+function ClientDetailsDrawer({ client, onClose }: { client: ClientRow; onClose: () => void }) {
+  const [details, setDetails] = useState<{
+    profile?: Record<string, unknown> | null;
+    trades: Array<Record<string, unknown>>;
+    transactions: Array<Record<string, unknown>>;
+  }>({ trades: [], transactions: [] });
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const { data: profileData } = await supabase.from("profiles").select("*").eq("id", client.id).maybeSingle();
+      const [{ data: tradesData }, { data: txData }] = await Promise.all([
+        supabase.from("trades").select("*").eq("user_id", client.id).order("created_at", { ascending: false }).limit(12),
+        supabase.from("transactions").select("*").eq("user_id", client.id).order("created_at", { ascending: false }).limit(12),
+      ]);
+      if (!active) return;
+      setDetails({ profile: profileData ?? null, trades: (tradesData ?? []) as Array<Record<string, unknown>>, transactions: (txData ?? []) as Array<Record<string, unknown>> });
+    }
+    load();
+    return () => { active = false; };
+  }, [client.id]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose} />
+      <div className="fixed right-0 top-0 z-[51] h-full w-full max-w-xl overflow-y-auto border-l border-border bg-background p-4 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold">{client.full_name || client.username || client.id.slice(0, 8)}</div>
+            <div className="text-[11px] text-muted-foreground">Client profile and activity</div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg border border-border p-2">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border bg-card p-3 space-y-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Profile</div>
+          <div className="grid gap-2 text-sm">
+            <Row label="Name" value={String(details.profile?.full_name ?? client.full_name ?? "—")} />
+            <Row label="Username" value={String(details.profile?.username ?? client.username ?? "—")} />
+            <Row label="Email" value={String(details.profile?.email ?? "—")} />
+            <Row label="Phone" value={String(details.profile?.phone ?? "—")} />
+            <Row label="Active account" value={String(details.profile?.active_account ?? client.active_account ?? "—")} />
+            <Row label="Real balance" value={`$${Number(details.profile?.balance_usd ?? client.balance_usd ?? 0).toFixed(2)}`} />
+            <Row label="Demo balance" value={`$${Number(details.profile?.demo_balance_usd ?? client.demo_balance_usd ?? 0).toFixed(2)}`} />
+            <Row label="Joined" value={new Date(String(details.profile?.created_at ?? client.created_at)).toLocaleString()} />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border bg-card p-3 space-y-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Recent trades</div>
+          {details.trades.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No trades yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {details.trades.map((trade) => (
+                <div key={String(trade.id)} className="rounded-lg border border-border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{String(trade.module ?? "trade").toUpperCase()} · {String(trade.market ?? "—")}</div>
+                    <div className="text-[10px] text-muted-foreground">{String(trade.status ?? "—")}</div>
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Stake ${Number(trade.stake ?? 0).toFixed(2)} · payout ${Number(trade.payout ?? 0).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border bg-card p-3 space-y-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Deposits / withdrawals</div>
+          {details.transactions.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No transactions yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {details.transactions.map((transaction) => (
+                <div key={String(transaction.id)} className="rounded-lg border border-border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{String(transaction.kind ?? "transaction")}</div>
+                    <div className={Number(transaction.amount_usd ?? 0) >= 0 ? "text-bull" : "text-bear"}>
+                      ${Number(transaction.amount_usd ?? 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {String(transaction.status ?? "—")} · {new Date(String(transaction.created_at ?? "")).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-2.5 py-2">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-right text-sm font-semibold">{value}</span>
     </div>
   );
 }
