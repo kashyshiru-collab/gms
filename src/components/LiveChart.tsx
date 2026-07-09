@@ -5,9 +5,6 @@ import {
   computeIndicatorSeries,
   computeSMA,
   getIndicatorColor,
-  alignIndicatorWithPrices,
-  buildIndicatorPath,
-  buildBandPath,
 } from "@/lib/indicator-engine";
 
 interface Props {
@@ -24,6 +21,8 @@ interface Props {
   noteTone?: "neutral" | "bull" | "bear";
   indicators?: string[];
   mode?: "line" | "candles";
+  digitStats?: { d: number; pct: number }[];
+  currentDigit?: number;
 }
 
 type Candle = { bucket: number; o: number; h: number; l: number; c: number };
@@ -45,6 +44,8 @@ export function LiveChart({
   noteTone = "neutral",
   indicators = [],
   mode = "line",
+  digitStats,
+  currentDigit,
 }: Props) {
   const buildInitialPoints = useCallback(() => {
     const nowStep = Math.floor(Date.now() / 1000);
@@ -102,16 +103,12 @@ export function LiveChart({
   const max = mode === "candles" ? candleMax + candlePad : rawMax + pad;
   const range = max - min || 1;
   const selected = new Set(indicators);
-  const sma = selected.has("SMA") ? alignIndicatorWithPrices(computeIndicatorSeries(points, "SMA", 20), points) : [];
-  const ema = selected.has("EMA") ? alignIndicatorWithPrices(computeIndicatorSeries(points, "EMA", 20), points) : [];
+  const sma = selected.has("SMA") ? computeIndicatorSeries(points, "SMA", 20) : [];
+  const ema = selected.has("EMA") ? computeIndicatorSeries(points, "EMA", 20) : [];
   const boll = selected.has("Bollinger") ? computeIndicatorSeries(points, "Bollinger", 20) : null;
-  const bollAligned = boll && typeof boll === "object" ? {
-    upper: alignIndicatorWithPrices(boll.upper, points),
-    lower: alignIndicatorWithPrices(boll.lower, points),
-  } : null;
-  const smaPath = sma.length ? buildIndicatorPath(sma, w, h, min, range) : "";
-  const emaPath = ema.length ? buildIndicatorPath(ema, w, h, min, range) : "";
-  const bollFill = bollAligned ? buildBandPath(bollAligned as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
+  const smaPath = sma.length ? buildLinePath(sma, w, h, min, range) : "";
+  const emaPath = ema.length ? buildLinePath(ema, w, h, min, range) : "";
+  const bollFill = boll && typeof boll === "object" ? buildBandPath(boll as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
   const path = points
     .map((p, i) => {
       const x = (i / (points.length - 1)) * w;
@@ -189,6 +186,33 @@ export function LiveChart({
           </>
         )}
       </svg>
+      {/* Digit bubbles rendered inside SVG area via absolute positioned SVG group */}
+      {digitStats && digitStats.length > 0 && (
+        <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute left-0 top-0 w-full h-full pointer-events-none">
+          <g>
+            {(() => {
+              const total = digitStats.length;
+              const totalWidth = w * 0.7;
+              const startX = (w - totalWidth) / 2;
+              const step = total <= 1 ? 0 : totalWidth / (total - 1);
+              return digitStats.map((s, i) => {
+                const x = startX + i * step;
+                const y = h - 6;
+                const isCurrent = currentDigit === s.d;
+                const r = isCurrent ? 2.6 : 2;
+                const fill = isCurrent ? "white" : "#f8fafc";
+                const stroke = isCurrent ? ("#06b6d4") : ("#e6e7ea");
+                return (
+                  <g key={s.d} transform={`translate(${x.toFixed(2)},${y.toFixed(2)})`}>
+                    <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.18} />
+                    <text x="0" y="0.45" fontSize="2.4" fontWeight="700" textAnchor="middle" fill="#0f172a">{s.d}</text>
+                  </g>
+                );
+              });
+            })()}
+          </g>
+        </svg>
+      )}
       {mode === "candles" && latestCandle && (
         <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded border border-border bg-surface/85 text-[10px] font-extrabold tabular-nums">
           {latestCandle.c.toFixed(5)}

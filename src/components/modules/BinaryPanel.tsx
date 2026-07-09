@@ -826,28 +826,9 @@ export function BinaryPanel() {
               indicators={selectedIndicators}
               mode={chartMode}
               className="h-full"
+              digitStats={digitStats}
+              currentDigit={currentDigit}
             />
-
-            {/* Last 100 digits overlay (in-chart) */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 bottom-6 z-30">
-              <div className="bg-card/70 border border-border rounded-full px-3 py-2 flex items-center gap-2 backdrop-blur">
-                {digitStats.map(({ d }) => {
-                  const isCurrent = d === currentDigit;
-                  return (
-                    <div
-                      key={d}
-                      className={
-                        "h-7 w-7 grid place-items-center rounded-full text-sm font-extrabold tabular-nums border transition-all " +
-                        (isCurrent ? "scale-125 ring-2 ring-primary digit-pop " : "") +
-                        " bg-surface border-border text-foreground"
-                      }
-                    >
-                      {d}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Tick trail */}
