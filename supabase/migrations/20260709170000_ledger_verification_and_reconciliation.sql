@@ -229,7 +229,7 @@ BEGIN
         'total_payouts', u.total_payouts
       )
     FROM public.user_ledger_summary u
-    WHERE _account_type IS NULL OR u.account_type = _account_type
+    WHERE (_account_type IS NULL OR u.account_type = _account_type)
       AND u.balance_discrepancy <> 0;
   ELSE
     -- Audit specific user
