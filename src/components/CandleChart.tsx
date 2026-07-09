@@ -1,12 +1,4 @@
-import {
-  computeSMA,
-  computeEMA,
-  computeBollinger,
-  getIndicatorColor,
-  buildIndicatorPath,
-  buildBandPath,
-  alignIndicatorWithPrices,
-} from "@/lib/indicator-engine";
+import { computeSMA, computeEMA, computeBollinger, buildLinePath, buildBandPath } from "@/lib/indicator-engine";
 
 interface Candle { t: number; o: number; h: number; l: number; c: number }
 
@@ -42,16 +34,12 @@ export function CandleChart({ candles, livePrice, className, indicators = [] }: 
   const step = W / data.length;
   const closes = data.map((c) => c.c);
   const selected = new Set(indicators ?? []);
-  const sma = selected.has("SMA") ? alignIndicatorWithPrices(computeSMA(closes, 20), closes) : [];
-  const ema = selected.has("EMA") ? alignIndicatorWithPrices(computeEMA(closes, 20), closes) : [];
+  const sma = selected.has("SMA") ? computeSMA(closes, 20) : [];
+  const ema = selected.has("EMA") ? computeEMA(closes, 20) : [];
   const boll = selected.has("Bollinger") ? computeBollinger(closes, 20, 2) : null;
-  const bollAligned = boll ? {
-    upper: alignIndicatorWithPrices(boll.upper, closes),
-    lower: alignIndicatorWithPrices(boll.lower, closes),
-  } : null;
-  const smaPath = sma.length ? buildIndicatorPath(sma, W, H, lo, range) : "";
-  const emaPath = ema.length ? buildIndicatorPath(ema, W, H, lo, range) : "";
-  const bollFill = bollAligned ? buildBandPath(bollAligned, W, H, lo, range) : "";
+  const smaPath = sma.length ? buildLinePath(sma, W, H, lo, range) : "";
+  const emaPath = ema.length ? buildLinePath(ema, W, H, lo, range) : "";
+  const bollFill = boll ? buildBandPath(boll, W, H, lo, range) : "";
 
   const y = (v: number) => H - ((v - lo) / range) * H;
   const last = data[data.length - 1];

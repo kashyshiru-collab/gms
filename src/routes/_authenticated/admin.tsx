@@ -1473,6 +1473,11 @@ function LedgerReconciliationTab() {
     </div>
   );
 }
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Stat({
   icon,
