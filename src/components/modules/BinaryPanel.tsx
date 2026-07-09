@@ -828,29 +828,22 @@ export function BinaryPanel() {
               className="h-full"
             />
 
-            {/* Tick trail overlay inside chart */}
-            <div className="absolute left-4 right-4 bottom-4 z-30">
-              <div className="bg-card/80 border border-border rounded-xl px-2 py-2 flex items-center gap-1.5 overflow-x-auto backdrop-blur">
-                <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider shrink-0 mr-1">Ticks</span>
-                {tickTrail.length === 0 && <span className="text-xs text-muted-foreground">waiting…</span>}
-                {tickTrail.map((t, i) => {
-                  const highlightCount = tickProgression + 1;
-                  const isRecent = i >= tickTrail.length - highlightCount;
+            {/* Last 100 digits overlay (in-chart) */}
+            <div className="absolute left-1/2 transform -translate-x-1/2 bottom-6 z-30">
+              <div className="bg-card/70 border border-border rounded-full px-3 py-2 flex items-center gap-2 backdrop-blur">
+                {digitStats.map(({ d }) => {
+                  const isCurrent = d === currentDigit;
                   return (
-                    <span
-                      key={i}
+                    <div
+                      key={d}
                       className={
-                        "shrink-0 h-7 w-7 grid place-items-center rounded-full text-xs font-extrabold tabular-nums border transition-all " +
-                        (isRecent ? "scale-110 shadow-lg" : "") +
-                        (t.tone === "bull"
-                          ? " bg-bull text-bull-foreground border-bull glow-bull"
-                          : t.tone === "bear"
-                            ? " bg-bear text-bear-foreground border-bear glow-bear"
-                            : " bg-surface border-border text-muted-foreground")
+                        "h-7 w-7 grid place-items-center rounded-full text-sm font-extrabold tabular-nums border transition-all " +
+                        (isCurrent ? "scale-125 ring-2 ring-primary digit-pop " : "") +
+                        " bg-surface border-border text-foreground"
                       }
                     >
-                      {t.d}
-                    </span>
+                      {d}
+                    </div>
                   );
                 })}
               </div>
