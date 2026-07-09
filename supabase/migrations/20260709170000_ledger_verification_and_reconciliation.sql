@@ -300,7 +300,7 @@ BEGIN
     ABS(balance_discrepancy) AS discrepancy
   INTO _current_balance, _calculated_balance, _discrepancy
   FROM public.user_ledger_summary
-  WHERE user_id = _user_id AND account_type = _account_type;
+  WHERE user_id = _user_id AND account_type = _account_type::public.account_type;
 
   IF _current_balance IS NULL THEN
     RETURN jsonb_build_object(
@@ -322,8 +322,8 @@ BEGIN
 
   -- Determine column to update
   _column_name := CASE
-    WHEN _account_type = 'real'::public.account_type THEN 'balance_usd'
-    WHEN _account_type = 'demo'::public.account_type THEN 'demo_balance_usd'
+    WHEN _account_type::public.account_type = 'real'::public.account_type THEN 'balance_usd'
+    WHEN _account_type::public.account_type = 'demo'::public.account_type THEN 'demo_balance_usd'
     ELSE NULL
   END;
 
@@ -419,8 +419,8 @@ BEGIN
     -- Update balance
     UPDATE public.profiles
     SET
-      balance_usd = CASE WHEN _row.account_type = 'real'::public.account_type THEN _row.calculated_balance ELSE balance_usd END,
-      demo_balance_usd = CASE WHEN _row.account_type = 'demo'::public.account_type THEN _row.calculated_balance ELSE demo_balance_usd END,
+      balance_usd = CASE WHEN _row.account_type::public.account_type = 'real'::public.account_type THEN _row.calculated_balance ELSE balance_usd END,
+      demo_balance_usd = CASE WHEN _row.account_type::public.account_type = 'demo'::public.account_type THEN _row.calculated_balance ELSE demo_balance_usd END,
       updated_at = now()
     WHERE id = _row.user_id;
 
