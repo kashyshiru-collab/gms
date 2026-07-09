@@ -1473,11 +1473,6 @@ function LedgerReconciliationTab() {
     </div>
   );
 }
-        </div>
-      )}
-    </div>
-  );
-}
 
 function Stat({
   icon,
@@ -1501,6 +1496,8 @@ function Stat({
     </div>
   );
 }
+
+function FilterChip({
   active,
   onClick,
   children,
