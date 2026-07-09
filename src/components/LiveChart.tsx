@@ -197,15 +197,16 @@ export function LiveChart({
               const step = total <= 1 ? 0 : totalWidth / (total - 1);
               return digitStats.map((s, i) => {
                 const x = startX + i * step;
-                const y = h - 6;
+                const y = h - 7;
                 const isCurrent = currentDigit === s.d;
-                  const r = isCurrent ? 3.2 : 2.2;
-                  const fill = isCurrent ? "#06b6d4" : "#f8fafc";
-                  const stroke = isCurrent ? "#054f5f" : "#e6e7ea";
+                  const r = isCurrent ? 5.2 : 3.6;
+                  const fill = isCurrent ? "#06b6d4" : "#ffffff";
+                  const stroke = isCurrent ? "#07484f" : "#e6e7ea";
                 return (
                   <g key={s.d} transform={`translate(${x.toFixed(2)},${y.toFixed(2)})`}>
-                      <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.18} />
-                      <text x="0" y="0.55" fontSize={isCurrent ? "3" : "2.4"} fontWeight="700" textAnchor="middle" fill={isCurrent ? "#fff" : "#0f172a"}>{s.d}</text>
+                      <circle r={r + 0.8} fill={isCurrent ? "rgba(6,182,212,0.12)" : "rgba(10,11,13,0.03)"} />
+                      <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.2} />
+                      <text x="0" y={isCurrent ? "0.9" : "0.7"} fontSize={isCurrent ? "4" : "3"} fontWeight="800" textAnchor="middle" fill={isCurrent ? "#fff" : "#0f172a"}>{s.d}</text>
                   </g>
                 );
               });

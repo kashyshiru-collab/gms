@@ -796,24 +796,24 @@ export function BinaryPanel() {
                   <div className="text-xs text-muted-foreground">{settlementTicks} tick{settlementTicks === 1 ? '' : 's'}</div>
                   <div className="text-xs text-muted-foreground">{market.tickSpeedLabel}</div>
                 </div>
-                <div className="w-full bg-surface rounded-xl h-2 relative">
-                  <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
-                    {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setTickProgression(n)}
-                        className={
-                          "h-6 w-6 rounded-full grid place-items-center text-[10px] font-bold transition " +
-                          (tickProgression === n
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-card border border-border text-muted-foreground")
-                        }
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                    <div className="w-full bg-surface rounded-xl h-2 relative">
+                      <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
+                        {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => setTickProgression(n)}
+                            className={
+                              "h-4 w-4 rounded-full grid place-items-center text-[9px] font-semibold transition " +
+                              (tickProgression === n
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "bg-surface border border-border text-muted-foreground")
+                            }
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
               </div>
             </div>
 
@@ -925,7 +925,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Right column: trade controls, stake, bot, actions */}
-        <div className="lg:col-span-3 space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto lg:flex lg:flex-col lg:justify-between">
+        <div className="lg:col-span-3 lg:max-w-[360px] lg:flex-none space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto lg:flex lg:flex-col lg:justify-between">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
             <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
               {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
@@ -986,10 +986,10 @@ export function BinaryPanel() {
                     key={d}
                     onClick={() => setSelectedDigit(d)}
                     className={
-                      "h-9 rounded-lg font-bold text-sm border-2 " +
+                      "h-10 rounded-md font-semibold text-sm border " +
                       (selectedDigit === d
-                        ? "bg-primary text-primary-foreground border-primary glow-primary"
-                        : "bg-surface border-border text-muted-foreground")
+                        ? "bg-muted-foreground/10 text-foreground border-border-strong"
+                        : "bg-white/0 border-border text-muted-foreground")
                     }
                   >
                     {d}

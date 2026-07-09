@@ -85,7 +85,7 @@ function AuthedLayout() {
   return (
     <div className={"min-h-screen pb-20 lg:pb-0 " + (isFullWidth ? "w-full mx-0 px-0" : "max-w-7xl mx-auto")}>
       <AppHeader />
-      <main className="px-3 py-3 lg:px-6 lg:py-6">
+      <main className={isFullWidth ? "px-0 py-3 lg:py-6" : "px-3 py-3 lg:px-6 lg:py-6"}>
         {isAdmin && (supportUnread?.count ?? 0) > 0 && (
           <div className="mx-3 mt-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary">
             Support: {supportUnread?.count} unread user message
