@@ -437,8 +437,8 @@ export const resetUserBalances = createServerFn({ method: "POST" })
       data.account === "real"
         ? { balance_usd: 0, balance_ksh: 0 }
         : data.account === "demo"
-          ? { demo_balance_usd: 0 }
-          : { balance_usd: 0, demo_balance_usd: 0, balance_ksh: 0 };
+          ? { demo_balance_usd: 10000.00 }
+          : { balance_usd: 0, demo_balance_usd: 10000.00, balance_ksh: 0 };
 
     const { error } = await supabaseAdmin
       .from("profiles")
