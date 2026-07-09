@@ -1373,7 +1373,6 @@ function LedgerReconciliationTab() {
   const qc = useQueryClient();
   const [auditResults, setAuditResults] = useState<unknown[]>([]);
   const [autoStatus, setAutoStatus] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
 
   // Load automation status on mount
   useEffect(() => {
