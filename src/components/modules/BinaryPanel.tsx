@@ -784,6 +784,35 @@ export function BinaryPanel() {
               )}
             </div>
 
+            {/* Ticks / progression overlay (desktop) */}
+            <div className="hidden lg:block absolute right-6 top-20 z-30 w-56">
+              <div className="bg-card/90 border border-border rounded-xl p-3 backdrop-blur">
+                <div className="text-[10px] uppercase text-muted-foreground font-bold mb-2">Ticks</div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="text-xs text-muted-foreground">{settlementTicks} tick{settlementTicks === 1 ? '' : 's'}</div>
+                  <div className="text-xs text-muted-foreground">{market.tickSpeedLabel}</div>
+                </div>
+                <div className="w-full bg-surface rounded-xl h-2 relative">
+                  <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
+                    {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setTickProgression(n)}
+                        className={
+                          "h-6 w-6 rounded-full grid place-items-center text-[10px] font-bold transition " +
+                          (tickProgression === n
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card border border-border text-muted-foreground")
+                        }
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <LiveChart
               basePrice={market.basePrice}
               volatility={chartVolatility}
@@ -918,7 +947,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Right column: trade controls, stake, bot, actions */}
-        <div className="lg:col-span-3 space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto">
+        <div className="lg:col-span-3 space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto lg:flex lg:flex-col lg:justify-between">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
             <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
               {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
@@ -1013,40 +1042,42 @@ export function BinaryPanel() {
             </div>
           )}
 
-          {/* Action buttons */}
-          {botRunning ? (
-            <button
-              onClick={stopBot}
-              className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
-            >
-              <Square className="h-5 w-5" /> STOP BOT · session ${sessionPnLRef.current.toFixed(2)}
-            </button>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {botMode && (
-                <button
-                  onClick={() => startBot("AUTO")}
-                  className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
-                >
-                  AUTO TRADE
-                </button>
-              )}
-              {actions.map(([label, tone]) => (
-                <button
-                  key={label}
-                  onClick={() => (botMode ? startBot(label) : fireManual(label))}
-                  className={
-                    "py-4 rounded-2xl font-extrabold text-lg tracking-wide " +
-                    (tone === "bull"
-                      ? "bg-bull text-bull-foreground glow-bull"
-                      : "bg-bear text-bear-foreground glow-bear")
-                  }
-                >
-                  {botMode ? `BOT ${label}` : label} {tone === "bull" ? "↑" : "↓"}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Action buttons - keep at bottom on desktop */}
+          <div className="pt-1">
+            {botRunning ? (
+              <button
+                onClick={stopBot}
+                className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
+              >
+                <Square className="h-5 w-5" /> STOP BOT · session ${sessionPnLRef.current.toFixed(2)}
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {botMode && (
+                  <button
+                    onClick={() => startBot("AUTO")}
+                    className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
+                  >
+                    AUTO TRADE
+                  </button>
+                )}
+                {actions.map(([label, tone]) => (
+                  <button
+                    key={label}
+                    onClick={() => (botMode ? startBot(label) : fireManual(label))}
+                    className={
+                      "py-4 rounded-2xl font-extrabold text-lg tracking-wide " +
+                      (tone === "bull"
+                        ? "bg-bull text-bull-foreground glow-bull"
+                        : "bg-bear text-bear-foreground glow-bear")
+                    }
+                  >
+                    {botMode ? `BOT ${label}` : label} {tone === "bull" ? "↑" : "↓"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
