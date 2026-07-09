@@ -75,8 +75,10 @@ function AuthedLayout() {
     setLastUnread(count);
   }, [isAdmin, lastUnread, supportUnread?.count]);
 
+  const isFullWidth = typeof window !== "undefined" && window.location.pathname.startsWith("/_authenticated/binary");
+
   return (
-    <div className="min-h-screen pb-20 lg:pb-0 max-w-7xl mx-auto">
+    <div className={"min-h-screen pb-20 lg:pb-0 " + (isFullWidth ? "w-full" : "max-w-7xl mx-auto")}>
       <AppHeader />
       <main className="px-3 py-3 lg:px-6 lg:py-6">
         {isAdmin && (supportUnread?.count ?? 0) > 0 && (

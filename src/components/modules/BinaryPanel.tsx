@@ -991,6 +991,28 @@ export function BinaryPanel() {
           </div>
 
           {/* Stake */}
+          {/* Last Digit Prediction (move into right column) */}
+          {showDigitPicker && (
+            <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+              <div className="text-[10px] uppercase text-muted-foreground font-bold text-center">Last Digit Prediction</div>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 10 }).map((_, d) => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDigit(d)}
+                    className={
+                      "h-9 rounded-lg font-bold text-sm border-2 " +
+                      (selectedDigit === d
+                        ? "bg-primary text-primary-foreground border-primary glow-primary"
+                        : "bg-surface border-border text-muted-foreground")
+                    }
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setStake(Math.max(1, stake - 1))}
