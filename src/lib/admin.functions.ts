@@ -815,3 +815,133 @@ function normalizeKenyanPhone(phone: string) {
   if (digits.length === 9) return `254${digits}`;
   throw new Error("Enter a valid Kenyan Safaricom number");
 }
+
+// ============================================================================
+// LEDGER RECONCILIATION FUNCTIONS
+// ============================================================================
+
+export const auditUserBalance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid().optional(),
+        account_type: z.enum(["real", "demo"]).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: results, error } = await context.supabase.rpc("audit_user_balance", {
+      _user_id: data.user_id,
+      _account_type: data.account_type,
+    });
+
+    if (error) throw new Error(error.message);
+    return results;
+  });
+
+export const reconcileUserBalance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        account_type: z.enum(["real", "demo"]),
+        reason: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: result, error } = await context.supabase.rpc("reconcile_user_balance", {
+      _user_id: data.user_id,
+      _account_type: data.account_type,
+      _reason: data.reason || "Admin reconciliation",
+    });
+
+    if (error) throw new Error(error.message);
+    return result;
+  });
+
+export const reconcileAllBalances = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        max_users_to_fix: z.number().int().min(1).max(1000).default(100),
+        reason: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: result, error } = await context.supabase.rpc("reconcile_all_balances", {
+      _max_users_to_fix: data.max_users_to_fix,
+      _reason: data.reason || "Bulk system reconciliation",
+    });
+
+    if (error) throw new Error(error.message);
+    return result;
+  });
+
+export const getBalanceAuditLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid().optional(),
+        limit: z.number().int().min(1).max(1000).default(50),
+        only_discrepancies: z.boolean().default(false),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    let query = context.supabase
+      .from("balance_audit_log")
+      .select(
+        "id, user_id, account_type, audit_type, previous_balance, new_balance, calculated_balance, discrepancy, reason, details, corrected, created_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+
+    if (data.user_id) {
+      query = query.eq("user_id", data.user_id);
+    }
+
+    if (data.only_discrepancies) {
+      query = query.neq("discrepancy", 0);
+    }
+
+    const { data: logs, error, count } = await query;
+    if (error) throw new Error(error.message);
+
+    return { logs, count };
+  });
+
+export const getUserLedgerSummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: ledger, error } = await context.supabase
+      .from("user_ledger_summary")
+      .select("*")
+      .eq("user_id", data.user_id);
+
+    if (error) throw new Error(error.message);
+    return ledger;
+  });

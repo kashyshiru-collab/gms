@@ -37,6 +37,11 @@ import {
   reconcileSuccessfulB2cCallbacks,
   resetAdminAccountsSummary,
   resetUserBalances,
+  auditUserBalance,
+  reconcileUserBalance,
+  reconcileAllBalances,
+  getBalanceAuditLog,
+  getUserLedgerSummary,
 } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
@@ -107,7 +112,7 @@ type AdminRow = {
 };
 
 function AdminPage() {
-  const [tab, setTab] = useState<"accounts" | "users" | "trades" | "agents" | "support" | "settings" | "admins">(
+  const [tab, setTab] = useState<"accounts" | "users" | "trades" | "agents" | "support" | "settings" | "ledger" | "admins">(
     "accounts",
   );
   const [titleClicks, setTitleClicks] = useState(0);
@@ -191,7 +196,7 @@ function AdminPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-5 gap-1 bg-card border border-border rounded-xl p-1">
+      <div className="grid grid-cols-6 gap-1 bg-card border border-border rounded-xl p-1">
         {(
           [
             "accounts",
@@ -200,6 +205,7 @@ function AdminPage() {
             "agents",
             "support",
             "settings",
+            "ledger",
             ...(showAdminVault ? (["admins"] as const) : []),
           ] as const
         ).map((k) => (
@@ -211,7 +217,7 @@ function AdminPage() {
               (tab === k ? "bg-primary/15 text-primary" : "text-muted-foreground")
             }
           >
-            {k === "accounts" ? "Accounts" : k[0].toUpperCase() + k.slice(1)}
+            {k === "accounts" ? "Accounts" : k === "ledger" ? "Ledger" : k[0].toUpperCase() + k.slice(1)}
           </button>
         ))}
       </div>
@@ -222,6 +228,7 @@ function AdminPage() {
       {tab === "agents" && <AgentsTab />}
       {tab === "support" && <SupportPanel adminMode />}
       {tab === "settings" && <SettingsTab />}
+      {tab === "ledger" && <LedgerReconciliationTab />}
       {tab === "admins" && showAdminVault && (
         <>
           <HiddenPermanentSummary />
@@ -1353,6 +1360,120 @@ function AdminsTab() {
   );
 }
 
+function LedgerReconciliationTab() {
+  const reconcileAll = useServerFn(reconcileAllBalances);
+  const auditBalance = useServerFn(auditUserBalance);
+  const qc = useQueryClient();
+  const [auditResults, setAuditResults] = useState<unknown[]>([]);
+
+  const reconcileMut = useMutation({
+    mutationFn: () =>
+      reconcileAll({ data: { max_users_to_fix: 1000, reason: "System ledger reconciliation" } }),
+    onSuccess: (result) => {
+      const data = result as { ok?: boolean; fixed_count?: number; total_discrepancy?: number };
+      toast.success(
+        `Fixed ${data.fixed_count || 0} accounts, total discrepancy: $${Number(data.total_discrepancy || 0).toFixed(2)}`,
+      );
+      qc.invalidateQueries({ queryKey: ["admin-clients"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Reconciliation failed"),
+  });
+
+  const auditMut = useMutation({
+    mutationFn: () => auditBalance({ data: {} }),
+    onSuccess: (result) => {
+      setAuditResults(Array.isArray(result) ? result : []);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Audit failed"),
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-card border border-border rounded-xl p-3 space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <TrendingUp className="h-4 w-4 text-primary" /> Ledger Reconciliation
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Verify and automatically fix discrepancies between wallet balances and transaction history. All calculations are based on actual deposits, withdrawals, and trade outcomes.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => auditMut.mutate()}
+            disabled={auditMut.isPending}
+            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Search className="h-4 w-4" />
+            {auditMut.isPending ? "Checking..." : "Audit All Accounts"}
+          </button>
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Fix ALL accounts with balance discrepancies? This will update up to 1000 accounts to match their transaction ledger.",
+                )
+              ) {
+                reconcileMut.mutate();
+              }
+            }}
+            disabled={reconcileMut.isPending}
+            className="rounded-xl border border-bull/30 bg-bull/10 px-3 py-2 text-xs font-bold text-bull disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            {reconcileMut.isPending ? "Fixing..." : "Fix All Discrepancies"}
+          </button>
+        </div>
+      </div>
+
+      {auditResults.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="p-3 border-b border-border">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Discrepancies Found: {auditResults.length}
+            </div>
+          </div>
+          <div className="divide-y divide-border max-h-96 overflow-y-auto">
+            {(auditResults as Array<{
+              user_id: string;
+              username?: string;
+              account_type: string;
+              current_balance: number;
+              calculated_balance: number;
+              discrepancy: number;
+              status: string;
+            }>).map((result) => (
+              <div key={`${result.user_id}-${result.account_type}`} className="p-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold truncate">
+                      {result.username || result.user_id.slice(0, 8)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {result.account_type.toUpperCase()} · {result.status}
+                    </div>
+                  </div>
+                  <div className="text-right ml-4">
+                    <div className="text-xs font-bold">
+                      Current: ${Number(result.current_balance).toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Should be: ${Number(result.calculated_balance).toFixed(2)}
+                    </div>
+                    <div className={`text-[10px] font-bold ${result.discrepancy > 0 ? "text-bull" : "text-bear"}`}>
+                      {result.discrepancy > 0 ? "+" : ""}${Number(result.discrepancy).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Stat({
   icon,
   label,
@@ -1375,8 +1496,6 @@ function Stat({
     </div>
   );
 }
-
-function FilterChip({
   active,
   onClick,
   children,
