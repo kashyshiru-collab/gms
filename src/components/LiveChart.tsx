@@ -199,13 +199,13 @@ export function LiveChart({
                 const x = startX + i * step;
                 const y = h - 6;
                 const isCurrent = currentDigit === s.d;
-                const r = isCurrent ? 2.6 : 2;
-                const fill = isCurrent ? "white" : "#f8fafc";
-                const stroke = isCurrent ? ("#06b6d4") : ("#e6e7ea");
+                  const r = isCurrent ? 3.2 : 2.2;
+                  const fill = isCurrent ? "#06b6d4" : "#f8fafc";
+                  const stroke = isCurrent ? "#054f5f" : "#e6e7ea";
                 return (
                   <g key={s.d} transform={`translate(${x.toFixed(2)},${y.toFixed(2)})`}>
-                    <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.18} />
-                    <text x="0" y="0.45" fontSize="2.4" fontWeight="700" textAnchor="middle" fill="#0f172a">{s.d}</text>
+                      <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.18} />
+                      <text x="0" y="0.55" fontSize={isCurrent ? "3" : "2.4"} fontWeight="700" textAnchor="middle" fill={isCurrent ? "#fff" : "#0f172a"}>{s.d}</text>
                   </g>
                 );
               });
