@@ -558,8 +558,8 @@ export function BinaryPanel() {
             ))}
           </div>
 
-          {/* Index header */}
-          <div className="relative">
+          {/* Index header moved into chart overlay on desktop; keep toggle for mobile */}
+          <div className="lg:hidden relative">
             <button
               onClick={() => setMarketOpen(!marketOpen)}
               className="w-full bg-card border border-border rounded-xl p-3 flex items-center justify-between gap-3"
@@ -744,7 +744,46 @@ export function BinaryPanel() {
           </div>
 
           {/* Chart container */}
-          <div className="bg-card border border-border rounded-xl p-2 relative lg:min-h-[520px]">
+          <div className="bg-card border border-border rounded-xl p-2 relative lg:min-h-[60vh] lg:h-[calc(100vh-6rem)] overflow-hidden">
+            {/* Chart overlays: market header (desktop) */}
+            <div className="hidden lg:block absolute left-4 top-4 z-30 w-[320px]">
+              <button
+                onClick={() => setMarketOpen(!marketOpen)}
+                className="w-full bg-card/90 border border-border rounded-xl p-3 flex items-center justify-between gap-3 backdrop-blur"
+              >
+                <div className="flex items-center gap-2 text-left min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/20 text-primary grid place-items-center font-extrabold text-xs shrink-0">V</div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm truncate">{market.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{market.volatilityLabel} · {market.tickSpeedLabel}</div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono font-bold tabular-nums">{price.toFixed(5)}</div>
+                  <div className="text-xs text-muted-foreground">last digit <span className="text-primary font-bold tabular-nums">{currentDigit}</span> <span className="live-dot ml-1" /></div>
+                </div>
+                <ChevronDown className={"h-4 w-4 text-muted-foreground shrink-0 transition " + (marketOpen ? "rotate-180" : "")} />
+              </button>
+
+              {marketOpen && (
+                <div className="mt-1 w-full bg-card border border-border rounded-xl divide-y divide-border max-h-72 overflow-auto shadow-xl">
+                  {VOL_INDICES.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => {
+                        setIndex(m.value);
+                        setMarketOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 hover:bg-accent flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="font-semibold truncate">{m.label}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{m.volatilityLabel} · {m.tickSpeedLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <LiveChart
               basePrice={market.basePrice}
               volatility={chartVolatility}
@@ -759,6 +798,34 @@ export function BinaryPanel() {
               mode={chartMode}
               className="h-full"
             />
+
+            {/* Tick trail overlay inside chart */}
+            <div className="absolute left-4 right-4 bottom-4 z-30">
+              <div className="bg-card/80 border border-border rounded-xl px-2 py-2 flex items-center gap-1.5 overflow-x-auto backdrop-blur">
+                <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider shrink-0 mr-1">Ticks</span>
+                {tickTrail.length === 0 && <span className="text-xs text-muted-foreground">waiting…</span>}
+                {tickTrail.map((t, i) => {
+                  const highlightCount = tickProgression + 1;
+                  const isRecent = i >= tickTrail.length - highlightCount;
+                  return (
+                    <span
+                      key={i}
+                      className={
+                        "shrink-0 h-7 w-7 grid place-items-center rounded-full text-xs font-extrabold tabular-nums border transition-all " +
+                        (isRecent ? "scale-110 shadow-lg" : "") +
+                        (t.tone === "bull"
+                          ? " bg-bull text-bull-foreground border-bull glow-bull"
+                          : t.tone === "bear"
+                            ? " bg-bear text-bear-foreground border-bear glow-bear"
+                            : " bg-surface border-border text-muted-foreground")
+                      }
+                    >
+                      {t.d}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Tick trail */}
@@ -851,7 +918,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Right column: trade controls, stake, bot, actions */}
-        <div className="lg:col-span-3 space-y-3">
+        <div className="lg:col-span-3 space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
             <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
               {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
