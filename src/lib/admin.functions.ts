@@ -945,3 +945,54 @@ export const getUserLedgerSummary = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return ledger;
   });
+
+export const getReconciliationStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: status, error } = await context.supabase.rpc(
+      "get_reconciliation_status"
+    );
+
+    if (error) throw new Error(error.message);
+    return status;
+  });
+
+export const setAutoReconciliationEnabled = createServerFn({
+  method: "POST",
+})
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        enabled: z.boolean(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: result, error } = await context.supabase.rpc(
+      "set_auto_reconciliation_enabled",
+      { enabled: data.enabled }
+    );
+
+    if (error) throw new Error(error.message);
+    return result;
+  });
+
+export const runScheduledLedgerReconciliation = createServerFn({
+  method: "POST",
+})
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+
+    const { data: result, error } = await context.supabase.rpc(
+      "run_scheduled_ledger_reconciliation"
+    );
+
+    if (error) throw new Error(error.message);
+    return result;
+  });

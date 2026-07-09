@@ -18,6 +18,7 @@ import {
   UserMinus,
   SlidersHorizontal,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,9 @@ import {
   reconcileAllBalances,
   getBalanceAuditLog,
   getUserLedgerSummary,
+  getReconciliationStatus,
+  setAutoReconciliationEnabled,
+  runScheduledLedgerReconciliation,
 } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
@@ -1363,8 +1367,27 @@ function AdminsTab() {
 function LedgerReconciliationTab() {
   const reconcileAll = useServerFn(reconcileAllBalances);
   const auditBalance = useServerFn(auditUserBalance);
+  const getStatus = useServerFn(getReconciliationStatus);
+  const setAutoEnabled = useServerFn(setAutoReconciliationEnabled);
+  const runScheduled = useServerFn(runScheduledLedgerReconciliation);
   const qc = useQueryClient();
   const [auditResults, setAuditResults] = useState<unknown[]>([]);
+  const [autoStatus, setAutoStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Load automation status on mount
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const loadStatus = async () => {
+    try {
+      const result = await getStatus({});
+      setAutoStatus(result);
+    } catch (e) {
+      console.error("Failed to load reconciliation status", e);
+    }
+  };
 
   const reconcileMut = useMutation({
     mutationFn: () =>
@@ -1376,6 +1399,7 @@ function LedgerReconciliationTab() {
       );
       qc.invalidateQueries({ queryKey: ["admin-clients"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
+      loadStatus();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Reconciliation failed"),
   });
@@ -1388,14 +1412,90 @@ function LedgerReconciliationTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Audit failed"),
   });
 
+  const toggleAutoMut = useMutation({
+    mutationFn: (enabled: boolean) =>
+      setAutoEnabled({ data: { enabled } }),
+    onSuccess: (result) => {
+      const data = result as { auto_fix_enabled?: boolean; message?: string };
+      toast.success(data.message || "Setting updated");
+      loadStatus();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to update setting"),
+  });
+
+  const scheduledMut = useMutation({
+    mutationFn: () => runScheduled({}),
+    onSuccess: (result) => {
+      const data = result as { status?: string; accounts_fixed?: number; message?: string };
+      toast.success(data.message || `Fixed ${data.accounts_fixed || 0} accounts`);
+      loadStatus();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Scheduled reconciliation failed"),
+  });
+
   return (
     <div className="space-y-3">
+      {/* Automation Status Card */}
+      {autoStatus && (
+        <div className="bg-card border border-border rounded-xl p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <Zap className="h-4 w-4 text-primary" /> Automation Status
+            </div>
+            <div className={`px-2 py-1 rounded text-[10px] font-bold ${autoStatus.auto_fix_enabled ? "bg-bull/20 text-bull" : "bg-bear/20 text-bear"}`}>
+              {autoStatus.auto_fix_enabled ? "ACTIVE" : "INACTIVE"}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="space-y-1">
+              <div className="text-muted-foreground">Last Audit</div>
+              <div className="font-bold text-xs">{autoStatus.last_audit_at ? new Date(autoStatus.last_audit_at).toLocaleString() : "Never"}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-muted-foreground">Last Fixed</div>
+              <div className="font-bold text-xs">{autoStatus.last_fix_at ? new Date(autoStatus.last_fix_at).toLocaleString() : "Never"}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-muted-foreground">Pending Issues</div>
+              <div className="font-bold text-xs text-bull">{autoStatus.pending_discrepancies || 0}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-muted-foreground">Total Fixed (Lifetime)</div>
+              <div className="font-bold text-xs">{autoStatus.discrepancies_fixed_lifetime || 0}</div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => toggleAutoMut.mutate(!autoStatus.auto_fix_enabled)}
+              disabled={toggleAutoMut.isPending}
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50 transition ${
+                autoStatus.auto_fix_enabled
+                  ? "border border-bear/30 bg-bear/10 text-bear"
+                  : "border border-bull/30 bg-bull/10 text-bull"
+              }`}
+            >
+              {toggleAutoMut.isPending ? "Updating..." : autoStatus.auto_fix_enabled ? "Disable Auto Fix" : "Enable Auto Fix"}
+            </button>
+            <button
+              onClick={() => scheduledMut.mutate()}
+              disabled={scheduledMut.isPending}
+              className="flex-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary disabled:opacity-50"
+            >
+              {scheduledMut.isPending ? "Running..." : "Run Audit Now"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Controls Card */}
       <div className="bg-card border border-border rounded-xl p-3 space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          <TrendingUp className="h-4 w-4 text-primary" /> Ledger Reconciliation
+          <TrendingUp className="h-4 w-4 text-primary" /> Manual Operations
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Verify and automatically fix discrepancies between wallet balances and transaction history. All calculations are based on actual deposits, withdrawals, and trade outcomes.
+          Verify and manually fix discrepancies between wallet balances and transaction history. All calculations are based on actual deposits, withdrawals, and trade outcomes.
         </p>
 
         <div className="grid grid-cols-2 gap-2">
