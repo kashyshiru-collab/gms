@@ -73,13 +73,13 @@ SELECT
   p.username,
   p.full_name,
   p.active_account,
-  'real' AS account_type,
+  'real'::public.account_type AS account_type,
   p.balance_usd AS current_balance,
   COALESCE(ts.balance_from_transactions, 0) +
     COALESCE(
       (SELECT COALESCE(SUM(payout - stake), 0)
        FROM public.trades
-       WHERE user_id = p.id AND account_type = 'real' AND status IN ('won', 'lost')),
+       WHERE user_id = p.id AND account_type = 'real'::public.account_type AND status IN ('won', 'lost')),
       0
     ) AS calculated_balance,
   (p.balance_usd -
@@ -87,7 +87,7 @@ SELECT
       COALESCE(
         (SELECT COALESCE(SUM(payout - stake), 0)
          FROM public.trades
-         WHERE user_id = p.id AND account_type = 'real' AND status IN ('won', 'lost')),
+       WHERE user_id = p.id AND account_type = 'real'::public.account_type AND status IN ('won', 'lost')),
         0
       ))) AS balance_discrepancy,
   COALESCE(ts.completed_deposits, 0) AS deposits_count,
@@ -103,8 +103,8 @@ SELECT
   p.created_at,
   p.updated_at
 FROM public.profiles p
-LEFT JOIN transaction_summary ts ON p.id = ts.user_id AND ts.account_type = 'real'
-LEFT JOIN trade_summary tr ON p.id = tr.user_id AND tr.account_type = 'real'
+LEFT JOIN transaction_summary ts ON p.id = ts.user_id AND ts.account_type = 'real'::public.account_type
+LEFT JOIN trade_summary tr ON p.id = tr.user_id AND tr.account_type = 'real'::public.account_type
 
 UNION ALL
 
@@ -113,13 +113,13 @@ SELECT
   p.username,
   p.full_name,
   p.active_account,
-  'demo' AS account_type,
+  'demo'::public.account_type AS account_type,
   p.demo_balance_usd AS current_balance,
   COALESCE(ts.balance_from_transactions, 0) +
     COALESCE(
       (SELECT COALESCE(SUM(payout - stake), 0)
        FROM public.trades
-       WHERE user_id = p.id AND account_type = 'demo' AND status IN ('won', 'lost')),
+       WHERE user_id = p.id AND account_type = 'demo'::public.account_type AND status IN ('won', 'lost')),
       0
     ) AS calculated_balance,
   (p.demo_balance_usd -
@@ -127,7 +127,7 @@ SELECT
       COALESCE(
         (SELECT COALESCE(SUM(payout - stake), 0)
          FROM public.trades
-         WHERE user_id = p.id AND account_type = 'demo' AND status IN ('won', 'lost')),
+       WHERE user_id = p.id AND account_type = 'demo'::public.account_type AND status IN ('won', 'lost')),
         0
       ))) AS balance_discrepancy,
   COALESCE(ts.completed_deposits, 0) AS deposits_count,
@@ -143,9 +143,9 @@ SELECT
   p.created_at,
   p.updated_at
 FROM public.profiles p
-LEFT JOIN transaction_summary ts ON p.id = ts.user_id AND ts.account_type = 'demo'
-LEFT JOIN trade_summary tr ON p.id = tr.user_id AND tr.account_type = 'demo'
-WHERE p.demo_balance_usd > 0 OR EXISTS (SELECT 1 FROM public.trades WHERE user_id = p.id AND account_type = 'demo');
+LEFT JOIN transaction_summary ts ON p.id = ts.user_id AND ts.account_type = 'demo'::public.account_type
+LEFT JOIN trade_summary tr ON p.id = tr.user_id AND tr.account_type = 'demo'::public.account_type
+WHERE p.demo_balance_usd > 0 OR EXISTS (SELECT 1 FROM public.trades WHERE user_id = p.id AND account_type = 'demo'::public.account_type);
 
 -- ============================================================================
 -- 2. AUDIT LOG TABLE - Track all balance changes
@@ -229,7 +229,7 @@ BEGIN
         'total_payouts', u.total_payouts
       )
     FROM public.user_ledger_summary u
-    WHERE (_account_type IS NULL OR u.account_type = _account_type)
+    WHERE _account_type IS NULL OR u.account_type = _account_type
       AND u.balance_discrepancy <> 0;
   ELSE
     -- Audit specific user
@@ -322,8 +322,8 @@ BEGIN
 
   -- Determine column to update
   _column_name := CASE
-    WHEN _account_type = 'real' THEN 'balance_usd'
-    WHEN _account_type = 'demo' THEN 'demo_balance_usd'
+    WHEN _account_type = 'real'::public.account_type THEN 'balance_usd'
+    WHEN _account_type = 'demo'::public.account_type THEN 'demo_balance_usd'
     ELSE NULL
   END;
 
@@ -419,8 +419,8 @@ BEGIN
     -- Update balance
     UPDATE public.profiles
     SET
-      balance_usd = CASE WHEN _row.account_type = 'real' THEN _row.calculated_balance ELSE balance_usd END,
-      demo_balance_usd = CASE WHEN _row.account_type = 'demo' THEN _row.calculated_balance ELSE demo_balance_usd END,
+      balance_usd = CASE WHEN _row.account_type = 'real'::public.account_type THEN _row.calculated_balance ELSE balance_usd END,
+      demo_balance_usd = CASE WHEN _row.account_type = 'demo'::public.account_type THEN _row.calculated_balance ELSE demo_balance_usd END,
       updated_at = now()
     WHERE id = _row.user_id;
 
