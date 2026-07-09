@@ -76,8 +76,6 @@ function AuthedLayout() {
     setLastUnread(count);
   }, [isAdmin, lastUnread, supportUnread?.count]);
 
-  const isFullWidth = typeof window !== "undefined" && window.location.pathname.startsWith("/_authenticated/binary");
-
   useEffect(() => {
     if (typeof window !== "undefined") {
       setIsFullWidth(window.location.pathname.startsWith("/_authenticated/binary"));
