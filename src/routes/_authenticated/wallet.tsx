@@ -12,7 +12,6 @@ import {
   Minus,
   History,
   Smartphone,
-  Bitcoin,
   LogOut,
   ArrowDownLeft,
   ArrowUpRight,
@@ -55,7 +54,7 @@ function WalletPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
-  const [method, setMethod] = useState<"mpesa" | "crypto">("mpesa");
+  const method = "mpesa";
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<Tx[]>([]);
@@ -107,10 +106,10 @@ function WalletPage() {
       account: activeAccount,
       phone: mpesaPhone,
     });
-    const minimum = minimumAmount("deposit", method, settings?.min_deposit_usd, settings?.min_withdrawal_usd);
+    const minimum = minimumAmount("deposit", settings?.min_deposit_usd, settings?.min_withdrawal_usd);
     if (!amt || amt < minimum) {
       logDebugEvent("warn", "wallet.deposit", "Deposit validation failed", { method, amount: amt });
-      toast.error(`Minimum deposit ${minimumLabel("deposit", method)}`);
+      toast.error(`Minimum deposit ${minimumLabel("deposit", settings?.min_deposit_usd, settings?.min_withdrawal_usd)}`);
       return;
     }
 
@@ -154,13 +153,13 @@ function WalletPage() {
       return;
     }
 
-    const minimum = minimumAmount("withdraw", method, settings?.min_deposit_usd, settings?.min_withdrawal_usd);
+    const minimum = minimumAmount("withdraw", settings?.min_deposit_usd, settings?.min_withdrawal_usd);
     if (!amt || amt < minimum) {
       logDebugEvent("warn", "wallet.withdraw", "Withdraw validation failed", {
         method,
         amount: amt,
       });
-      toast.error(`Minimum withdrawal ${minimumLabel("withdraw", method)}`);
+      toast.error(`Minimum withdrawal ${minimumLabel("withdraw", settings?.min_deposit_usd, settings?.min_withdrawal_usd)}`);
       return;
     }
 
@@ -261,58 +260,37 @@ function WalletPage() {
 
       {(tab === "deposit" || tab === "withdraw") && (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <MethodCard
-              active={method === "mpesa"}
-              onClick={() => setMethod("mpesa")}
-              icon={<Smartphone className="h-5 w-5" />}
-              title="M-Pesa"
-              sub={tab === "withdraw" ? "B2C payout" : "STK Push"}
-            />
-            <MethodCard
-              active={method === "crypto"}
-              onClick={() => setMethod("crypto")}
-              icon={<Bitcoin className="h-5 w-5" />}
-              title="Crypto"
-              sub="USDT / BTC / ETH"
-            />
-          </div>
-
           <div>
             <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">
-              Amount ({method === "mpesa" ? "KSH" : "USD"})
+              Amount (KSH)
             </div>
             <div className="flex items-center bg-card border border-border rounded-xl px-3 py-2.5">
-              <span className="font-bold text-muted-foreground mr-2 text-sm">
-                {method === "mpesa" ? "KSh" : "$"}
-              </span>
+              <span className="font-bold text-muted-foreground mr-2 text-sm">KSh</span>
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={String(minimumAmount(tab, method, settings?.min_deposit_usd, settings?.min_withdrawal_usd))}
+                placeholder={String(minimumAmount(tab, settings?.min_deposit_usd, settings?.min_withdrawal_usd))}
                 inputMode="numeric"
                 className="flex-1 bg-transparent outline-none font-bold text-base tabular-nums"
               />
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground">
-              Minimum {minimumLabel(tab, method, settings?.min_deposit_usd, settings?.min_withdrawal_usd)}
+              Minimum {minimumLabel(tab, settings?.min_deposit_usd, settings?.min_withdrawal_usd)}
               {tab === "withdraw" && settings?.withdrawal_tax_pct != null ? ` · ${Number(settings.withdrawal_tax_pct).toFixed(0)}% VAT retention applied` : ""}
             </div>
           </div>
 
-          {method === "mpesa" && (
-            <div>
-              <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">
-                M-Pesa Number
-              </div>
-              <div className="flex items-center bg-card border border-border rounded-xl px-3 py-2.5 opacity-90">
-                <span className="mr-2 text-xs font-bold text-muted-foreground">KE</span>
-                <div className="flex-1 font-bold tabular-nums text-sm">
-                  {mpesaPhone || "Add phone in Profile"}
-                </div>
+          <div>
+            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">
+              M-Pesa Number
+            </div>
+            <div className="flex items-center bg-card border border-border rounded-xl px-3 py-2.5 opacity-90">
+              <span className="mr-2 text-xs font-bold text-muted-foreground">KE</span>
+              <div className="flex-1 font-bold tabular-nums text-sm">
+                {mpesaPhone || "Add phone in Profile"}
               </div>
             </div>
-          )}
+          </div>
 
           {isDemoWithdrawal && (
             <div className="rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-semibold text-bear">
@@ -333,10 +311,10 @@ function WalletPage() {
             {busy
               ? "Processing..."
               : tab === "deposit"
-                ? `Deposit ${method === "mpesa" ? "KSh" : "$"}${amount || 0}`
+                ? `Deposit KSh${amount || 0}`
                 : isDemoWithdrawal
                   ? "Demo withdrawals disabled"
-                  : `Withdraw ${method === "mpesa" ? "KSh" : "$"}${amount || 0}`}
+                  : `Withdraw KSh${amount || 0}`}
           </button>
         </>
       )}
@@ -426,24 +404,21 @@ function statusLabel(tx: Tx) {
 
 function minimumAmount(
   kind: "deposit" | "withdraw",
-  method: "mpesa" | "crypto",
   minDepositUsd?: number,
   minWithdrawalUsd?: number,
 ) {
   const depositUsd = Number(minDepositUsd ?? 3);
   const withdrawUsd = Number(minWithdrawalUsd ?? 3);
-  if (kind === "deposit") return method === "mpesa" ? depositUsd * USD_TO_KSH : depositUsd;
-  return method === "mpesa" ? withdrawUsd * USD_TO_KSH : withdrawUsd;
+  return kind === "deposit" ? depositUsd * USD_TO_KSH : withdrawUsd * USD_TO_KSH;
 }
 
 function minimumLabel(
   kind: "deposit" | "withdraw",
-  method: "mpesa" | "crypto",
   minDepositUsd?: number,
   minWithdrawalUsd?: number,
 ) {
-  const amount = minimumAmount(kind, method, minDepositUsd, minWithdrawalUsd);
-  return method === "mpesa" ? `KSh ${amount}` : `$${amount}`;
+  const amount = minimumAmount(kind, minDepositUsd, minWithdrawalUsd);
+  return `KSh ${amount}`;
 }
 
 function errorMessage(error: unknown) {

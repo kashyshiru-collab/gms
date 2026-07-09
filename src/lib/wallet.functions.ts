@@ -6,7 +6,7 @@ import { calculateNetWithdrawalAmount, readSystemSettings, type SystemSettings }
 const USD_TO_KSH = 130;
 
 const MoneyInput = z.object({
-  method: z.enum(["mpesa", "crypto"]),
+  method: z.enum(["mpesa"]),
   amount: z.number().positive().max(10_000_000),
   account: z.enum(["real", "demo"]),
   phone: z.string().optional(),
@@ -19,7 +19,7 @@ type WalletTransaction = {
   id: string;
   user_id: string;
   kind: TransactionKind;
-  method: "mpesa" | "crypto";
+  method: "mpesa";
   amount: number | string;
   currency: "KSH" | "USD";
   amount_usd: number | string;
@@ -164,7 +164,7 @@ async function createWalletTransaction(
   input: {
     userId: string;
     kind: TransactionKind;
-    method: "mpesa" | "crypto";
+    method: "mpesa";
     amount: number;
     account: "real" | "demo";
     phone?: string;
@@ -449,22 +449,17 @@ async function markPaymentRequestStatus(
 
 function validateMoney(
   kind: TransactionKind,
-  method: "mpesa" | "crypto",
+  method: "mpesa",
   amount: number,
   phone?: string,
   settings?: SystemSettings,
 ) {
   const minUsd = kind === "deposit" ? settings?.min_deposit_usd ?? 3 : settings?.min_withdrawal_usd ?? 3;
   const minKsh = minUsd * USD_TO_KSH;
-  const minimum = method === "mpesa" ? minKsh : minUsd;
-  if (amount < minimum) {
-    throw new Error(
-      method === "mpesa"
-        ? `Minimum ${kind} is KSh ${minKsh} ($${minUsd})`
-        : `Minimum ${kind} is $${minUsd}`,
-    );
+  if (amount < minKsh) {
+    throw new Error(`Minimum ${kind} is KSh ${minKsh} ($${minUsd})`);
   }
-  if (method === "mpesa") normalizeKenyanPhone(phone);
+  normalizeKenyanPhone(phone);
 }
 
 async function getProfilePhone(userId: string) {
