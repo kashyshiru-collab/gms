@@ -1057,6 +1057,26 @@ export function BinaryPanel() {
                 <div className="mt-2 text-xs text-muted-foreground">Under · {underRate.toFixed(2)}%</div>
               </div>
             </div>
+
+            {/* Large contract buttons for Over/Under */}
+            {type === "Over/Under" && (
+              <div className="space-y-3 mt-3">
+                <button
+                  onClick={() => fireManual("OVER")}
+                  className="w-full py-4 rounded-2xl bg-bull text-bull-foreground font-extrabold text-lg flex items-center justify-between px-4"
+                >
+                  <span>Over</span>
+                  <span className="text-base font-mono">{(overRate + 100).toFixed(2)}%</span>
+                </button>
+                <button
+                  onClick={() => fireManual("UNDER")}
+                  className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg flex items-center justify-between px-4"
+                >
+                  <span>Under</span>
+                  <span className="text-base font-mono">{(underRate + 100).toFixed(2)}%</span>
+                </button>
+              </div>
+            )}
             {botRunning ? (
               <button
                 onClick={stopBot}
