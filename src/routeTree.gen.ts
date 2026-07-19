@@ -21,6 +21,7 @@ import { Route as AuthenticatedPredictRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPositionsRouteImport } from './routes/_authenticated/positions'
 import { Route as AuthenticatedForexRouteImport } from './routes/_authenticated/forex'
 import { Route as AuthenticatedCryptoRouteImport } from './routes/_authenticated/crypto'
+import { Route as AuthenticatedBotBuilderRouteImport } from './routes/_authenticated/bot-builder'
 import { Route as AuthenticatedBinaryRouteImport } from './routes/_authenticated/binary'
 import { Route as AuthenticatedAviatorRouteImport } from './routes/_authenticated/aviator'
 import { Route as AuthenticatedAppsRouteImport } from './routes/_authenticated/apps'
@@ -88,6 +89,11 @@ const AuthenticatedCryptoRoute = AuthenticatedCryptoRouteImport.update({
   path: '/crypto',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBotBuilderRoute = AuthenticatedBotBuilderRouteImport.update({
+  id: '/bot-builder',
+  path: '/bot-builder',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBinaryRoute = AuthenticatedBinaryRouteImport.update({
   id: '/binary',
   path: '/binary',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/apps': typeof AuthenticatedAppsRoute
   '/aviator': typeof AuthenticatedAviatorRoute
   '/binary': typeof AuthenticatedBinaryRoute
+  '/bot-builder': typeof AuthenticatedBotBuilderRoute
   '/crypto': typeof AuthenticatedCryptoRoute
   '/forex': typeof AuthenticatedForexRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/apps': typeof AuthenticatedAppsRoute
   '/aviator': typeof AuthenticatedAviatorRoute
   '/binary': typeof AuthenticatedBinaryRoute
+  '/bot-builder': typeof AuthenticatedBotBuilderRoute
   '/crypto': typeof AuthenticatedCryptoRoute
   '/forex': typeof AuthenticatedForexRoute
   '/positions': typeof AuthenticatedPositionsRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/_authenticated/apps': typeof AuthenticatedAppsRoute
   '/_authenticated/aviator': typeof AuthenticatedAviatorRoute
   '/_authenticated/binary': typeof AuthenticatedBinaryRoute
+  '/_authenticated/bot-builder': typeof AuthenticatedBotBuilderRoute
   '/_authenticated/crypto': typeof AuthenticatedCryptoRoute
   '/_authenticated/forex': typeof AuthenticatedForexRoute
   '/_authenticated/positions': typeof AuthenticatedPositionsRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/apps'
     | '/aviator'
     | '/binary'
+    | '/bot-builder'
     | '/crypto'
     | '/forex'
     | '/positions'
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/apps'
     | '/aviator'
     | '/binary'
+    | '/bot-builder'
     | '/crypto'
     | '/forex'
     | '/positions'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/_authenticated/apps'
     | '/_authenticated/aviator'
     | '/_authenticated/binary'
+    | '/_authenticated/bot-builder'
     | '/_authenticated/crypto'
     | '/_authenticated/forex'
     | '/_authenticated/positions'
@@ -346,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCryptoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bot-builder': {
+      id: '/_authenticated/bot-builder'
+      path: '/bot-builder'
+      fullPath: '/bot-builder'
+      preLoaderRoute: typeof AuthenticatedBotBuilderRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/binary': {
       id: '/_authenticated/binary'
       path: '/binary'
@@ -403,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppsRoute: typeof AuthenticatedAppsRoute
   AuthenticatedAviatorRoute: typeof AuthenticatedAviatorRoute
   AuthenticatedBinaryRoute: typeof AuthenticatedBinaryRoute
+  AuthenticatedBotBuilderRoute: typeof AuthenticatedBotBuilderRoute
   AuthenticatedCryptoRoute: typeof AuthenticatedCryptoRoute
   AuthenticatedForexRoute: typeof AuthenticatedForexRoute
   AuthenticatedPositionsRoute: typeof AuthenticatedPositionsRoute
@@ -418,6 +438,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppsRoute: AuthenticatedAppsRoute,
   AuthenticatedAviatorRoute: AuthenticatedAviatorRoute,
   AuthenticatedBinaryRoute: AuthenticatedBinaryRoute,
+  AuthenticatedBotBuilderRoute: AuthenticatedBotBuilderRoute,
   AuthenticatedCryptoRoute: AuthenticatedCryptoRoute,
   AuthenticatedForexRoute: AuthenticatedForexRoute,
   AuthenticatedPositionsRoute: AuthenticatedPositionsRoute,

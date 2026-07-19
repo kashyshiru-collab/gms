@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { Zap, Crosshair, Clock } from "lucide-react";
+import { Zap, Cpu, Crosshair, Clock } from "lucide-react";
 
 const items = [
   { to: "/binary", label: "Trade", icon: Zap },
+  { to: "/bot-builder", label: "Builder", icon: Cpu },
   { to: "/scanner", label: "AI Scanner", icon: Crosshair },
   { to: "/positions", label: "Positions", icon: Clock },
 ] as const;

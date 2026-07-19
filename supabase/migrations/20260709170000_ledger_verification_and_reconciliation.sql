@@ -268,6 +268,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
+CREATE OR REPLACE FUNCTION public.audit_user_balance(
+  _user_id uuid DEFAULT NULL,
+  _account_type text DEFAULT NULL
+)
+RETURNS TABLE (
+  user_id uuid,
+  account_type public.account_type,
+  username text,
+  current_balance numeric,
+  calculated_balance numeric,
+  discrepancy numeric,
+  discrepancy_pct numeric,
+  status text,
+  details jsonb
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM public.audit_user_balance(_user_id, _account_type::public.account_type);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
 -- ============================================================================
 -- 4. RECONCILIATION FUNCTION - Fix discrepancies and log corrections
 -- ============================================================================
@@ -384,6 +406,17 @@ BEGIN
     END,
     'audit_id', _audit_id
   );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.reconcile_user_balance(
+  _user_id uuid,
+  _account_type text,
+  _reason text DEFAULT 'Admin reconciliation'
+)
+RETURNS jsonb AS $$
+BEGIN
+  RETURN public.reconcile_user_balance(_user_id, _account_type::public.account_type, _reason);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 

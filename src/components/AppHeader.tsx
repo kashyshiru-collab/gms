@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Menu, Sparkles, Rocket, Wallet, User, LogOut, Sun, Moon, Zap, LineChart, Bitcoin, Shield, Crosshair } from "lucide-react";
+import { Menu, Sparkles, Rocket, Wallet, User, LogOut, Sun, Moon, Zap, LineChart, Bitcoin, Shield, Crosshair, Cpu } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
@@ -52,6 +52,7 @@ export function AppHeader() {
 
   const menu = [
     { to: "/binary", label: "Binary", icon: Zap },
+    { to: "/bot-builder", label: "Bot Builder", icon: Cpu },
     { to: "/forex", label: "Forex", icon: LineChart },
     { to: "/crypto", label: "Crypto", icon: Bitcoin },
     { to: "/predict", label: "Polymarket", icon: Sparkles },
