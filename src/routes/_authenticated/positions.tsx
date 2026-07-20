@@ -34,7 +34,7 @@ function PositionsPage() {
     queryFn: async () => {
       let q = supabase.from("trades").select("*").order("created_at", { ascending: false }).limit(50);
       if (tab === "open") q = q.eq("status", "open");
-      if (tab === "closed") q = q.in("status", ["won", "lost", "closed", "cancelled"]);
+      if (tab === "closed") q = q.in("status", ["won", "lost", "closed", "cancelled", "settled"]);
       const { data } = await q;
       return (data ?? []) as Trade[];
     },

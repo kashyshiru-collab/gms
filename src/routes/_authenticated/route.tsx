@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -46,6 +46,7 @@ function AuthedLayout() {
   const [isAdmin, setIsAdmin] = useState(false);
     const [lastUnread, setLastUnread] = useState(0);
     const [isFullWidth, setIsFullWidth] = useState(false);
+  const location = useLocation();
   const unreadSupport = useServerFn(getAdminSupportUnreadCount);
 
   useEffect(() => {
@@ -77,10 +78,8 @@ function AuthedLayout() {
   }, [isAdmin, lastUnread, supportUnread?.count]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsFullWidth(window.location.pathname.startsWith("/_authenticated/binary"));
-    }
-  }, []);
+    setIsFullWidth(location.pathname === "/binary" || location.pathname.startsWith("/binary/"));
+  }, [location.pathname]);
 
   return (
     <div className={"min-h-screen pb-20 lg:pb-0 " + (isFullWidth ? "w-full mx-0 px-0" : "max-w-7xl mx-auto")}>

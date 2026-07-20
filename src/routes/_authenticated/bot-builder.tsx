@@ -8,30 +8,36 @@ export const Route = createFileRoute("/_authenticated/bot-builder")({
 
 const MARKET_OPTIONS = ["Vol 100", "Vol 75", "Vol 50"] as const;
 const VOLATILITY_OPTIONS = ["1s", "3s", "5s"] as const;
-const STRATEGIES = ["Purchase Rise", "Purchase Fall", "Purchase Even", "Purchase Odd"] as const;
+const TRADE_TYPES = ["Buy/Sell", "Even/Odd", "Matches/Differs", "Over/Under"] as const;
+const DIRECTION_OPTIONS = {
+  "Buy/Sell": ["BUY", "SELL"],
+  "Even/Odd": ["EVEN", "ODD"],
+  "Matches/Differs": ["MATCH", "DIFFER"],
+  "Over/Under": ["OVER", "UNDER"],
+} as const;
 const TICK_OPTIONS = [1, 2, 3, 5, 10] as const;
-const CONTRACT_TYPES = ["Both", "Call", "Put"] as const;
 const CANDLE_INTERVALS = ["1 minute", "5 minutes", "15 minutes"] as const;
 const SELL_RULES = ["Sell when available", "Take profit", "Stop loss", "Sell at market"] as const;
 const RESTART_RULES = ["Restart on error", "Restart last trade", "Wait 1 tick", "Reset counters"] as const;
 
 type MarketOption = (typeof MARKET_OPTIONS)[number];
 type VolatilityOption = (typeof VOLATILITY_OPTIONS)[number];
-type StrategyOption = (typeof STRATEGIES)[number];
+type TradeTypeOption = (typeof TRADE_TYPES)[number];
 type TickOption = (typeof TICK_OPTIONS)[number];
-type ContractType = (typeof CONTRACT_TYPES)[number];
 type CandleInterval = (typeof CANDLE_INTERVALS)[number];
+type TradeDirection = (typeof DIRECTION_OPTIONS)[TradeTypeOption][number];
 
 function BotBuilderPage() {
   const [botName, setBotName] = useState("Quick bot");
   const [market, setMarket] = useState<MarketOption>(MARKET_OPTIONS[0]);
   const [volatility, setVolatility] = useState<VolatilityOption>(VOLATILITY_OPTIONS[0]);
-  const [strategy, setStrategy] = useState<StrategyOption>(STRATEGIES[0]);
+  const [tradeType, setTradeType] = useState<TradeTypeOption>(TRADE_TYPES[0]);
+  const [tradeDirection, setTradeDirection] = useState<TradeDirection>(DIRECTION_OPTIONS[TRADE_TYPES[0]][0]);
+  const [selectedDigit, setSelectedDigit] = useState(5);
   const [ticks, setTicks] = useState<TickOption>(TICK_OPTIONS[0]);
   const [stake, setStake] = useState(1);
   const [maxLoss, setMaxLoss] = useState(5);
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
-  const [contractType, setContractType] = useState<ContractType>(CONTRACT_TYPES[0]);
   const [candleInterval, setCandleInterval] = useState<CandleInterval>(CANDLE_INTERVALS[0]);
   const [sellRule, setSellRule] = useState(SELL_RULES[0]);
   const [restartRule, setRestartRule] = useState(RESTART_RULES[0]);
@@ -49,14 +55,14 @@ function BotBuilderPage() {
     window.sessionStorage.setItem(
       "tronix-scanner-bot",
       JSON.stringify({
-        category: "Buy/Sell",
+        category: tradeType,
         market,
         volatility,
-        strategy,
+        direction: tradeDirection,
+        digit: selectedDigit,
         ticks,
         stake,
         maxLoss,
-        contractType,
         candleInterval,
         sellRule,
         restartRule,
@@ -70,12 +76,13 @@ function BotBuilderPage() {
     setBotName("Quick bot");
     setMarket(MARKET_OPTIONS[0]);
     setVolatility(VOLATILITY_OPTIONS[0]);
-    setStrategy(STRATEGIES[0]);
+    setTradeType(TRADE_TYPES[0]);
+    setTradeDirection(DIRECTION_OPTIONS[TRADE_TYPES[0]][0]);
+    setSelectedDigit(5);
     setTicks(TICK_OPTIONS[0]);
     setStake(1);
     setMaxLoss(5);
     setMoreOptionsOpen(false);
-    setContractType(CONTRACT_TYPES[0]);
     setCandleInterval(CANDLE_INTERVALS[0]);
     setSellRule(SELL_RULES[0]);
     setRestartRule(RESTART_RULES[0]);
@@ -168,19 +175,51 @@ function BotBuilderPage() {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Strategy</label>
+              <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Binary contract</label>
               <select
-                value={strategy}
-                onChange={(event) => setStrategy(event.target.value as StrategyOption)}
+                value={tradeType}
+                onChange={(event) => {
+                  const nextType = event.target.value as TradeTypeOption;
+                  setTradeType(nextType);
+                  setTradeDirection(DIRECTION_OPTIONS[nextType][0]);
+                }}
                 className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none"
               >
-                {STRATEGIES.map((option) => (
+                {TRADE_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Direction</label>
+              <select
+                value={tradeDirection}
+                onChange={(event) => setTradeDirection(event.target.value as TradeDirection)}
+                className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none"
+              >
+                {DIRECTION_OPTIONS[tradeType].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {(tradeType === "Over/Under" || tradeType === "Matches/Differs") && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Digit</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={9}
+                  value={selectedDigit}
+                  onChange={(event) => setSelectedDigit(Math.max(0, Math.min(9, Number(event.target.value))))}
+                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none"
+                />
+                <p className="mt-2 text-xs text-slate-500">Choose the target digit for your selected contract.</p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Stake</label>
@@ -222,21 +261,6 @@ function BotBuilderPage() {
           {moreOptionsOpen && (
             <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Contract type</label>
-                  <select
-                    value={contractType}
-                    onChange={(event) => setContractType(event.target.value as ContractType)}
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
-                  >
-                    {CONTRACT_TYPES.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 <div>
                   <label className="block text-xs uppercase tracking-[0.28em] text-slate-500">Candle interval</label>
                   <select
@@ -306,7 +330,9 @@ function BotBuilderPage() {
               <div>Market: {market}</div>
               <div>Volatility: {volatility}</div>
               <div>Ticks: {ticks}</div>
-              <div>Strategy: {strategy}</div>
+              <div>Contract: {tradeType}</div>
+              <div>Direction: {tradeDirection}</div>
+              {(tradeType === "Over/Under" || tradeType === "Matches/Differs") && <div>Digit: {selectedDigit}</div>}
               <div>Stake: {formatMoney(stake)}</div>
               <div>Max loss: {formatMoney(maxLoss)}</div>
             </div>

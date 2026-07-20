@@ -234,16 +234,25 @@ export function BinaryPanel() {
   };
 
   const { data: positionTrades = [] } = useQuery({
-    queryKey: ["binary-positions", market.value, positionsTab],
+    queryKey: ["binary-positions", market.value],
     queryFn: async () => {
-      let q = supabase.from("trades").select("id,module,market,direction,stake,entry_price,exit_price,payout,status,created_at").eq("module", "binary").eq("market", market.value).order("created_at", { ascending: false }).limit(30);
-      if (positionsTab === "open") q = q.eq("status", "open");
-      if (positionsTab === "closed") q = q.in("status", ["won", "lost", "closed", "cancelled"]);
-      const { data } = await q;
+      const { data } = await supabase
+        .from("trades")
+        .select("id,module,market,direction,stake,entry_price,exit_price,payout,status,created_at")
+        .eq("module", "binary")
+        .eq("market", market.value)
+        .order("created_at", { ascending: false })
+        .limit(50);
       return (data ?? []) as PositionTrade[];
     },
     refetchInterval: 2500,
   });
+
+  const visiblePositionTrades = positionsTab === "open"
+    ? positionTrades.filter((t) => t.status === "open")
+    : positionsTab === "closed"
+      ? positionTrades.filter((t) => ["won", "lost", "closed", "cancelled", "settled"].includes(t.status))
+      : positionTrades;
 
   const hour = new Date().getHours();
   const intradayPace = 0.76 + ((Math.sin((hour / 24) * Math.PI * 2 + 0.7) + 1) / 2) * 0.72;
@@ -265,10 +274,17 @@ export function BinaryPanel() {
     autoSignalConsumedRef.current = true;
     window.sessionStorage.removeItem("tronix-scanner-bot");
     try {
-      const signal = JSON.parse(raw) as { category?: TradeType; market?: string; bias?: string };
+      const signal = JSON.parse(raw) as { category?: TradeType; market?: string; direction?: string; digit?: number };
       if (signal.category && TYPES.includes(signal.category)) {
         typeRef.current = signal.category;
         setType(signal.category);
+      }
+      if (signal.direction && signal.direction.length > 0) {
+        activeDirectionRef.current = signal.direction;
+      }
+      if (signal.digit !== undefined && signal.digit !== null) {
+        selectedDigitRef.current = signal.digit;
+        setSelectedDigit(signal.digit);
       }
       if (signal.market && VOL_INDICES.some((m) => m.value === signal.market)) {
         indexRef.current = signal.market;
@@ -276,7 +292,8 @@ export function BinaryPanel() {
       }
       setBotMode(true);
       toast.success("Scanner bot loaded and auto trade started");
-      window.setTimeout(() => startBot("AUTO"), 450);
+      const initialDirection = signal.direction && signal.direction.length > 0 ? signal.direction : "AUTO";
+      window.setTimeout(() => startBot(initialDirection), 450);
     } catch {
       toast.error("Could not load scanner bot signal");
     }
@@ -1136,9 +1153,9 @@ export function BinaryPanel() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { key: "open", label: `Open (${positionsTab === "open" ? positionTrades.length : positionTrades.filter((t) => t.status === "open").length})` },
-                { key: "closed", label: "Closed" },
-                { key: "tx", label: "Transactions" },
+                { key: "open", label: `Open (${positionsTab === "open" ? visiblePositionTrades.length : positionTrades.filter((t) => t.status === "open").length})` },
+                { key: "closed", label: `Closed (${positionsTab === "closed" ? visiblePositionTrades.length : positionTrades.filter((t) => ["won", "lost", "closed", "cancelled", "settled"].includes(t.status)).length})` },
+                { key: "tx", label: `Transactions (${positionsTab === "tx" ? visiblePositionTrades.length : positionTrades.length})` },
               ].map((tabDef) => (
                 <button
                   key={tabDef.key}
@@ -1155,12 +1172,12 @@ export function BinaryPanel() {
               ))}
             </div>
             <div className="space-y-3">
-              {positionTrades.length === 0 ? (
+              {visiblePositionTrades.length === 0 ? (
                 <div className="rounded-3xl bg-surface border border-border p-5 text-center text-sm text-muted-foreground">
                   No {positionsTab === "open" ? "open positions" : positionsTab === "closed" ? "closed trades" : "trade history"} yet.
                 </div>
               ) : (
-                positionTrades.slice(0, 5).map((trade) => (
+                visiblePositionTrades.slice(0, 5).map((trade) => (
                   <PositionCard key={trade.id} trade={trade} />
                 ))
               )}

@@ -297,12 +297,20 @@ function SettingsTab() {
   const [segmentTags, setSegmentTags] = useState("VIP,HIGH ROLLER");
   const [marketLiability, setMarketLiability] = useState("5000");
   const [userLiability, setUserLiability] = useState("2000");
+  const [fraudSectionEnabled, setFraudSectionEnabled] = useState(true);
   const [fraudEnabled, setFraudEnabled] = useState(true);
   const [fraudRules, setFraudRules] = useState("bot,arbitrage");
+  const [engagementEnabled, setEngagementEnabled] = useState(true);
   const [engagementTriggers, setEngagementTriggers] = useState("trade,withdrawal");
+  const [capsEnabled, setCapsEnabled] = useState(true);
   const [dailyLossCap, setDailyLossCap] = useState("10000");
   const [weeklyLossCap, setWeeklyLossCap] = useState("50000");
   const [monthlyLossCap, setMonthlyLossCap] = useState("100000");
+  const [coreSettingsEnabled, setCoreSettingsEnabled] = useState(true);
+  const [limitsEnabled, setLimitsEnabled] = useState(true);
+  const [volatilityEnabled, setVolatilityEnabled] = useState(true);
+  const [segmentationEnabled, setSegmentationEnabled] = useState(true);
+  const [liabilityEnabled, setLiabilityEnabled] = useState(true);
 
   useEffect(() => {
     if (!settings) return;
@@ -316,34 +324,42 @@ function SettingsTab() {
     setSegmentTags(String(settings.user_segmentation_tags ?? "VIP,HIGH ROLLER"));
     setMarketLiability(String(Number(settings.liability_limits_market_usd ?? 5000)));
     setUserLiability(String(Number(settings.liability_limits_user_usd ?? 2000)));
+    setFraudSectionEnabled(true);
     setFraudEnabled(Boolean(settings.fraud_detection_enabled ?? true));
     setFraudRules(String(settings.fraud_detection_rules ?? "bot,arbitrage"));
+    setEngagementEnabled(true);
     setEngagementTriggers(String(settings.engagement_notification_triggers ?? "trade,withdrawal"));
+    setCapsEnabled(true);
     setDailyLossCap(String(Number(settings.caps_daily_loss_usd ?? 10000)));
     setWeeklyLossCap(String(Number(settings.caps_weekly_loss_usd ?? 50000)));
     setMonthlyLossCap(String(Number(settings.caps_monthly_loss_usd ?? 100000)));
+    setCoreSettingsEnabled(true);
+    setLimitsEnabled(true);
+    setVolatilityEnabled(true);
+    setSegmentationEnabled(true);
+    setLiabilityEnabled(true);
   }, [settings]);
 
   const saveMut = useMutation({
     mutationFn: () =>
       updateSettings({
         data: {
-          min_deposit_usd: Number(minDeposit || 0),
-          min_withdrawal_usd: Number(minWithdrawal || 0),
-          withdrawal_tax_pct: Number(taxPct || 0),
-          rtp_percent: Number(rtp || 0),
-          limits_min_stake_usd: Number(minStake || 0),
-          limits_max_stake_usd: Number(maxStake || 0),
-          volatility_model_variant: volatilityModel,
-          user_segmentation_tags: segmentTags,
-          liability_limits_market_usd: Number(marketLiability || 0),
-          liability_limits_user_usd: Number(userLiability || 0),
-          fraud_detection_enabled: fraudEnabled,
-          fraud_detection_rules: fraudRules,
-          engagement_notification_triggers: engagementTriggers,
-          caps_daily_loss_usd: Number(dailyLossCap || 0),
-          caps_weekly_loss_usd: Number(weeklyLossCap || 0),
-          caps_monthly_loss_usd: Number(monthlyLossCap || 0),
+          min_deposit_usd: Number(coreSettingsEnabled ? minDeposit || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_deposit_usd),
+          min_withdrawal_usd: Number(coreSettingsEnabled ? minWithdrawal || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_withdrawal_usd),
+          withdrawal_tax_pct: Number(coreSettingsEnabled ? taxPct || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.withdrawal_tax_pct),
+          rtp_percent: Number(coreSettingsEnabled ? rtp || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.rtp_percent),
+          limits_min_stake_usd: Number(limitsEnabled ? minStake || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_min_stake_usd),
+          limits_max_stake_usd: Number(limitsEnabled ? maxStake || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_max_stake_usd),
+          volatility_model_variant: volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS_ADMIN.volatility_model_variant,
+          user_segmentation_tags: segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS_ADMIN.user_segmentation_tags,
+          liability_limits_market_usd: Number(liabilityEnabled ? marketLiability || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_market_usd),
+          liability_limits_user_usd: Number(liabilityEnabled ? userLiability || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_user_usd),
+          fraud_detection_enabled: fraudSectionEnabled ? fraudEnabled : true,
+          fraud_detection_rules: fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS_ADMIN.fraud_detection_rules,
+          engagement_notification_triggers: engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS_ADMIN.engagement_notification_triggers,
+          caps_daily_loss_usd: Number(capsEnabled ? dailyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_daily_loss_usd),
+          caps_weekly_loss_usd: Number(capsEnabled ? weeklyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_weekly_loss_usd),
+          caps_monthly_loss_usd: Number(capsEnabled ? monthlyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_monthly_loss_usd),
         },
       }),
     onSuccess: () => {
@@ -368,13 +384,49 @@ function SettingsTab() {
       ) : (
         <div className="space-y-3">
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Core economics</div>
+            <button
+              type="button"
+              onClick={() => setCoreSettingsEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (coreSettingsEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {coreSettingsEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={coreSettingsEnabled ? "" : "opacity-80"}>
             <div className="grid gap-2 sm:grid-cols-2">
-              <LabeledInput label="Minimum deposit (USD)" value={minDeposit} onChange={setMinDeposit} />
-              <LabeledInput label="Minimum withdrawal (USD)" value={minWithdrawal} onChange={setMinWithdrawal} />
-              <LabeledInput label="VAT retention (%)" value={taxPct} onChange={setTaxPct} />
-              <LabeledInput label="RTP (%)" value={rtp} onChange={setRtp} />
+              <LabeledInput
+                label="Minimum deposit (USD)"
+                value={coreSettingsEnabled ? minDeposit : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_deposit_usd}
+                onChange={setMinDeposit}
+                type="number"
+              />
+              <LabeledInput
+                label="Minimum withdrawal (USD)"
+                value={coreSettingsEnabled ? minWithdrawal : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_withdrawal_usd}
+                onChange={setMinWithdrawal}
+                type="number"
+              />
+              <LabeledInput
+                label="VAT retention (%)"
+                value={coreSettingsEnabled ? taxPct : DEFAULT_SYSTEM_SETTINGS_ADMIN.withdrawal_tax_pct}
+                onChange={setTaxPct}
+                type="number"
+              />
+              <LabeledInput
+                label="RTP (%)"
+                value={coreSettingsEnabled ? rtp : DEFAULT_SYSTEM_SETTINGS_ADMIN.rtp_percent}
+                onChange={setRtp}
+                type="number"
+              />
             </div>
+          </div>
             <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
               <div className="font-semibold">House edge</div>
               <div className="text-muted-foreground">{houseEdge.toFixed(2)}% ({(100 - houseEdge).toFixed(2)}% RTP)</div>
@@ -382,59 +434,223 @@ function SettingsTab() {
           </div>
 
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</div>
+            <button
+              type="button"
+              onClick={() => setLimitsEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (limitsEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {limitsEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={limitsEnabled ? "" : "opacity-80"}>
             <div className="grid gap-2 sm:grid-cols-2">
-              <LabeledInput label="Minimum stake (USD)" value={minStake} onChange={setMinStake} />
-              <LabeledInput label="Maximum stake (USD)" value={maxStake} onChange={setMaxStake} />
+              <LabeledInput
+                label="Minimum stake (USD)"
+                value={limitsEnabled ? minStake : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_min_stake_usd}
+                onChange={setMinStake}
+                type="number"
+              />
+              <LabeledInput
+                label="Maximum stake (USD)"
+                value={limitsEnabled ? maxStake : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_max_stake_usd}
+                onChange={setMaxStake}
+                type="number"
+              />
+            </div>
+          </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Volatility</div>
+              <button
+                type="button"
+                onClick={() => setVolatilityEnabled((prev) => !prev)}
+                className={
+                  "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                  (volatilityEnabled
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border bg-surface text-muted-foreground")
+                }
+              >
+                {volatilityEnabled ? "Custom" : "Defaults"}
+              </button>
+            </div>
+            <div className={volatilityEnabled ? "" : "opacity-80"}>
+              <LabeledSelect
+                label="Math model variant"
+                value={volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS_ADMIN.volatility_model_variant}
+                onChange={setVolatilityModel}
+                options={["standard", "aggressive", "conservative"]}
+              />
             </div>
           </div>
 
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Volatility</div>
-            <LabeledSelect
-              label="Math model variant"
-              value={volatilityModel}
-              onChange={setVolatilityModel}
-              options={["standard", "aggressive", "conservative"]}
-            />
-          </div>
-
-          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User segmentation</div>
-            <LabeledInput label="Auto tags" value={segmentTags} onChange={setSegmentTags} />
+            <button
+              type="button"
+              onClick={() => setSegmentationEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (segmentationEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {segmentationEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={segmentationEnabled ? "" : "opacity-80"}>
+            <LabeledInput
+              label="Auto tags"
+              value={segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS_ADMIN.user_segmentation_tags}
+              onChange={setSegmentTags}
+            />
             <div className="text-[10px] text-muted-foreground">Enter tags as a comma-separated list such as VIP,HIGH ROLLER.</div>
           </div>
-
-          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Liability limits</div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <LabeledInput label="Exposure per market (USD)" value={marketLiability} onChange={setMarketLiability} />
-              <LabeledInput label="Exposure per user (USD)" value={userLiability} onChange={setUserLiability} />
-            </div>
           </div>
 
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Liability limits</div>
+            <button
+              type="button"
+              onClick={() => setLiabilityEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (liabilityEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {liabilityEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={liabilityEnabled ? "" : "opacity-80"}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LabeledInput
+                label="Exposure per market (USD)"
+                value={liabilityEnabled ? marketLiability : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_market_usd}
+                onChange={setMarketLiability}
+                type="number"
+              />
+              <LabeledInput
+                label="Exposure per user (USD)"
+                value={liabilityEnabled ? userLiability : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_user_usd}
+                onChange={setUserLiability}
+                type="number"
+              />
+            </div>
+          </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fraud detection</div>
+            <button
+              type="button"
+              onClick={() => setFraudSectionEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (fraudSectionEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {fraudSectionEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={fraudSectionEnabled ? "" : "opacity-80"}>
             <label className="flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" checked={fraudEnabled} onChange={(e) => setFraudEnabled(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={fraudSectionEnabled ? fraudEnabled : true}
+                onChange={(e) => setFraudEnabled(e.target.checked)}
+                disabled={!fraudSectionEnabled}
+              />
               Enable automated fraud detection
             </label>
-            <LabeledInput label="Rules / patterns" value={fraudRules} onChange={setFraudRules} />
+            <LabeledInput
+              label="Rules / patterns"
+              value={fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS_ADMIN.fraud_detection_rules}
+              onChange={setFraudRules}
+            />
+          </div>
           </div>
 
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Engagements</div>
-            <LabeledInput label="Event triggers" value={engagementTriggers} onChange={setEngagementTriggers} />
+            <button
+              type="button"
+              onClick={() => setEngagementEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (engagementEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {engagementEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={engagementEnabled ? "" : "opacity-80"}>
+            <LabeledInput
+              label="Event triggers"
+              value={engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS_ADMIN.engagement_notification_triggers}
+              onChange={setEngagementTriggers}
+            />
             <div className="text-[10px] text-muted-foreground">Example: trade,withdrawal,deposit,bonus.</div>
           </div>
+          </div>
 
           <div className="rounded-lg border border-border bg-surface/80 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Caps</div>
+            <button
+              type="button"
+              onClick={() => setCapsEnabled((prev) => !prev)}
+              className={
+                "rounded-full border px-2 py-1 text-[10px] font-bold transition " +
+                (capsEnabled
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground")
+              }
+            >
+              {capsEnabled ? "Custom" : "Defaults"}
+            </button>
+          </div>
+          <div className={capsEnabled ? "" : "opacity-80"}>
             <div className="grid gap-2 sm:grid-cols-3">
-              <LabeledInput label="Daily loss cap (USD)" value={dailyLossCap} onChange={setDailyLossCap} />
-              <LabeledInput label="Weekly loss cap (USD)" value={weeklyLossCap} onChange={setWeeklyLossCap} />
-              <LabeledInput label="Monthly loss cap (USD)" value={monthlyLossCap} onChange={setMonthlyLossCap} />
+              <LabeledInput
+                label="Daily loss cap (USD)"
+                value={capsEnabled ? dailyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_daily_loss_usd}
+                onChange={setDailyLossCap}
+                type="number"
+              />
+              <LabeledInput
+                label="Weekly loss cap (USD)"
+                value={capsEnabled ? weeklyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_weekly_loss_usd}
+                onChange={setWeeklyLossCap}
+                type="number"
+              />
+              <LabeledInput
+                label="Monthly loss cap (USD)"
+                value={capsEnabled ? monthlyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_monthly_loss_usd}
+                onChange={setMonthlyLossCap}
+                type="number"
+              />
             </div>
+          </div>
           </div>
 
           <button
