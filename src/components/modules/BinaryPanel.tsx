@@ -654,6 +654,77 @@ export function BinaryPanel() {
             </div>
           </div>
 
+          <div className="rounded-3xl border border-border bg-card p-3 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                onClick={() => setChartMode("line")}
+                className={
+                  "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+                  (chartMode === "line"
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "bg-surface border-border text-muted-foreground")
+                }
+              >
+                <LineChart className="h-4 w-4" /> Line
+              </button>
+              <button
+                onClick={() => setChartMode("candles")}
+                className={
+                  "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+                  (chartMode === "candles"
+                    ? "bg-primary/20 text-primary border-primary/50"
+                    : "bg-surface border-border text-muted-foreground")
+                }
+              >
+                <CandlestickChart className="h-4 w-4" /> Candles
+              </button>
+            </div>
+            <div className="relative overflow-hidden rounded-3xl border border-border bg-card/90 p-2">
+              <LiveChart
+                basePrice={market.basePrice}
+                volatility={chartVolatility}
+                tickMs={chartTickMs}
+                candleMs={chartCandleMs}
+                onPrice={setPrice}
+                badge={`${currentDigit}`}
+                badgeTone={badgeTone}
+                note={chartNote ?? undefined}
+                noteTone={chartNote ? chartNoteTone : "neutral"}
+                indicators={selectedIndicators}
+                mode={chartMode}
+                className="h-60 w-full"
+                digitStats={digitStats}
+                currentDigit={currentDigit}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-surface p-3 mb-3">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold mb-3">Last digits</div>
+            <div className="grid grid-cols-5 gap-2">
+              {digitStats.map(({ d, pct }) => {
+                const isCurrent = d === currentDigit;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDigit(d)}
+                    className={
+                      "flex flex-col items-center justify-center gap-1 rounded-3xl border p-2 transition " +
+                      (isCurrent
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-card text-foreground")
+                    }
+                  >
+                    <span className="h-11 w-11 rounded-full border border-border bg-surface grid place-items-center text-sm font-extrabold">
+                      {d}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{pct.toFixed(0)}%</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="rounded-3xl border border-border bg-surface p-2 overflow-x-auto">
             <div className="flex items-center justify-between gap-2">
               {Array.from({ length: 10 }).map((_, d) => (
@@ -1406,65 +1477,9 @@ export function BinaryPanel() {
         </div>
       </div>
 
-      {/* Mobile fixed footer: stake, ai scanner, tp/sl/mult, and trade buttons */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card/95 border-t border-border p-3 z-50">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStake(Math.max(1, stake - 1))}
-            className="h-10 w-10 rounded-xl bg-surface border border-border grid place-items-center"
-          >
-            <Minus />
-          </button>
-          <div className="flex-1 bg-card border-2 border-primary rounded-xl py-2 text-center">
-            <div className="text-[10px] uppercase text-muted-foreground">Stake</div>
-            <div className="text-lg font-extrabold tabular-nums">{stake}</div>
-          </div>
-          <button
-            onClick={() => setStake(stake + 1)}
-            className="h-10 w-10 rounded-xl bg-surface border border-border grid place-items-center"
-          >
-            <Plus />
-          </button>
-          <button className="ml-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground font-semibold">AI Scan</button>
-        </div>
-
-        <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-xl bg-surface p-2">
-            <div className="text-muted-foreground">Take Profit</div>
-            <div className="font-extrabold">${target}</div>
-          </div>
-          <div className="rounded-xl bg-surface p-2">
-            <div className="text-muted-foreground">Stop Loss</div>
-            <div className="font-extrabold">${stop}</div>
-          </div>
-          <div className="rounded-xl bg-surface p-2">
-            <div className="text-muted-foreground">Multiplier</div>
-            <div className="font-extrabold">x{martingale}</div>
-          </div>
-        </div>
-
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {actions.slice(0, 2).map(([label, tone]) => (
-            <button
-              key={label}
-              onClick={() => (botMode ? startBot(label) : fireManual(label))}
-              className={
-                "py-3 rounded-2xl font-extrabold text-lg tracking-wide " +
-                (tone === "bull"
-                  ? "bg-bull text-bull-foreground"
-                  : "bg-bear text-bear-foreground")
-              }
-            >
-              {botMode ? `BOT ${label}` : label}
-            </button>
-          ))}
-        </div>
-      </div>
-
     </div>
   );
 }
-
 
 function BotField({
   label,
