@@ -65,7 +65,7 @@ function ScannerPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="w-full space-y-3">
       <div className="flex items-start gap-3">
         <div className="h-12 w-12 rounded-xl bg-primary/15 text-primary grid place-items-center glow-primary border border-primary/40">
           <Crosshair className="h-6 w-6" />

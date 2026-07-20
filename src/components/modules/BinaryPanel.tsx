@@ -972,7 +972,7 @@ export function BinaryPanel() {
             )}
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-2 relative lg:min-h-[60vh] lg:h-[calc(100vh-6rem)] overflow-hidden">
+          <div className="w-full bg-card border border-border rounded-xl p-2 relative min-h-[60vh] lg:min-h-[70vh] lg:h-[calc(100vh-8rem)] overflow-hidden">
             <div className="hidden lg:block absolute left-4 top-4 z-30 w-[320px]">
               <button
                 onClick={() => setMarketOpen(!marketOpen)}
