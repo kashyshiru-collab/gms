@@ -212,3 +212,29 @@
   100% { transform: scale(1); }
 }
 @utility digit-pop { animation: digit-flash 0.45s ease-out; }
+
+/* -------------------------------------------------------------------------- */
+/* FORCE: Disable all scrolling and hide scrollbars (user requested no scroll)  */
+/* -------------------------------------------------------------------------- */
+/* NOTE: This will clip content that overflows the viewport. If you prefer
+   responsive behavior instead, we can instead adjust per-component layouts.
+*/
+html, body, #root {
+  height: 100%;
+  overflow: hidden !important;
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Hide scrollbars in WebKit/Blink */
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Make sure major app containers don't force scroll locally */
+.min-h-screen, main, .app-root, .router-outlet {
+  overflow: hidden !important;
+}
+
