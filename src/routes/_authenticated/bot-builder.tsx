@@ -1,41 +1,50 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Bot, Sparkles, Settings, ArrowRight, Circle, Target } from "lucide-react";
+import { ArrowRight, Bot, ChevronDown, Play, Plus, RefreshCw, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bot-builder")({
   component: BotBuilderPage,
 });
 
-const MARKETS = ["Vol 10", "Vol 25", "Vol 50", "Vol 75", "Vol 100", "Crash 500", "Boom 500"];
-const CONTRACT_TYPES = ["DIGIT_OVER", "DIGIT_UNDER", "EVEN", "ODD", "MATCHES", "DIFFERS"] as const;
-const TOOLBOX = [
+const BLOCK_CATEGORIES = [
   {
-    category: "Purchase Conditions",
-    blocks: [
-      "Buy DIGIT_OVER",
-      "Buy DIGIT_UNDER",
-      "IF last digit > 6",
-      "IF RSI < 30",
-      "IF EMA crossover",
-    ],
+    title: "Trade blocks",
+    blocks: ["Market", "Trade type", "Contract type", "Candle interval", "Stake", "Duration"],
   },
-  { category: "Sell Conditions", blocks: ["Sell when available", "Take profit", "Stop loss"] },
   {
-    category: "Restart Conditions",
-    blocks: ["Trade again", "Restart after loss", "Restart on error"],
+    title: "Purchase blocks",
+    blocks: ["Purchase Rise", "Purchase Fall", "Purchase Even", "Purchase Odd"],
   },
-  { category: "Analysis", blocks: ["Log balance", "Log profit", "Set martingale"] },
-  { category: "Utility", blocks: ["Wait 1 tick", "Reset counters"] },
-] as const;
+  {
+    title: "Exit blocks",
+    blocks: ["Sell when available", "Take profit", "Stop loss", "Sell at market"],
+  },
+  {
+    title: "Control blocks",
+    blocks: ["Restart on error", "Restart last trade", "Wait 1 tick", "Reset counters"],
+  },
+];
 
+const MARKET_OPTIONS = [
+  "Volatility 100 (1s) Index",
+  "Volatility 75 (1s) Index",
+  "Volatility 50 (1s) Index",
+];
+const TRADE_TYPES = ["Rise/Fall", "Up/Down"] as const;
+const CONTRACT_TYPES = ["Both", "Call", "Put"] as const;
+const CANDLE_INTERVALS = ["1 minute", "5 minutes", "15 minutes"] as const;
+const PURCHASE_ACTIONS = ["Purchase Rise", "Purchase Fall", "Purchase Even", "Purchase Odd"] as const;
+const SUMMARY_TABS = ["Summary", "Transactions", "Journal"] as const;
+
+type PurchaseAction = (typeof PURCHASE_ACTIONS)[number];
+type TradeType = (typeof TRADE_TYPES)[number];
 type ContractType = (typeof CONTRACT_TYPES)[number];
-type SectionName = (typeof TOOLBOX)[number]["category"];
+type CandleInterval = (typeof CANDLE_INTERVALS)[number];
+type SummaryTab = (typeof SUMMARY_TABS)[number];
 
 type Transaction = {
   id: string;
   action: string;
-  buyPrice: number;
-  sellPrice: number;
   profit: number;
   status: string;
   time: string;
@@ -50,14 +59,6 @@ type Summary = {
   runs: number;
 };
 
-const INITIAL_BLOCKS: Record<SectionName, string[]> = {
-  "Purchase Conditions": ["IF last digit > 6", "Buy DIGIT_OVER"],
-  "Sell Conditions": ["Sell when available"],
-  "Restart Conditions": ["Trade again"],
-  Analysis: ["Log profit"],
-  Utility: ["Reset counters"],
-};
-
 const INITIAL_SUMMARY: Summary = {
   totalStake: 0,
   totalPayout: 0,
@@ -68,549 +69,369 @@ const INITIAL_SUMMARY: Summary = {
 };
 
 function BotBuilderPage() {
-  const [botName, setBotName] = useState("Digit Over Strategy");
-  const [description, setDescription] = useState(
-    "Buy Digit Over when the last digit is greater than 6.",
-  );
-  const [market, setMarket] = useState(MARKETS[3]);
-  const [contractType, setContractType] = useState<ContractType>("DIGIT_OVER");
-  const [stake, setStake] = useState(5);
-  const [currency, setCurrency] = useState("USD");
+  const [search, setSearch] = useState("");
+  const [botName, setBotName] = useState("Quick bot");
+  const [market, setMarket] = useState(MARKET_OPTIONS[0]);
+  const [tradeType, setTradeType] = useState<TradeType>("Rise/Fall");
+  const [contractType, setContractType] = useState<ContractType>("Both");
+  const [candleInterval, setCandleInterval] = useState<CandleInterval>("1 minute");
+  const [stake, setStake] = useState(1);
   const [duration, setDuration] = useState(1);
-  const [durationUnit, setDurationUnit] = useState("tick");
-  const [takeProfit, setTakeProfit] = useState(100);
-  const [stopLoss, setStopLoss] = useState(50);
-  const [martingale, setMartingale] = useState(2);
-  const [maxTrades, setMaxTrades] = useState(10);
-  const [canvasBlocks, setCanvasBlocks] = useState<Record<SectionName, string[]>>(INITIAL_BLOCKS);
-  const [status, setStatus] = useState<string | null>("Ready to build your strategy.");
+  const [purchaseAction, setPurchaseAction] = useState<PurchaseAction>("Purchase Rise");
+  const [sellRule, setSellRule] = useState("Sell when available");
+  const [restartRule, setRestartRule] = useState("Restart on error");
   const [isRunning, setIsRunning] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [journal, setJournal] = useState<string[]>(["Workspace loaded."]);
+  const [status, setStatus] = useState("Ready to run");
+  const [activeTab, setActiveTab] = useState<SummaryTab>("Summary");
   const [summary, setSummary] = useState<Summary>(INITIAL_SUMMARY);
-  const [activeTab, setActiveTab] = useState<"summary" | "transactions" | "journal">("summary");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [journal, setJournal] = useState<string[]>(["Workflow loaded.", "Bot is ready."]);
 
   const botConfig = useMemo(
     () => ({
-      botName,
-      description,
-      tradeParameters: {
-        market,
-        contract: contractType,
-        stake,
-        currency,
-        duration,
-        durationUnit,
-      },
-      risk: {
-        takeProfit,
-        stopLoss,
-        martingale,
-        maxTrades,
-      },
-      blocks: canvasBlocks,
-    }),
-    [
-      botName,
-      description,
       market,
+      tradeType,
       contractType,
+      candleInterval,
       stake,
-      currency,
       duration,
-      durationUnit,
-      takeProfit,
-      stopLoss,
-      martingale,
-      maxTrades,
-      canvasBlocks,
-    ],
-  );
-
-  const strategyJson = useMemo(
-    () => ({
-      trade: {
-        market: "synthetic",
-        symbol: market === "Vol 100" ? "R_100" : "R_50",
-        contract:
-          contractType === "DIGIT_OVER" ? "CALL" : contractType === "DIGIT_UNDER" ? "PUT" : "CALL",
-        duration,
-        duration_unit: durationUnit,
-        stake,
-        currency,
-      },
-      purchase: {
-        conditions: canvasBlocks["Purchase Conditions"],
-      },
-      sell: {
-        enabled: canvasBlocks["Sell Conditions"].length > 0,
-        rules: canvasBlocks["Sell Conditions"],
-      },
-      restart: {
-        rules: canvasBlocks["Restart Conditions"],
-      },
+      purchase: purchaseAction,
+      sell: sellRule,
+      restart: restartRule,
     }),
-    [market, contractType, duration, durationUnit, stake, currency, canvasBlocks],
+    [market, tradeType, contractType, candleInterval, stake, duration, purchaseAction, sellRule, restartRule],
   );
 
-  const addBlock = (section: SectionName, label: string) => {
-    setCanvasBlocks((current) => ({
-      ...current,
-      [section]: [...current[section], label],
-    }));
-    setJournal((current) => [...current, `Added block '${label}' to ${section}.`]);
-  };
+  const formatMoney = (value: number) => `USD ${value.toFixed(2)}`;
 
-  const removeBlock = (section: SectionName, index: number) => {
-    setCanvasBlocks((current) => {
-      const updated = [...current[section]];
-      updated.splice(index, 1);
-      return { ...current, [section]: updated };
-    });
-    setJournal((current) => [...current, `Removed block from ${section}.`]);
-  };
-
-  const formatMoney = (value: number) => `${currency} ${value.toFixed(2)}`;
-
-  const runStrategy = () => {
-    if (isRunning) {
-      setIsRunning(false);
-      setStatus("Bot stopped. Live execution paused.");
-      setJournal((current) => [...current, "Engine stopped by user."]);
-      return;
-    }
-
-    setIsRunning(true);
-    setStatus("Connecting to broker API and loading strategy...");
-    setJournal((current) => [
-      ...current,
-      "Run pressed: connecting to broker API.",
-      "Strategy loaded from workspace.",
-    ]);
-
-    const nextStatus = `Subscribed to ${market} data. Evaluating purchase conditions.`;
-    setStatus(nextStatus);
-    setJournal((current) => [...current, nextStatus]);
-
-    const outcome = Math.random() > 0.44;
-    const profit = outcome ? stake * 0.82 : -stake;
+  const toggleRun = () => {
+    const outcome = Math.random() > 0.2;
+    const profit = outcome ? stake * 0.8 : -stake;
     const transaction: Transaction = {
-      id: `T-${Date.now()}`,
-      action: contractType.replace("DIGIT_", ""),
-      buyPrice: stake,
-      sellPrice: outcome ? stake + profit : 0,
+      id: `BOT-${Date.now()}`,
+      action: purchaseAction.replace("Purchase ", ""),
       profit,
       status: outcome ? "Won" : "Lost",
       time: new Date().toLocaleTimeString(),
     };
 
-    setTransactions((current) => [transaction, ...current].slice(0, 10));
+    setIsRunning(!isRunning);
+    setStatus(isRunning ? "Paused" : "Running strategy");
     setJournal((current) => [
       ...current,
-      `Placed ${transaction.action} order.`,
-      outcome ? "Trade won." : "Trade lost.",
-      "Restarting after contract completion.",
-    ]);
-    setSummary((current) => ({
-      totalStake: current.totalStake + stake,
-      totalPayout: current.totalPayout + (outcome ? stake + profit : 0),
-      contractsWon: current.contractsWon + (outcome ? 1 : 0),
-      contractsLost: current.contractsLost + (outcome ? 0 : 1),
-      profit: current.profit + profit,
-      runs: current.runs + 1,
-    }));
-    setStatus(
-      outcome ? "Trade executed and completed successfully." : "Trade executed, loss recorded.",
-    );
+      `${isRunning ? "Paused" : "Started"} ${botName}.`,
+      `Selected ${purchaseAction} on ${market}.`,
+    ].slice(0, 6));
+
+    if (!isRunning) {
+      setTransactions((current) => [transaction, ...current].slice(0, 8));
+      setSummary((current) => ({
+        totalStake: current.totalStake + stake,
+        totalPayout: current.totalPayout + (outcome ? stake + profit : 0),
+        contractsWon: current.contractsWon + (outcome ? 1 : 0),
+        contractsLost: current.contractsLost + (outcome ? 0 : 1),
+        profit: current.profit + profit,
+        runs: current.runs + 1,
+      }));
+      setStatus(outcome ? "Contract won" : "Contract lost");
+    }
   };
 
-  const runBacktest = () => {
-    const winRate = 50 + Math.floor(Math.random() * 30);
-    setStatus(
-      `Backtest complete: ${winRate}% win rate, ${Math.floor(maxTrades * 0.8)} trades, ${((winRate / 100) * stake * maxTrades).toFixed(2)} USD ROI.`,
-    );
-    setJournal((current) => [...current, "Backtest run completed."]);
+  const reset = () => {
+    setIsRunning(false);
+    setStatus("Ready to run");
+    setSummary(INITIAL_SUMMARY);
+    setTransactions([]);
+    setJournal(["Workflow reset."]);
   };
 
   return (
-    <div className="space-y-6 bg-slate-50 text-slate-900 min-h-screen p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-3 rounded-3xl bg-primary/10 px-4 py-3 text-sm font-semibold text-primary shadow-sm">
-            <Bot className="h-5 w-5" />
-            Bot Builder
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-screen-2xl space-y-6">
+        <div className="flex flex-col gap-4 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+              <Bot className="h-4 w-4" />
+              Bot Builder
+            </div>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">Bot Builder</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              Build a powerful bot workflow with block categories, a central logic canvas, and live monitoring.
+            </p>
           </div>
-          <h1 className="mt-3 text-2xl font-extrabold">
-            Visual strategy builder for automated trades
-          </h1>
-          <p className="max-w-2xl text-sm text-slate-600">
-            Compose strategies with blocks, run simulations, and inspect the saved JSON strategy.
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Current status</div>
-            <div className="mt-3 text-sm font-semibold">{isRunning ? "Running" : "Stopped"}</div>
-            <div className="mt-2 text-sm text-slate-500">{status}</div>
-          </div>
-          <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Bot settings</div>
-            <div className="mt-2 text-lg font-semibold">{botName}</div>
-          </div>
-          <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Live metrics</div>
-            <div className="mt-2 text-lg font-semibold">{summary.runs} runs</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700">
+              <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Status</div>
+              <div className="mt-2 font-semibold text-slate-900">{status}</div>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700">
+              <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Strategy</div>
+              <div className="mt-2 font-semibold text-slate-900">{purchaseAction}</div>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700">
+              <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Run mode</div>
+              <div className="mt-2 font-semibold text-slate-900">{isRunning ? "Running" : "Stopped"}</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)_320px]">
-        <section className="space-y-4 rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            <Sparkles className="h-4 w-4" />
-            Blocks menu
-          </div>
-          <div className="space-y-4">
-            {TOOLBOX.map((group) => (
-              <div
-                key={group.category}
-                className="rounded-3xl border border-slate-200 bg-slate-50 p-3"
-              >
-                <div className="mb-3 text-xs uppercase tracking-[0.24em] text-slate-500">
-                  {group.category}
-                </div>
-                <div className="grid gap-2">
-                  {group.blocks.map((label) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => addBlock(group.category, label)}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+        <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_420px]">
+          <aside className="space-y-5 rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Block library</p>
+                <h2 className="mt-3 text-lg font-semibold text-slate-900">Add strategy blocks</h2>
               </div>
-            ))}
-          </div>
-        </section>
+              <button className="rounded-full bg-slate-900 px-3 py-2 text-white transition hover:bg-slate-800">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
 
-        <section className="space-y-4 rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            <ArrowRight className="h-4 w-4" />
-            Strategy canvas
-          </div>
-          <div className="grid gap-4">
-            {Object.entries(canvasBlocks).map(([section, blocksInSection]) => (
-              <div key={section} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  <span>{section}</span>
-                  <span>
-                    {blocksInSection.length} block{blocksInSection.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-                {blocksInSection.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
-                    Drag blocks here to build the workflow.
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search blocks"
+                  className="w-full rounded-3xl border border-transparent bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {BLOCK_CATEGORIES.map((category) => (
+                <div key={category.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between text-xs uppercase tracking-[0.28em] text-slate-500">
+                    <span>{category.title}</span>
+                    <ChevronDown className="h-4 w-4" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {blocksInSection.map((block, index) => (
-                      <div
-                        key={`${block}-${index}`}
-                        className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm"
-                      >
-                        <span>{block}</span>
+                  <div className="mt-3 space-y-3">
+                    {category.blocks
+                      .filter((block) => block.toLowerCase().includes(search.toLowerCase()))
+                      .map((block) => (
                         <button
+                          key={block}
                           type="button"
-                          onClick={() => removeBlock(section as SectionName, index)}
-                          className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-700 transition hover:bg-slate-200"
+                          className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
                         >
-                          Remove
+                          {block}
                         </button>
-                      </div>
-                    ))}
+                      ))}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+                </div>
+              ))}
+            </div>
+          </aside>
 
-        <section className="space-y-4 rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            <Settings className="h-4 w-4" />
-            Bot settings
-          </div>
-          <div className="grid gap-3">
-            <label className="space-y-1 text-sm font-medium">
-              Bot name
-              <input
-                value={botName}
-                onChange={(event) => setBotName(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              />
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Description
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="w-full min-h-[92px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              />
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Market
-              <select
-                value={market}
-                onChange={(event) => setMarket(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              >
-                {MARKETS.map((value) => (
-                  <option key={value} value={value} className="bg-white text-slate-900">
-                    {value}
-                  </option>
+          <main className="space-y-5">
+            <section className="rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Bot name</p>
+                  <input
+                    value={botName}
+                    onChange={(event) => setBotName(event.target.value)}
+                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={toggleRun}
+                    className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    {isRunning ? "Stop" : "Run"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="inline-flex items-center justify-center rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Market</div>
+                  <div className="mt-2 font-semibold text-slate-900">{market}</div>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Trade type</div>
+                  <div className="mt-2 font-semibold text-slate-900">{tradeType}</div>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Contract</div>
+                  <div className="mt-2 font-semibold text-slate-900">{contractType}</div>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Duration</div>
+                  <div className="mt-2 font-semibold text-slate-900">{duration} tick</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Strategy canvas</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Logic flow</h2>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">
+                  Drag blocks here
+                </span>
+              </div>
+
+              <div className="mt-5 space-y-5 rounded-[32px] border border-dashed border-slate-200 bg-slate-50 p-5">
+                <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">Start</span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-slate-600">Entry</span>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-600">Begin the bot sequence and wait for the next trade opportunity.</p>
+                  </div>
+                  <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">Trade parameters</span>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <div className="mt-3 space-y-3 text-sm text-slate-600">
+                      <div>Market: {market}</div>
+                      <div>Type: {tradeType}</div>
+                      <div>Contract: {contractType}</div>
+                      <div>Candle: {candleInterval}</div>
+                      <div>Stake: USD {stake}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">Purchase condition</span>
+                      <span className="text-xs uppercase tracking-[0.28em] text-slate-500">IF</span>
+                    </div>
+                    <div className="mt-3 text-sm text-slate-600">{purchaseAction}</div>
+                  </div>
+                  <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">Sell condition</span>
+                      <span className="text-xs uppercase tracking-[0.28em] text-slate-500">THEN</span>
+                    </div>
+                    <div className="mt-3 text-sm text-slate-600">{sellRule}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-slate-900">Restart condition</span>
+                    <span className="text-xs uppercase tracking-[0.28em] text-slate-500">RESET</span>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-600">{restartRule}</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Live bot summary</div>
+                  <div className="mt-3 text-lg font-semibold text-slate-900">{botName}</div>
+                  <div className="mt-1 text-sm text-slate-600">Auto restart: {restartRule}</div>
+                </div>
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Selected block</div>
+                  <div className="mt-3 text-lg font-semibold text-slate-900">{purchaseAction}</div>
+                  <div className="mt-1 text-sm text-slate-600">{sellRule} after {duration} tick(s)</div>
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <aside className="space-y-5 rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Live monitor</p>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-900">Performance</h2>
+                </div>
+                <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{isRunning ? "LIVE" : "OFFLINE"}</div>
+              </div>
+              <div className="mt-5 grid gap-3">
+                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Total stake</div>
+                  <div className="mt-2 font-semibold text-slate-900">{formatMoney(summary.totalStake)}</div>
+                </div>
+                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Total payout</div>
+                  <div className="mt-2 font-semibold text-slate-900">{formatMoney(summary.totalPayout)}</div>
+                </div>
+                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-500">Profit</div>
+                  <div className="mt-2 font-semibold text-slate-900">{formatMoney(summary.profit)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap gap-2">
+                {SUMMARY_TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={`rounded-3xl px-3 py-2 text-sm font-semibold ${activeTab === tab ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-200"}`}
+                  >
+                    {tab}
+                  </button>
                 ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Contract type
-              <select
-                value={contractType}
-                onChange={(event) => setContractType(event.target.value as ContractType)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              >
-                {CONTRACT_TYPES.map((value) => (
-                  <option key={value} value={value} className="bg-white text-slate-900">
-                    {value.replace("DIGIT_", "")}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1 text-sm font-medium">
-                Stake
-                <input
-                  type="number"
-                  min={1}
-                  value={stake}
-                  onChange={(event) => setStake(Number(event.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </label>
-              <label className="space-y-1 text-sm font-medium">
-                Currency
-                <input
-                  value={currency}
-                  onChange={(event) => setCurrency(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </label>
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1 text-sm font-medium">
-                Duration
-                <input
-                  type="number"
-                  min={1}
-                  value={duration}
-                  onChange={(event) => setDuration(Number(event.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </label>
-              <label className="space-y-1 text-sm font-medium">
-                Unit
-                <select
-                  value={durationUnit}
-                  onChange={(event) => setDurationUnit(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                >
-                  <option value="tick">Tick</option>
-                  <option value="minute">Minute</option>
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1 text-sm font-medium">
-                Take profit
-                <input
-                  type="number"
-                  min={0}
-                  value={takeProfit}
-                  onChange={(event) => setTakeProfit(Number(event.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </label>
-              <label className="space-y-1 text-sm font-medium">
-                Stop loss
-                <input
-                  type="number"
-                  min={0}
-                  value={stopLoss}
-                  onChange={(event) => setStopLoss(Number(event.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </label>
-            </div>
-            <label className="space-y-1 text-sm font-medium">
-              Martingale multiplier
-              <input
-                type="number"
-                min={1}
-                value={martingale}
-                onChange={(event) => setMartingale(Number(event.target.value))}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              />
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Max trades
-              <input
-                type="number"
-                min={1}
-                value={maxTrades}
-                onChange={(event) => setMaxTrades(Number(event.target.value))}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              />
-            </label>
 
-            <div className="mt-4 grid gap-3">
-              <button
-                onClick={runStrategy}
-                className="rounded-3xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
-              >
-                {isRunning ? "Stop Bot" : "Run Bot"}
-              </button>
-              <button
-                onClick={runBacktest}
-                className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                Backtest Strategy
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            <Circle className="h-4 w-4" />
-            Live monitor
-          </div>
-          <div className="mt-4 rounded-3xl bg-slate-50 p-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">
-                    Total stake
+            <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm text-slate-700">
+              {activeTab === "Summary" ? (
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold text-slate-900">Summary</div>
+                  <div className="grid gap-2">
+                    <div>Total runs: {summary.runs}</div>
+                    <div>Won: {summary.contractsWon}</div>
+                    <div>Lost: {summary.contractsLost}</div>
                   </div>
-                  <div className="mt-2 font-semibold">{formatMoney(summary.totalStake)}</div>
                 </div>
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">
-                    Total payout
-                  </div>
-                  <div className="mt-2 font-semibold">{formatMoney(summary.totalPayout)}</div>
-                </div>
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Profit</div>
-                  <div className="mt-2 font-semibold">{formatMoney(summary.profit)}</div>
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Wins</div>
-                  <div className="mt-2 font-semibold">{summary.contractsWon}</div>
-                </div>
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Losses</div>
-                  <div className="mt-2 font-semibold">{summary.contractsLost}</div>
-                </div>
-                <div className="rounded-3xl bg-white border border-slate-200 p-4 text-sm">
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Runs</div>
-                  <div className="mt-2 font-semibold">{summary.runs}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 flex gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-3">
-            {(["summary", "transactions", "journal"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`rounded-3xl px-4 py-2 text-sm font-semibold ${activeTab === tab ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-200"}`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 rounded-3xl bg-white border border-slate-200 p-4 text-sm text-slate-700">
-            {activeTab === "summary" ? (
-              <div className="space-y-3">
-                <div className="text-sm font-semibold">Summary</div>
-                <div>Contracts won: {summary.contractsWon}</div>
-                <div>Contracts lost: {summary.contractsLost}</div>
-                <div>Total profit: {formatMoney(summary.profit)}</div>
-                <div>Total trades: {summary.runs}</div>
-              </div>
-            ) : activeTab === "transactions" ? (
-              <div className="space-y-3">
-                <div className="text-sm font-semibold">Transactions</div>
-                {transactions.length === 0 ? (
-                  <div className="text-slate-500">No trades executed yet.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {transactions.map((tx) => (
+              ) : activeTab === "Transactions" ? (
+                <div className="space-y-3">
+                  {transactions.length === 0 ? (
+                    <div className="text-slate-500">No transactions yet.</div>
+                  ) : (
+                    transactions.map((tx) => (
                       <div key={tx.id} className="rounded-3xl border border-slate-200 p-3">
-                        <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+                        <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
                           <span>{tx.action}</span>
                           <span>{tx.status}</span>
                         </div>
                         <div className="mt-2 text-xs text-slate-500">{tx.time}</div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs text-slate-600">
-                          <div>Buy {formatMoney(tx.buyPrice)}</div>
-                          <div>Sell {formatMoney(tx.sellPrice)}</div>
-                          <div>Profit {formatMoney(tx.profit)}</div>
-                        </div>
+                        <div className="mt-3 text-sm text-slate-600">Profit: {formatMoney(tx.profit)}</div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="text-sm font-semibold">Journal</div>
-                {journal.length === 0 ? (
-                  <div className="text-slate-500">No journal entries yet.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {journal.map((entry, index) => (
-                      <div
-                        key={`${entry}-${index}`}
-                        className="rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
-                      >
-                        {entry}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-3xl bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            <Target className="h-4 w-4" />
-            Saved bot configuration
-          </div>
-          <pre className="mt-3 overflow-x-auto rounded-3xl bg-slate-50 p-4 text-xs text-slate-600">
-            {JSON.stringify(strategyJson, null, 2)}
-          </pre>
-        </section>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {journal.map((entry, index) => (
+                    <div key={`${entry}-${index}`} className="rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
+                      {entry}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
