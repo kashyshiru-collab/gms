@@ -585,7 +585,7 @@ export function BinaryPanel() {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full pb-44 md:pb-0">
       <div className="mb-3 rounded-[24px] border border-border/70 bg-card/95 p-3 shadow-sm md:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -597,7 +597,7 @@ export function BinaryPanel() {
               <div className="truncate text-sm font-semibold">{market.label}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             <div className="rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
               {profile?.active_account === "demo" ? "Demo" : "Real"}
             </div>
@@ -730,7 +730,7 @@ export function BinaryPanel() {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="hidden md:grid grid-cols-3 gap-2">
             {QUICK.map((q) => (
               <button
                 key={q}
