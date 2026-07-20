@@ -53,6 +53,7 @@ import { AccountsReportPanel } from "@/components/AccountsReportPanel";
 import { SupportPanel } from "@/components/SupportPanel";
 import {
   calculateHouseEdgePercent,
+  DEFAULT_SYSTEM_SETTINGS,
   getSystemSettings,
   updateSystemSettings,
 } from "@/lib/system-settings";
@@ -344,22 +345,22 @@ function SettingsTab() {
     mutationFn: () =>
       updateSettings({
         data: {
-          min_deposit_usd: Number(coreSettingsEnabled ? minDeposit || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_deposit_usd),
-          min_withdrawal_usd: Number(coreSettingsEnabled ? minWithdrawal || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_withdrawal_usd),
-          withdrawal_tax_pct: Number(coreSettingsEnabled ? taxPct || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.withdrawal_tax_pct),
-          rtp_percent: Number(coreSettingsEnabled ? rtp || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.rtp_percent),
-          limits_min_stake_usd: Number(limitsEnabled ? minStake || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_min_stake_usd),
-          limits_max_stake_usd: Number(limitsEnabled ? maxStake || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_max_stake_usd),
-          volatility_model_variant: volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS_ADMIN.volatility_model_variant,
-          user_segmentation_tags: segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS_ADMIN.user_segmentation_tags,
-          liability_limits_market_usd: Number(liabilityEnabled ? marketLiability || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_market_usd),
-          liability_limits_user_usd: Number(liabilityEnabled ? userLiability || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_user_usd),
+          min_deposit_usd: Number(coreSettingsEnabled ? minDeposit || 0 : DEFAULT_SYSTEM_SETTINGS.min_deposit_usd),
+          min_withdrawal_usd: Number(coreSettingsEnabled ? minWithdrawal || 0 : DEFAULT_SYSTEM_SETTINGS.min_withdrawal_usd),
+          withdrawal_tax_pct: Number(coreSettingsEnabled ? taxPct || 0 : DEFAULT_SYSTEM_SETTINGS.withdrawal_tax_pct),
+          rtp_percent: Number(coreSettingsEnabled ? rtp || 0 : DEFAULT_SYSTEM_SETTINGS.rtp_percent),
+          limits_min_stake_usd: Number(limitsEnabled ? minStake || 0 : DEFAULT_SYSTEM_SETTINGS.limits_min_stake_usd),
+          limits_max_stake_usd: Number(limitsEnabled ? maxStake || 0 : DEFAULT_SYSTEM_SETTINGS.limits_max_stake_usd),
+          volatility_model_variant: volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS.volatility_model_variant,
+          user_segmentation_tags: segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS.user_segmentation_tags,
+          liability_limits_market_usd: Number(liabilityEnabled ? marketLiability || 0 : DEFAULT_SYSTEM_SETTINGS.liability_limits_market_usd),
+          liability_limits_user_usd: Number(liabilityEnabled ? userLiability || 0 : DEFAULT_SYSTEM_SETTINGS.liability_limits_user_usd),
           fraud_detection_enabled: fraudSectionEnabled ? fraudEnabled : true,
-          fraud_detection_rules: fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS_ADMIN.fraud_detection_rules,
-          engagement_notification_triggers: engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS_ADMIN.engagement_notification_triggers,
-          caps_daily_loss_usd: Number(capsEnabled ? dailyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_daily_loss_usd),
-          caps_weekly_loss_usd: Number(capsEnabled ? weeklyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_weekly_loss_usd),
-          caps_monthly_loss_usd: Number(capsEnabled ? monthlyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_monthly_loss_usd),
+          fraud_detection_rules: fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS.fraud_detection_rules,
+          engagement_notification_triggers: engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS.engagement_notification_triggers,
+          caps_daily_loss_usd: Number(capsEnabled ? dailyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS.caps_daily_loss_usd),
+          caps_weekly_loss_usd: Number(capsEnabled ? weeklyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS.caps_weekly_loss_usd),
+          caps_monthly_loss_usd: Number(capsEnabled ? monthlyLossCap || 0 : DEFAULT_SYSTEM_SETTINGS.caps_monthly_loss_usd),
         },
       }),
     onSuccess: () => {
@@ -403,25 +404,25 @@ function SettingsTab() {
             <div className="grid gap-2 sm:grid-cols-2">
               <LabeledInput
                 label="Minimum deposit (USD)"
-                value={coreSettingsEnabled ? minDeposit : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_deposit_usd}
+                value={coreSettingsEnabled ? minDeposit : DEFAULT_SYSTEM_SETTINGS.min_deposit_usd}
                 onChange={setMinDeposit}
                 type="number"
               />
               <LabeledInput
                 label="Minimum withdrawal (USD)"
-                value={coreSettingsEnabled ? minWithdrawal : DEFAULT_SYSTEM_SETTINGS_ADMIN.min_withdrawal_usd}
+                value={coreSettingsEnabled ? minWithdrawal : DEFAULT_SYSTEM_SETTINGS.min_withdrawal_usd}
                 onChange={setMinWithdrawal}
                 type="number"
               />
               <LabeledInput
                 label="VAT retention (%)"
-                value={coreSettingsEnabled ? taxPct : DEFAULT_SYSTEM_SETTINGS_ADMIN.withdrawal_tax_pct}
+                value={coreSettingsEnabled ? taxPct : DEFAULT_SYSTEM_SETTINGS.withdrawal_tax_pct}
                 onChange={setTaxPct}
                 type="number"
               />
               <LabeledInput
                 label="RTP (%)"
-                value={coreSettingsEnabled ? rtp : DEFAULT_SYSTEM_SETTINGS_ADMIN.rtp_percent}
+                value={coreSettingsEnabled ? rtp : DEFAULT_SYSTEM_SETTINGS.rtp_percent}
                 onChange={setRtp}
                 type="number"
               />
@@ -453,13 +454,13 @@ function SettingsTab() {
             <div className="grid gap-2 sm:grid-cols-2">
               <LabeledInput
                 label="Minimum stake (USD)"
-                value={limitsEnabled ? minStake : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_min_stake_usd}
+                value={limitsEnabled ? minStake : DEFAULT_SYSTEM_SETTINGS.limits_min_stake_usd}
                 onChange={setMinStake}
                 type="number"
               />
               <LabeledInput
                 label="Maximum stake (USD)"
-                value={limitsEnabled ? maxStake : DEFAULT_SYSTEM_SETTINGS_ADMIN.limits_max_stake_usd}
+                value={limitsEnabled ? maxStake : DEFAULT_SYSTEM_SETTINGS.limits_max_stake_usd}
                 onChange={setMaxStake}
                 type="number"
               />
@@ -486,7 +487,7 @@ function SettingsTab() {
             <div className={volatilityEnabled ? "" : "opacity-80"}>
               <LabeledSelect
                 label="Math model variant"
-                value={volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS_ADMIN.volatility_model_variant}
+                value={volatilityEnabled ? volatilityModel : DEFAULT_SYSTEM_SETTINGS.volatility_model_variant}
                 onChange={setVolatilityModel}
                 options={["standard", "aggressive", "conservative"]}
               />
@@ -512,7 +513,7 @@ function SettingsTab() {
           <div className={segmentationEnabled ? "" : "opacity-80"}>
             <LabeledInput
               label="Auto tags"
-              value={segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS_ADMIN.user_segmentation_tags}
+              value={segmentationEnabled ? segmentTags : DEFAULT_SYSTEM_SETTINGS.user_segmentation_tags}
               onChange={setSegmentTags}
             />
             <div className="text-[10px] text-muted-foreground">Enter tags as a comma-separated list such as VIP,HIGH ROLLER.</div>
@@ -539,13 +540,13 @@ function SettingsTab() {
             <div className="grid gap-2 sm:grid-cols-2">
               <LabeledInput
                 label="Exposure per market (USD)"
-                value={liabilityEnabled ? marketLiability : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_market_usd}
+                value={liabilityEnabled ? marketLiability : DEFAULT_SYSTEM_SETTINGS.liability_limits_market_usd}
                 onChange={setMarketLiability}
                 type="number"
               />
               <LabeledInput
                 label="Exposure per user (USD)"
-                value={liabilityEnabled ? userLiability : DEFAULT_SYSTEM_SETTINGS_ADMIN.liability_limits_user_usd}
+                value={liabilityEnabled ? userLiability : DEFAULT_SYSTEM_SETTINGS.liability_limits_user_usd}
                 onChange={setUserLiability}
                 type="number"
               />
@@ -581,7 +582,7 @@ function SettingsTab() {
             </label>
             <LabeledInput
               label="Rules / patterns"
-              value={fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS_ADMIN.fraud_detection_rules}
+              value={fraudSectionEnabled ? fraudRules : DEFAULT_SYSTEM_SETTINGS.fraud_detection_rules}
               onChange={setFraudRules}
             />
           </div>
@@ -606,7 +607,7 @@ function SettingsTab() {
           <div className={engagementEnabled ? "" : "opacity-80"}>
             <LabeledInput
               label="Event triggers"
-              value={engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS_ADMIN.engagement_notification_triggers}
+              value={engagementEnabled ? engagementTriggers : DEFAULT_SYSTEM_SETTINGS.engagement_notification_triggers}
               onChange={setEngagementTriggers}
             />
             <div className="text-[10px] text-muted-foreground">Example: trade,withdrawal,deposit,bonus.</div>
@@ -633,19 +634,19 @@ function SettingsTab() {
             <div className="grid gap-2 sm:grid-cols-3">
               <LabeledInput
                 label="Daily loss cap (USD)"
-                value={capsEnabled ? dailyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_daily_loss_usd}
+                value={capsEnabled ? dailyLossCap : DEFAULT_SYSTEM_SETTINGS.caps_daily_loss_usd}
                 onChange={setDailyLossCap}
                 type="number"
               />
               <LabeledInput
                 label="Weekly loss cap (USD)"
-                value={capsEnabled ? weeklyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_weekly_loss_usd}
+                value={capsEnabled ? weeklyLossCap : DEFAULT_SYSTEM_SETTINGS.caps_weekly_loss_usd}
                 onChange={setWeeklyLossCap}
                 type="number"
               />
               <LabeledInput
                 label="Monthly loss cap (USD)"
-                value={capsEnabled ? monthlyLossCap : DEFAULT_SYSTEM_SETTINGS_ADMIN.caps_monthly_loss_usd}
+                value={capsEnabled ? monthlyLossCap : DEFAULT_SYSTEM_SETTINGS.caps_monthly_loss_usd}
                 onChange={setMonthlyLossCap}
                 type="number"
               />

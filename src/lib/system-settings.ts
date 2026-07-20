@@ -24,7 +24,7 @@ export type SystemSettings = {
 
 const SYSTEM_SETTINGS_ID = "default";
 
-const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   min_deposit_usd: 3,
   min_withdrawal_usd: 3,
   withdrawal_tax_pct: 5,
