@@ -239,7 +239,7 @@ async function fetchSystemLosses(supabase: any, period: "daily" | "weekly" | "mo
   return sumStake(data ?? []);
 }
 
-function detectFraudSignals(recentTrades: Array<{ market?: string; direction?: string; created_at?: string }>, rulesText?: string) {
+export function detectFraudSignals(recentTrades: Array<{ market?: string; direction?: string; created_at?: string }>, rulesText?: string) {
   const rules = String(rulesText ?? "")
     .split(",")
     .map((item) => item.trim().toLowerCase())
@@ -260,8 +260,14 @@ function detectFraudSignals(recentTrades: Array<{ market?: string; direction?: s
     signals.push("rapid trade burst");
   }
 
-  const repeatedMarkets = new Set(recentTrades.map((trade) => trade.market).filter(Boolean));
-  if (repeatedMarkets.size >= 3 && recentTrades.some((trade) => trade.direction?.toLowerCase() === "buy") && recentTrades.some((trade) => trade.direction?.toLowerCase() === "sell")) {
+  const repeatedMarkets = new Set(rapidTrades.map((trade) => trade.market).filter(Boolean));
+  const directions = rapidTrades
+    .map((trade) => trade.direction?.toLowerCase())
+    .filter((direction): direction is string => Boolean(direction));
+  const hasAlternatingDirections = directions.length >= 4 && directions.some((direction, index) => index > 0 && direction !== directions[index - 1]);
+  const hasMultipleMarkets = repeatedMarkets.size >= 3;
+
+  if (rapidTrades.length >= 5 && hasAlternatingDirections && hasMultipleMarkets) {
     signals.push("arbitrage-like market switching");
   }
 
