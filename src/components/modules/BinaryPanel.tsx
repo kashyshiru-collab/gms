@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logDebugEvent, serializeError } from "@/lib/debug-logger";
 import { getProfitRateForContract, getTickLabel, normalizeTickCount, resolveContractOutcome } from "@/lib/binary-simulation";
+import { supabase } from "@/integrations/supabase/client";
 
 const VOL_INDICES = [
   {
@@ -178,6 +179,7 @@ export function BinaryPanel() {
   const [placing, setPlacing] = useState(false);
   const [tickTrail, setTickTrail] = useState<Tick[]>([]);
   const [digitHistory, setDigitHistory] = useState<number[]>([]);
+  const [positionsTab, setPositionsTab] = useState<"open" | "closed" | "tx">("open");
 
   const place = useServerFn(placeTrade);
   const settle = useServerFn(settleTrade);
@@ -217,6 +219,32 @@ export function BinaryPanel() {
     digitHistoryRef.current = digitHistory;
   }, [digitHistory]);
   const market = VOL_INDICES.find((m) => m.value === index) ?? VOL_INDICES[1];
+
+  type PositionTrade = {
+    id: string;
+    module: string;
+    market: string;
+    direction: string;
+    stake: number;
+    entry_price: number | null;
+    exit_price: number | null;
+    payout: number | null;
+    status: string;
+    created_at: string;
+  };
+
+  const { data: positionTrades = [] } = useQuery({
+    queryKey: ["binary-positions", market.value, positionsTab],
+    queryFn: async () => {
+      let q = supabase.from("trades").select("id,module,market,direction,stake,entry_price,exit_price,payout,status,created_at").eq("module", "binary").eq("market", market.value).order("created_at", { ascending: false }).limit(30);
+      if (positionsTab === "open") q = q.eq("status", "open");
+      if (positionsTab === "closed") q = q.in("status", ["won", "lost", "closed", "cancelled"]);
+      const { data } = await q;
+      return (data ?? []) as PositionTrade[];
+    },
+    refetchInterval: 2500,
+  });
+
   const hour = new Date().getHours();
   const intradayPace = 0.76 + ((Math.sin((hour / 24) * Math.PI * 2 + 0.7) + 1) / 2) * 0.72;
   const chartTickMs = Math.max(
@@ -541,10 +569,192 @@ export function BinaryPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="lg:grid lg:grid-cols-12 lg:gap-4">
-        {/* Left / Main column: chart + chart controls */}
-        <div className="lg:col-span-9 space-y-3">
-          {/* Trade type tabs */}
+      <div className="lg:grid lg:grid-cols-[320px_minmax(0,1fr)_320px] lg:gap-4">
+        {/* Left column: trade controls, bot options, stake, and actions */}
+        <div className="space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto">
+          {(placing || pendingTrade?.status === "open" || settleNote) && (
+            <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
+              {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
+              {pendingTrade?.status === "open" && (
+                <div className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-primary font-semibold">
+                  Contract placed: {pendingTrade.direction} {pendingTrade.type} ${pendingTrade.stake} — waiting for result.
+                </div>
+              )}
+              {pendingTrade?.status === "settled" && settleNote && (
+                <div className={
+                  "rounded-xl px-3 py-2 font-semibold " +
+                  (pendingTrade.result === "win"
+                    ? "bg-bull/10 text-bull border border-bull/30"
+                    : "bg-bear/10 text-bear border border-bear/30")
+                }>
+                  {settleNote} · settled on digit {currentDigit}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setBotMode(false)}
+              disabled={botRunning}
+              className={
+                "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
+                (!botMode
+                  ? "bg-primary text-primary-foreground glow-primary"
+                  : "bg-card border border-border text-muted-foreground")
+              }
+            >
+              <User className="h-4 w-4" /> Manual
+            </button>
+            <button
+              onClick={() => setBotMode(true)}
+              disabled={botRunning}
+              className={
+                "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
+                (botMode
+                  ? "bg-primary text-primary-foreground glow-primary"
+                  : "bg-card border border-border text-muted-foreground")
+              }
+            >
+              <Bot className="h-4 w-4" /> Bot
+            </button>
+          </div>
+
+          {showDigitPicker && (
+            <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+              <div className="text-[10px] uppercase text-muted-foreground font-bold text-center">Last Digit Prediction</div>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 10 }).map((_, d) => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDigit(d)}
+                    className={
+                      "h-10 rounded-md font-semibold text-sm border " +
+                      (selectedDigit === d
+                        ? "bg-muted-foreground/10 text-foreground border-border-strong"
+                        : "bg-white/0 border-border text-muted-foreground")
+                    }
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setStake(Math.max(1, stake - 1))}
+              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
+            >
+              <Minus />
+            </button>
+            <div className="flex-1 bg-card border-2 border-primary rounded-xl py-2 text-center">
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider">Stake $</div>
+              <div className="text-2xl font-extrabold tabular-nums">{stake}</div>
+            </div>
+            <button
+              onClick={() => setStake(stake + 1)}
+              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
+            >
+              <Plus />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {QUICK.map((q) => (
+              <button
+                key={q}
+                onClick={() => setStake(q)}
+                className={
+                  "py-1.5 rounded-lg border text-xs font-bold " +
+                  (stake === q
+                    ? "bg-primary/20 border-primary text-primary"
+                    : "bg-card border-border text-muted-foreground")
+                }
+              >
+                ${q}
+              </button>
+            ))}
+          </div>
+
+          {botMode && (
+            <div className="space-y-2">
+              <BotField label="Target" prefix="$" value={target} onChange={setTarget} accent="text-bull" />
+              <BotField label="Stop" prefix="$" value={stop} onChange={setStop} accent="text-bear" />
+              <BotField label="Mult" prefix="x" value={martingale} onChange={setMartingale} accent="text-primary" />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="bg-card border border-border rounded-xl p-3">
+              <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
+              <div className="mt-2 text-sm font-semibold">{payoutOver.toFixed(2)} AUD</div>
+              <div className="mt-2 text-xs text-muted-foreground">Over · {overRate.toFixed(2)}%</div>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-3">
+              <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
+              <div className="mt-2 text-sm font-semibold">{payoutUnder.toFixed(2)} AUD</div>
+              <div className="mt-2 text-xs text-muted-foreground">Under · {underRate.toFixed(2)}%</div>
+            </div>
+          </div>
+
+          {type === "Over/Under" && (
+            <div className="space-y-3">
+              <button
+                onClick={() => fireManual("OVER")}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
+              >
+                <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Over</span>
+                <span className="text-base font-mono">{(overRate + 100).toFixed(2)}%</span>
+              </button>
+              <button
+                onClick={() => fireManual("UNDER")}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
+              >
+                <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Under</span>
+                <span className="text-base font-mono">{(underRate + 100).toFixed(2)}%</span>
+              </button>
+            </div>
+          )}
+
+          {botRunning ? (
+            <button
+              onClick={stopBot}
+              className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
+            >
+              <Square className="h-5 w-5" /> STOP BOT · session ${sessionPnLRef.current.toFixed(2)}
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {botMode && (
+                <button
+                  onClick={() => startBot("AUTO")}
+                  className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
+                >
+                  AUTO TRADE
+                </button>
+              )}
+              {actions.map(([label, tone]) => (
+                <button
+                  key={label}
+                  onClick={() => (botMode ? startBot(label) : fireManual(label))}
+                  className={
+                    "py-4 rounded-2xl font-extrabold text-lg tracking-wide " +
+                    (tone === "bull"
+                      ? "bg-bull text-bull-foreground glow-bull"
+                      : "bg-bear text-bear-foreground glow-bear")
+                  }
+                >
+                  {botMode ? `BOT ${label}` : label} {tone === "bull" ? "↑" : "↓"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Center column: chart area and chart controls */}
+        <div className="space-y-3">
           <div className="grid grid-cols-4 gap-1">
             {TYPES.map((t) => (
               <button
@@ -562,7 +772,6 @@ export function BinaryPanel() {
             ))}
           </div>
 
-          {/* Index header moved into chart overlay on desktop; keep toggle for mobile */}
           <div className="lg:hidden relative">
             <button
               onClick={() => setMarketOpen(!marketOpen)}
@@ -615,7 +824,6 @@ export function BinaryPanel() {
             )}
           </div>
 
-          {/* Chart mode + controls */}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setChartMode("line")}
@@ -747,9 +955,7 @@ export function BinaryPanel() {
             )}
           </div>
 
-          {/* Chart container */}
           <div className="bg-card border border-border rounded-xl p-2 relative lg:min-h-[60vh] lg:h-[calc(100vh-6rem)] overflow-hidden">
-            {/* Chart overlays: market header (desktop) */}
             <div className="hidden lg:block absolute left-4 top-4 z-30 w-[320px]">
               <button
                 onClick={() => setMarketOpen(!marketOpen)}
@@ -788,7 +994,6 @@ export function BinaryPanel() {
               )}
             </div>
 
-            {/* Ticks / progression overlay (desktop) */}
             <div className="hidden lg:block absolute right-6 top-20 z-30 w-56">
               <div className="bg-card/90 border border-border rounded-xl p-3 backdrop-blur">
                 <div className="text-[10px] uppercase text-muted-foreground font-bold mb-2">Ticks</div>
@@ -796,24 +1001,24 @@ export function BinaryPanel() {
                   <div className="text-xs text-muted-foreground">{settlementTicks} tick{settlementTicks === 1 ? '' : 's'}</div>
                   <div className="text-xs text-muted-foreground">{market.tickSpeedLabel}</div>
                 </div>
-                    <div className="w-full bg-surface rounded-xl h-2 relative">
-                      <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
-                        {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
-                          <button
-                            key={n}
-                            onClick={() => setTickProgression(n)}
-                            className={
-                              "h-4 w-4 rounded-full grid place-items-center text-[9px] font-semibold transition " +
-                              (tickProgression === n
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "bg-surface border border-border text-muted-foreground")
-                            }
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                <div className="w-full bg-surface rounded-xl h-2 relative">
+                  <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
+                    {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setTickProgression(n)}
+                        className={
+                          "h-4 w-4 rounded-full grid place-items-center text-[9px] font-semibold transition " +
+                          (tickProgression === n
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-surface border border-border text-muted-foreground")
+                        }
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -835,7 +1040,6 @@ export function BinaryPanel() {
             />
           </div>
 
-          {/* Tick trail */}
           <div className="bg-card border border-border rounded-xl px-2 py-2 flex items-center gap-1.5 overflow-x-auto">
             <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider shrink-0 mr-1">
               Ticks
@@ -863,7 +1067,6 @@ export function BinaryPanel() {
             })}
           </div>
 
-          {/* Digit stats */}
           {showDigitStats && (
             <div className="bg-card border border-border rounded-xl p-3 space-y-3">
               <div className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">
@@ -924,192 +1127,44 @@ export function BinaryPanel() {
           )}
         </div>
 
-        {/* Right column: trade controls, stake, bot, actions */}
-        <div className="lg:col-span-3 lg:max-w-[360px] lg:flex-none space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto lg:flex lg:flex-col lg:justify-between">
-          {(placing || pendingTrade?.status === "open" || settleNote) && (
-            <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
-              {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
-              {pendingTrade?.status === "open" && (
-                <div className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-primary font-semibold">
-                  Contract placed: {pendingTrade.direction} {pendingTrade.type} ${pendingTrade.stake} — waiting for result.
-                </div>
-              )}
-              {pendingTrade?.status === "settled" && settleNote && (
-                <div className={
-                  "rounded-xl px-3 py-2 font-semibold " +
-                  (pendingTrade.result === "win"
-                    ? "bg-bull/10 text-bull border border-bull/30"
-                    : "bg-bear/10 text-bear border border-bear/30")
-                }>
-                  {settleNote} · settled on digit {currentDigit}
-                </div>
-              )}
+        {/* Right column: position tabs and trades history */}
+        <div className="space-y-3 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)] lg:overflow-auto">
+          <div className="bg-card border border-border rounded-3xl p-4 space-y-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-bold mb-2">Positions</div>
+              <div className="text-lg font-extrabold">Binary history</div>
             </div>
-          )}
-
-          {/* Mode */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setBotMode(false)}
-              disabled={botRunning}
-              className={
-                "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
-                (!botMode
-                  ? "bg-primary text-primary-foreground glow-primary"
-                  : "bg-card border border-border text-muted-foreground")
-              }
-            >
-              <User className="h-4 w-4" /> Manual
-            </button>
-            <button
-              onClick={() => setBotMode(true)}
-              disabled={botRunning}
-              className={
-                "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
-                (botMode
-                  ? "bg-primary text-primary-foreground glow-primary"
-                  : "bg-card border border-border text-muted-foreground")
-              }
-            >
-              <Bot className="h-4 w-4" /> Bot
-            </button>
-          </div>
-
-          {/* Stake */}
-          {/* Last Digit Prediction (move into right column) */}
-          {showDigitPicker && (
-            <div className="bg-card border border-border rounded-xl p-3 space-y-2">
-              <div className="text-[10px] uppercase text-muted-foreground font-bold text-center">Last Digit Prediction</div>
-              <div className="grid grid-cols-5 gap-2">
-                {Array.from({ length: 10 }).map((_, d) => (
-                  <button
-                    key={d}
-                    onClick={() => setSelectedDigit(d)}
-                    className={
-                      "h-10 rounded-md font-semibold text-sm border " +
-                      (selectedDigit === d
-                        ? "bg-muted-foreground/10 text-foreground border-border-strong"
-                        : "bg-white/0 border-border text-muted-foreground")
-                    }
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setStake(Math.max(1, stake - 1))}
-              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
-            >
-              <Minus />
-            </button>
-            <div className="flex-1 bg-card border-2 border-primary rounded-xl py-2 text-center">
-              <div className="text-[10px] uppercase text-muted-foreground tracking-wider">Stake $</div>
-              <div className="text-2xl font-extrabold tabular-nums">{stake}</div>
-            </div>
-            <button
-              onClick={() => setStake(stake + 1)}
-              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
-            >
-              <Plus />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {QUICK.map((q) => (
-              <button
-                key={q}
-                onClick={() => setStake(q)}
-                className={
-                  "py-1.5 rounded-lg border text-xs font-bold " +
-                  (stake === q
-                    ? "bg-primary/20 border-primary text-primary"
-                    : "bg-card border-border text-muted-foreground")
-                }
-              >
-                ${q}
-              </button>
-            ))}
-          </div>
-
-          {botMode && (
-            <div className="space-y-2">
-              <BotField label="Target" prefix="$" value={target} onChange={setTarget} accent="text-bull" />
-              <BotField label="Stop" prefix="$" value={stop} onChange={setStop} accent="text-bear" />
-              <BotField label="Mult" prefix="x" value={martingale} onChange={setMartingale} accent="text-primary" />
-            </div>
-          )}
-
-          {/* Action buttons - keep at bottom on desktop */}
-          <div className="pt-1">
-            {/* Payout blocks */}
-            <div className="space-y-2">
-              <div className="bg-card border border-border rounded-xl p-3">
-                <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
-                <div className="mt-2 text-sm font-semibold">{payoutOver.toFixed(2)} AUD</div>
-                <div className="mt-2 text-xs text-muted-foreground">Over · {overRate.toFixed(2)}%</div>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-3">
-                <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
-                <div className="mt-2 text-sm font-semibold">{payoutUnder.toFixed(2)} AUD</div>
-                <div className="mt-2 text-xs text-muted-foreground">Under · {underRate.toFixed(2)}%</div>
-              </div>
-            </div>
-
-            {/* Large contract buttons for Over/Under */}
-            {type === "Over/Under" && (
-              <div className="space-y-3 mt-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { key: "open", label: `Open (${positionsTab === "open" ? positionTrades.length : positionTrades.filter((t) => t.status === "open").length})` },
+                { key: "closed", label: "Closed" },
+                { key: "tx", label: "Transactions" },
+              ].map((tabDef) => (
                 <button
-                  onClick={() => fireManual("OVER")}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
+                  key={tabDef.key}
+                  onClick={() => setPositionsTab(tabDef.key as "open" | "closed" | "tx")}
+                  className={
+                    "rounded-2xl py-3 text-sm font-bold transition " +
+                    (positionsTab === tabDef.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-surface border border-border text-muted-foreground")
+                  }
                 >
-                  <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Over</span>
-                  <span className="text-base font-mono">{(overRate + 100).toFixed(2)}%</span>
+                  {tabDef.label}
                 </button>
-                <button
-                  onClick={() => fireManual("UNDER")}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
-                >
-                  <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Under</span>
-                  <span className="text-base font-mono">{(underRate + 100).toFixed(2)}%</span>
-                </button>
-              </div>
-            )}
-            {botRunning ? (
-              <button
-                onClick={stopBot}
-                className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
-              >
-                <Square className="h-5 w-5" /> STOP BOT · session ${sessionPnLRef.current.toFixed(2)}
-              </button>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {botMode && (
-                  <button
-                    onClick={() => startBot("AUTO")}
-                    className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
-                  >
-                    AUTO TRADE
-                  </button>
-                )}
-                {actions.map(([label, tone]) => (
-                  <button
-                    key={label}
-                    onClick={() => (botMode ? startBot(label) : fireManual(label))}
-                    className={
-                      "py-4 rounded-2xl font-extrabold text-lg tracking-wide " +
-                      (tone === "bull"
-                        ? "bg-bull text-bull-foreground glow-bull"
-                        : "bg-bear text-bear-foreground glow-bear")
-                    }
-                  >
-                    {botMode ? `BOT ${label}` : label} {tone === "bull" ? "↑" : "↓"}
-                  </button>
-                ))}
-              </div>
-            )}
+              ))}
+            </div>
+            <div className="space-y-3">
+              {positionTrades.length === 0 ? (
+                <div className="rounded-3xl bg-surface border border-border p-5 text-center text-sm text-muted-foreground">
+                  No {positionsTab === "open" ? "open positions" : positionsTab === "closed" ? "closed trades" : "trade history"} yet.
+                </div>
+              ) : (
+                positionTrades.slice(0, 5).map((trade) => (
+                  <PositionCard key={trade.id} trade={trade} />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1142,6 +1197,39 @@ function BotField({
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-full bg-transparent text-center font-bold text-lg outline-none tabular-nums"
         />
+      </div>
+    </div>
+  );
+}
+
+function PositionCard({ trade }: { trade: PositionTrade }) {
+  const positive = Number(trade.payout ?? 0) - Number(trade.stake) >= 0;
+  return (
+    <div className="rounded-3xl border border-border bg-surface p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-bold">{trade.market}</div>
+          <div className="text-[11px] text-muted-foreground">{trade.direction} · ${trade.stake.toFixed(2)}</div>
+        </div>
+        <div className={"text-right text-sm font-extrabold " + (trade.status === "open" ? "text-primary" : positive ? "text-bull" : "text-bear")}>
+          {trade.status === "open" ? "OPEN" : trade.status.toUpperCase()}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+        <div className="rounded-2xl bg-card p-3">
+          <div className="font-bold">Entry</div>
+          <div>{trade.entry_price ? trade.entry_price.toFixed(5) : "-"}</div>
+        </div>
+        <div className="rounded-2xl bg-card p-3">
+          <div className="font-bold">Payout</div>
+          <div>{trade.payout ? `$${trade.payout.toFixed(2)}` : "-"}</div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{new Date(trade.created_at).toLocaleTimeString()}</span>
+        <span className={positive ? "text-bull" : "text-bear"}>
+          {trade.payout ? `${positive ? "+" : "-"}$${Math.abs(Number(trade.payout) - Number(trade.stake)).toFixed(2)}` : "-"}
+        </span>
       </div>
     </div>
   );
