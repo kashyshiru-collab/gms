@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowRight, Bot, ChevronDown, Play, Plus, RefreshCw, Search } from "lucide-react";
 
@@ -25,11 +25,7 @@ const BLOCK_CATEGORIES = [
   },
 ];
 
-const MARKET_OPTIONS = [
-  "Volatility 100 (1s) Index",
-  "Volatility 75 (1s) Index",
-  "Volatility 50 (1s) Index",
-];
+const MARKET_OPTIONS = ["Vol 100 (1s)", "Vol 75 (1s)", "Vol 50 (1s)"];
 const TRADE_TYPES = ["Rise/Fall", "Up/Down"] as const;
 const CONTRACT_TYPES = ["Both", "Call", "Put"] as const;
 const CANDLE_INTERVALS = ["1 minute", "5 minutes", "15 minutes"] as const;
@@ -104,37 +100,21 @@ function BotBuilderPage() {
 
   const formatMoney = (value: number) => `USD ${value.toFixed(2)}`;
 
-  const toggleRun = () => {
-    const outcome = Math.random() > 0.2;
-    const profit = outcome ? stake * 0.8 : -stake;
-    const transaction: Transaction = {
-      id: `BOT-${Date.now()}`,
-      action: purchaseAction.replace("Purchase ", ""),
-      profit,
-      status: outcome ? "Won" : "Lost",
-      time: new Date().toLocaleTimeString(),
-    };
+  const navigate = useNavigate();
 
-    setIsRunning(!isRunning);
-    setStatus(isRunning ? "Paused" : "Running strategy");
-    setJournal((current) => [
-      ...current,
-      `${isRunning ? "Paused" : "Started"} ${botName}.`,
-      `Selected ${purchaseAction} on ${market}.`,
-    ].slice(0, 6));
-
-    if (!isRunning) {
-      setTransactions((current) => [transaction, ...current].slice(0, 8));
-      setSummary((current) => ({
-        totalStake: current.totalStake + stake,
-        totalPayout: current.totalPayout + (outcome ? stake + profit : 0),
-        contractsWon: current.contractsWon + (outcome ? 1 : 0),
-        contractsLost: current.contractsLost + (outcome ? 0 : 1),
-        profit: current.profit + profit,
-        runs: current.runs + 1,
-      }));
-      setStatus(outcome ? "Contract won" : "Contract lost");
-    }
+  const startRun = () => {
+    setIsRunning(true);
+    setStatus("Starting trade page...");
+    window.sessionStorage.setItem(
+      "tronix-scanner-bot",
+      JSON.stringify({
+        category: "Buy/Sell",
+        market,
+        bias: purchaseAction,
+        autotrade: true,
+      }),
+    );
+    navigate({ to: "/binary" });
   };
 
   const reset = () => {
@@ -238,7 +218,7 @@ function BotBuilderPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     type="button"
-                    onClick={toggleRun}
+                    onClick={startRun}
                     className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
                     <Play className="mr-2 h-4 w-4" />
