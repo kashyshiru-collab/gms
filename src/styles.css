@@ -214,27 +214,26 @@
 @utility digit-pop { animation: digit-flash 0.45s ease-out; }
 
 /* -------------------------------------------------------------------------- */
-/* FORCE: Disable all scrolling and hide scrollbars (user requested no scroll)  */
+/* Safer scrollbar handling: hide scrollbars visually but preserve scrolling.   */
+/* Keeps content accessible while removing visible scrollbars across browsers. */
+/* Use per-component layout fixes if you want to eliminate overflow completely. */
 /* -------------------------------------------------------------------------- */
-/* NOTE: This will clip content that overflows the viewport. If you prefer
-   responsive behavior instead, we can instead adjust per-component layouts.
-*/
 html, body, #root {
   height: 100%;
-  overflow: hidden !important;
-  -ms-overflow-style: none !important; /* IE and Edge */
-  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
-/* Hide scrollbars in WebKit/Blink */
+/* Hide scrollbars in WebKit/Blink but preserve scroll behavior */
 html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  width: 0;
+  height: 0;
 }
 
-/* Make sure major app containers don't force scroll locally */
-.min-h-screen, main, .app-root, .router-outlet {
-  overflow: hidden !important;
+/* Allow main app containers to scroll if content overflows, with smooth touch scrolling */
+.app-root, .router-outlet, main {
+  min-height: 100vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
