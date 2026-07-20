@@ -597,7 +597,7 @@ export function BinaryPanel() {
               <div className="truncate text-sm font-semibold">{market.label}</div>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
               {profile?.active_account === "demo" ? "Demo" : "Real"}
             </div>
@@ -621,8 +621,140 @@ export function BinaryPanel() {
         </div>
       </div>
 
+      <div className="md:hidden space-y-3">
+        <div className="rounded-3xl border border-border bg-card p-3">
+          <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground uppercase tracking-[0.15em] mb-3">
+            {TYPES.map((t) => (
+              <button
+                key={t}
+                onClick={() => setType(t)}
+                className={
+                  "rounded-2xl py-2 text-[10px] font-semibold transition " +
+                  (type === t
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-surface border border-border text-muted-foreground")
+                }
+              >
+                {t === "Matches/Differs" ? "Match/Diff" : t}
+              </button>
+            ))}
+          </div>
+
+          <div className="rounded-3xl border border-border bg-surface p-3 mb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Volatility</div>
+                <div className="font-semibold">{market.value}</div>
+                <div className="text-[10px] text-muted-foreground">{market.volatilityLabel} · {market.tickSpeedLabel}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-extrabold tabular-nums">{price.toFixed(5)}</div>
+                <div className="text-[10px] text-muted-foreground">last digit <span className="text-primary font-bold">{currentDigit}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-surface p-2 overflow-x-auto">
+            <div className="flex items-center justify-between gap-2">
+              {Array.from({ length: 10 }).map((_, d) => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDigit(d)}
+                  className={
+                    "min-w-[2.4rem] h-11 rounded-full text-sm font-semibold border transition " +
+                    (selectedDigit === d
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border text-muted-foreground")
+                  }
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-surface p-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                onClick={() => setBotMode(false)}
+                className={
+                  "rounded-2xl py-3 font-semibold transition " +
+                  (!botMode
+                    ? "bg-white text-foreground border border-primary"
+                    : "bg-surface border border-border text-muted-foreground")
+                }
+              >
+                Manual
+              </button>
+              <button
+                onClick={() => setBotMode(true)}
+                className={
+                  "rounded-2xl py-3 font-semibold transition " +
+                  (botMode
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-surface border border-border text-muted-foreground")
+                }
+              >
+                Auto
+              </button>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2 items-center mb-3">
+              <button
+                onClick={() => setStake(Math.max(1, stake - 1))}
+                className="h-12 w-12 rounded-xl bg-surface border border-border text-xl font-bold"
+              >
+                -
+              </button>
+              <div className="rounded-[32px] border border-primary bg-card/90 py-3 text-center">
+                <div className="text-[10px] uppercase text-muted-foreground">Stake</div>
+                <div className="text-2xl font-extrabold">{stake}</div>
+              </div>
+              <button
+                onClick={() => setStake(stake + 1)}
+                className="h-12 w-12 rounded-xl bg-surface border border-border text-xl font-bold"
+              >
+                +
+              </button>
+            </div>
+            <button className="w-full rounded-2xl bg-primary text-primary-foreground py-3 font-semibold">
+              AI Scanner
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">
+            <div className="rounded-2xl border border-border bg-surface p-3">
+              <div>Take Profit</div>
+              <div className="mt-1 font-bold text-foreground">${target}</div>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface p-3">
+              <div>Stop Loss</div>
+              <div className="mt-1 font-bold text-foreground">${stop}</div>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface p-3">
+              <div>Multiplier</div>
+              <div className="mt-1 font-bold text-foreground">x{martingale}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => (botMode ? startBot(actions[0][0]) : fireManual(actions[0][0]))}
+              className="rounded-2xl bg-bull text-bull-foreground py-4 font-extrabold"
+            >
+              {botMode ? `BOT ${actions[0][0]}` : actions[0][0]}
+            </button>
+            <button
+              onClick={() => (botMode ? startBot(actions[1][0]) : fireManual(actions[1][0]))}
+              className="rounded-2xl bg-bear text-bear-foreground py-4 font-extrabold"
+            >
+              {botMode ? `BOT ${actions[1][0]}` : actions[1][0]}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Mobile stacks vertically; desktop uses 3-column grid */}
-      <div className="flex flex-col md:grid md:grid-cols-[320px_minmax(0,1fr)_320px] gap-3 md:gap-4 md:h-full">
+      <div className="hidden md:grid md:grid-cols-[320px_minmax(0,1fr)_320px] gap-3 md:gap-4 md:h-full">
         {/* Left column - appears second on mobile (order-2), sticky on desktop */}
         <div className="space-y-3 w-full md:w-auto md:sticky md:top-6 md:h-[calc(100vh-6rem)] md:overflow-auto order-2 md:order-1">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
