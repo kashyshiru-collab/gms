@@ -1273,6 +1273,62 @@ export function BinaryPanel() {
           </div>
         </div>
       </div>
+
+      {/* Mobile fixed footer: stake, ai scanner, tp/sl/mult, and trade buttons */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card/95 border-t border-border p-3 z-50">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setStake(Math.max(1, stake - 1))}
+            className="h-10 w-10 rounded-xl bg-surface border border-border grid place-items-center"
+          >
+            <Minus />
+          </button>
+          <div className="flex-1 bg-card border-2 border-primary rounded-xl py-2 text-center">
+            <div className="text-[10px] uppercase text-muted-foreground">Stake</div>
+            <div className="text-lg font-extrabold tabular-nums">{stake}</div>
+          </div>
+          <button
+            onClick={() => setStake(stake + 1)}
+            className="h-10 w-10 rounded-xl bg-surface border border-border grid place-items-center"
+          >
+            <Plus />
+          </button>
+          <button className="ml-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground font-semibold">AI Scan</button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-xl bg-surface p-2">
+            <div className="text-muted-foreground">Take Profit</div>
+            <div className="font-extrabold">${target}</div>
+          </div>
+          <div className="rounded-xl bg-surface p-2">
+            <div className="text-muted-foreground">Stop Loss</div>
+            <div className="font-extrabold">${stop}</div>
+          </div>
+          <div className="rounded-xl bg-surface p-2">
+            <div className="text-muted-foreground">Multiplier</div>
+            <div className="font-extrabold">x{martingale}</div>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {actions.slice(0, 2).map(([label, tone]) => (
+            <button
+              key={label}
+              onClick={() => (botMode ? startBot(label) : fireManual(label))}
+              className={
+                "py-3 rounded-2xl font-extrabold text-lg tracking-wide " +
+                (tone === "bull"
+                  ? "bg-bull text-bull-foreground"
+                  : "bg-bear text-bear-foreground")
+              }
+            >
+              {botMode ? `BOT ${label}` : label}
+            </button>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
