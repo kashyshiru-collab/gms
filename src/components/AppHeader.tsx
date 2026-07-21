@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Menu, Sparkles, Rocket, Wallet, User, LogOut, Sun, Moon, Zap, LineChart, Bitcoin, Shield, Crosshair, Cpu } from "lucide-react";
+import { Menu, Sparkles, Rocket, Wallet, User, LogOut, Sun, Moon, Zap, LineChart, Bitcoin, Shield, Crosshair, Cpu, Home, Download, Upload, RotateCcw, MessageSquare, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/trades.functions";
@@ -60,11 +60,19 @@ export function AppHeader() {
     { to: "/wallet", label: "Wallet", icon: Wallet },
   ] as const;
 
+  const desktopNav = [
+    { to: "/binary", label: "Trader's Hub", icon: Home },
+    { to: "/wallet", label: "Deposit", icon: Download },
+    { to: "/wallet", label: "Withdraw", icon: Upload },
+    { to: "/positions", label: "History", icon: RotateCcw },
+    { to: "/scanner", label: "Chat", icon: MessageSquare },
+  ] as const;
+
   return (
-    <header className="sticky top-0 z-40 flex items-center gap-2 px-3 py-2 bg-background/90 backdrop-blur-md border-b border-border">
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-3 px-3 lg:px-4 bg-background/95 backdrop-blur-md border-b border-border">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <button className="h-9 w-9 grid place-items-center rounded-lg bg-surface border border-border" aria-label="Menu">
+          <button className="h-9 w-9 grid place-items-center rounded-lg bg-surface border border-border lg:hidden" aria-label="Menu">
             <Menu className="h-4 w-4" />
           </button>
         </SheetTrigger>
@@ -114,14 +122,41 @@ export function AppHeader() {
         </SheetContent>
       </Sheet>
 
-      <Link to="/binary" className="flex items-center gap-1.5">
-        <img src={LOGO_URL} alt="TronixOption" className="h-8 w-8 object-contain drop-shadow-[0_0_10px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
-        <span className="hidden sm:inline text-xs font-extrabold tracking-wider">TRONIX<span className="text-primary">OPTION</span></span>
+      <Link to="/binary" className="flex items-center gap-1.5 shrink-0">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground text-sm font-black">B</span>
+        <span className="hidden sm:inline lg:hidden text-xs font-extrabold tracking-wider">Beta</span>
       </Link>
 
-      <div className="ml-auto">
+      <nav className="hidden lg:flex items-center gap-6 text-muted-foreground">
+        {desktopNav.map((m) => (
+          <Link key={m.label} to={m.to} className="flex items-center gap-2 text-sm font-medium hover:text-foreground">
+            <m.icon className="h-4 w-4" />
+            {m.label}
+          </Link>
+        ))}
+      </nav>
+
+      <button className="hidden lg:flex mx-auto h-10 min-w-[220px] items-center justify-between rounded-lg border border-border bg-surface px-3 text-sm font-bold">
+        <span className="flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-[10px] font-black text-primary-foreground">BB</span>
+          BetaBinary Trader
+        </span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+      </button>
+
+      <button onClick={toggleTheme} className="hidden lg:grid h-11 w-11 place-items-center rounded-lg border border-border bg-surface text-primary" aria-label="Toggle theme">
+        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
+
+      <div className="ml-auto lg:ml-0">
         <AccountSwitcher />
       </div>
+      <Link to="/wallet" className="hidden lg:inline-flex h-11 items-center rounded-full bg-primary px-6 text-sm font-extrabold text-primary-foreground">
+        Deposit
+      </Link>
+      <Link to="/profile" className="hidden lg:grid h-11 w-11 place-items-center rounded-full border border-border bg-surface text-muted-foreground">
+        <User className="h-5 w-5" />
+      </Link>
     </header>
   );
 }

@@ -32,10 +32,10 @@ export function AdminNotifications({ isAdmin }: { isAdmin: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-gold shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_24%,transparent)]"
         aria-label="View admin notifications"
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-4 w-4 fill-current" />
         {items.length > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
             {items.length}

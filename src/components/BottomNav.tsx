@@ -10,8 +10,8 @@ const items = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-background/90 backdrop-blur-md border-t border-border">
-      <ul className="grid grid-cols-3 max-w-3xl mx-auto">
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-md border-t border-border">
+      <ul className="grid grid-cols-4 max-w-3xl mx-auto">
         {items.map(({ to, label, icon: Icon }) => (
           <li key={to}>
             <Link
@@ -22,7 +22,7 @@ export function BottomNav() {
             >
               {({ isActive }) => (
                 <>
-                  <span className={"grid place-items-center h-9 w-14 rounded-xl transition-all " + (isActive ? "bg-primary/15 glow-primary" : "")}>
+                  <span className={"grid place-items-center h-9 w-12 rounded-full transition-all " + (isActive ? "bg-primary/10 text-primary shadow-[0_0_22px_color-mix(in_oklab,var(--gold)_28%,transparent)]" : "")}>
                     <Icon className="h-[18px] w-[18px]" />
                   </span>
                   <span className="leading-none">{label}</span>
