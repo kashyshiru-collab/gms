@@ -23,6 +23,7 @@ interface Props {
   mode?: "line" | "candles";
   digitStats?: { d: number; pct: number }[];
   currentDigit?: number;
+  digitMarkerTone?: "idle" | "active" | "win" | "loss";
 }
 
 type Candle = { bucket: number; o: number; h: number; l: number; c: number };
@@ -46,6 +47,7 @@ export function LiveChart({
   mode = "line",
   digitStats,
   currentDigit,
+  digitMarkerTone = "idle",
 }: Props) {
   const buildInitialPoints = useCallback(() => {
     const nowStep = Math.floor(Date.now() / 1000);
@@ -123,20 +125,33 @@ export function LiveChart({
   const up = last >= first;
   const stroke = up ? "oklch(0.76 0.18 152)" : "oklch(0.66 0.24 22)";
   const priceY = h - (((mode === "candles" && latestCandle ? latestCandle.c : last) - min) / range) * h;
+  const priceLabel = (mode === "candles" && latestCandle ? latestCandle.c : last).toFixed(2);
+  const axisValues = Array.from({ length: 5 }, (_, i) => max - (range / 4) * i);
+  const timeLabels = Array.from({ length: 5 }, (_, i) => {
+    const age = (4 - i) * Math.max(1, Math.round(tickMs / 1000)) * 18;
+    return new Date(Date.now() - age * 1000).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  });
   const badgeBg = badgeTone === "bull" ? "bg-bull text-bull-foreground" : badgeTone === "bear" ? "bg-bear text-bear-foreground" : "bg-surface text-foreground border border-border";
   const noteBg = noteTone === "bull" ? "bg-bull/10 text-bull border border-bull/30" : noteTone === "bear" ? "bg-bear/10 text-bear border border-bear/30" : "bg-surface/95 text-foreground border border-border";
 
   return (
-    <div className={"relative w-full " + (className ?? "")}>
+    <div className={"relative w-full overflow-hidden bg-[#10151f] text-slate-500 " + (className ?? "")}>
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full">
         <defs>
           <linearGradient id="lc-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.30" />
+            <stop offset="0%" stopColor="#d8dde7" stopOpacity="0.14" />
             <stop offset="100%" stopColor={stroke} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75].map((t) => (
-          <line key={t} x1="0" x2={w} y1={h * t} y2={h * t} stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.2" />
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+          <line key={`h-${t}`} x1="0" x2={w} y1={h * t} y2={h * t} stroke="#263143" strokeOpacity="0.55" strokeWidth="0.18" />
+        ))}
+        {Array.from({ length: 11 }, (_, i) => i * 10).map((x) => (
+          <line key={`v-${x}`} x1={x} x2={x} y1="0" y2={h} stroke="#263143" strokeOpacity="0.38" strokeWidth="0.14" />
         ))}
         {mode === "line" ? (
           <>
@@ -144,12 +159,12 @@ export function LiveChart({
             {smaPath && <path d={smaPath} fill="none" stroke={getIndicatorColor("SMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             {emaPath && <path d={emaPath} fill="none" stroke={getIndicatorColor("EMA")} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />}
             <path d={area} fill="url(#lc-fill)" />
-            <path d={path} fill="none" stroke={stroke} strokeWidth="0.7" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke="#d8dde7" strokeWidth="1.25" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
             <circle
               cx={w}
               cy={h - ((last - min) / range) * h}
-              r="1.2"
-              fill={stroke}
+              r="1.35"
+              fill="#f8fafc"
               vectorEffect="non-scaling-stroke"
             />
           </>
@@ -186,6 +201,28 @@ export function LiveChart({
           </>
         )}
       </svg>
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-16 border-l border-[#263143]/70 bg-[#10151f]/35">
+        {axisValues.map((value, i) => (
+          <div
+            key={i}
+            className="absolute right-1 translate-y-[-50%] text-[10px] font-medium tabular-nums text-slate-400"
+            style={{ top: `${i * 25}%` }}
+          >
+            {value.toFixed(2)}
+          </div>
+        ))}
+      </div>
+      <div
+        className="pointer-events-none absolute right-1 rounded border border-cyan-400/70 bg-[#172230] px-2 py-0.5 text-[10px] font-extrabold text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]"
+        style={{ top: `calc(${priceY}% - 10px)` }}
+      >
+        {priceLabel}
+      </div>
+      <div className="pointer-events-none absolute bottom-1 left-0 right-16 flex justify-between px-3 text-[10px] tabular-nums text-slate-500">
+        {timeLabels.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
       {/* Digit bubbles rendered inside SVG area via absolute positioned SVG group */}
       {digitStats && digitStats.length > 0 && (
         <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute left-0 top-0 w-full h-full pointer-events-none">
@@ -199,14 +236,25 @@ export function LiveChart({
                 const x = startX + i * step;
                 const y = h - 7;
                 const isCurrent = currentDigit === s.d;
-                  const r = isCurrent ? 5.2 : 3.6;
-                  const fill = isCurrent ? "#06b6d4" : "#ffffff";
-                  const stroke = isCurrent ? "#07484f" : "#e6e7ea";
+                const r = isCurrent ? 5.2 : 3.6;
+                const active = isCurrent && digitMarkerTone === "active";
+                const win = isCurrent && digitMarkerTone === "win";
+                const loss = isCurrent && digitMarkerTone === "loss";
+                const fill = active ? "#f59e0b" : win ? "#22c55e" : loss ? "#ef4444" : "#f8fafc";
+                const strokeColor = active ? "#fbbf24" : win ? "#4ade80" : loss ? "#fb7185" : "#d9dee7";
+                const textColor = isCurrent && digitMarkerTone !== "idle" ? "#0b1018" : "#0f172a";
+                const halo = active
+                  ? "rgba(245,158,11,0.34)"
+                  : win
+                    ? "rgba(34,197,94,0.34)"
+                    : loss
+                      ? "rgba(239,68,68,0.34)"
+                      : "rgba(255,255,255,0.06)";
                 return (
                   <g key={s.d} transform={`translate(${x.toFixed(2)},${y.toFixed(2)})`}>
-                      <circle r={r + 0.8} fill={isCurrent ? "rgba(6,182,212,0.12)" : "rgba(10,11,13,0.03)"} />
-                      <circle r={r} fill={fill} stroke={stroke} strokeWidth={0.2} />
-                      <text x="0" y={isCurrent ? "0.9" : "0.7"} fontSize={isCurrent ? "4" : "3"} fontWeight="800" textAnchor="middle" fill={isCurrent ? "#fff" : "#0f172a"}>{s.d}</text>
+                    <circle r={r + (isCurrent ? 1.6 : 0.8)} fill={halo} />
+                    <circle r={r} fill={fill} stroke={strokeColor} strokeWidth={0.28} />
+                    <text x="0" y={isCurrent ? "0.9" : "0.7"} fontSize={isCurrent ? "4" : "3"} fontWeight="800" textAnchor="middle" fill={textColor}>{s.d}</text>
                   </g>
                 );
               });

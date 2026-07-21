@@ -155,8 +155,8 @@ export function BinaryPanel() {
   const [chartMode, setChartMode] = useState<"line" | "candles">("line");
   const [stake, setStake] = useState(10);
   const [selectedDigit, setSelectedDigit] = useState(5);
-  const [tickProgression, setTickProgression] = useState(4);
-  const [selectedIndicators, setSelectedIndicators] = useState<IndicatorOption[]>(["SMA", "RSI", "MACD"]);
+  const [tickProgression, setTickProgression] = useState(1);
+  const [selectedIndicators, setSelectedIndicators] = useState<IndicatorOption[]>([]);
   const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
   const [botMode, setBotMode] = useState(true);
   const [botRunning, setBotRunning] = useState(false);
@@ -203,6 +203,8 @@ export function BinaryPanel() {
   const digitHistoryRef = useRef<number[]>([]);
   const priceTickCountRef = useRef(0);
   const autoSignalConsumedRef = useRef(false);
+  const pendingTradeRef = useRef<typeof pendingTrade>(null);
+  const placingRef = useRef(false);
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
@@ -218,6 +220,12 @@ export function BinaryPanel() {
   useEffect(() => {
     digitHistoryRef.current = digitHistory;
   }, [digitHistory]);
+  useEffect(() => {
+    pendingTradeRef.current = pendingTrade;
+  }, [pendingTrade]);
+  useEffect(() => {
+    placingRef.current = placing;
+  }, [placing]);
   const market = VOL_INDICES.find((m) => m.value === index) ?? VOL_INDICES[1];
 
   type PositionTrade = {
@@ -328,10 +336,10 @@ export function BinaryPanel() {
   const minPct = Math.min(...digitStats.map((s) => s.pct));
   const currentDigit = digitHistory[digitHistory.length - 1] ?? 0;
   const isDemoAccount = profile?.active_account === "demo";
-  const overRate = getProfitRateForContract({ type, direction: "OVER", digit: selectedDigit, ticks: settlementTicks });
-  const underRate = getProfitRateForContract({ type, direction: "UNDER", digit: selectedDigit, ticks: settlementTicks });
-  const payoutOver = (stake * (1 + overRate / 100)) || 0;
-  const payoutUnder = (stake * (1 + underRate / 100)) || 0;
+  const overRate = getProfitRateForContract(type, "OVER", settlementTicks);
+  const underRate = getProfitRateForContract(type, "UNDER", settlementTicks);
+  const payoutOver = (stake * (1 + overRate)) || 0;
+  const payoutUnder = (stake * (1 + underRate)) || 0;
   const chartNote = pendingTrade
     ? pendingTrade.status === "open"
       ? `Open ${pendingTrade.direction} ${pendingTrade.type} $${pendingTrade.stake} · ${settlementTickLabel}`
@@ -344,6 +352,14 @@ export function BinaryPanel() {
       ? "bull"
       : "bear"
     : "neutral";
+  const digitMarkerTone =
+    pendingTrade?.status === "open"
+      ? "active"
+      : pendingTrade?.status === "settled"
+        ? pendingTrade.result === "win"
+          ? "win"
+          : "loss"
+        : "idle";
   useEffect(() => {
     if (pendingTrade?.status !== "settled") return;
     const timeout = window.setTimeout(() => {
@@ -354,6 +370,10 @@ export function BinaryPanel() {
   }, [pendingTrade?.status]);
 
   async function placeAndSettle(direction: string, useStake: number): Promise<boolean> {
+    if (placingRef.current || pendingTradeRef.current?.status === "open") {
+      toast("Wait for the open contract to settle first");
+      throw new Error("An existing binary contract is still open");
+    }
     const ty = typeRef.current;
     const sel = selectedDigitRef.current;
     const entryPrice = priceRef.current;
@@ -369,6 +389,7 @@ export function BinaryPanel() {
       price: priceRef.current,
     });
     setPlacing(true);
+    placingRef.current = true;
     setSettleNote(null);
     try {
       trade = await place({
@@ -406,6 +427,8 @@ export function BinaryPanel() {
       toast.error(e instanceof Error ? e.message : "Failed");
       activeDirectionRef.current = null;
       setPendingTrade(null);
+      setPlacing(false);
+      placingRef.current = false;
       throw e;
     }
     const priceCursor = priceTickCountRef.current;
@@ -452,11 +475,14 @@ export function BinaryPanel() {
       });
     } catch (e) {
       logDebugEvent("error", "binary.trade", "Binary trade settlement failed", serializeError(e));
+      toast.error("Contract result could not be saved. Trade stopped.");
+      setSettleNote("Settlement failed");
       throw e;
     } finally {
       setPlacing(false);
+      placingRef.current = false;
+      activeDirectionRef.current = null;
     }
-    activeDirectionRef.current = null;
     qc.invalidateQueries({ queryKey: ["profile"] });
     qc.invalidateQueries({ queryKey: ["trades"] });
 
@@ -472,7 +498,7 @@ export function BinaryPanel() {
   }
 
   async function fireManual(direction: string) {
-    if (botRunningRef.current) return;
+    if (botRunningRef.current || placingRef.current || pendingTradeRef.current?.status === "open") return;
     try {
       await placeAndSettle(direction, stake);
     } catch {
@@ -494,7 +520,10 @@ export function BinaryPanel() {
   }
 
   async function startBot(direction: string) {
-    if (botRunningRef.current) return;
+    if (botRunningRef.current || placingRef.current || pendingTradeRef.current?.status === "open") {
+      toast("Wait for the open contract to settle first");
+      return;
+    }
     logDebugEvent("info", "binary.bot", "Binary bot started", {
       direction,
       stake,
@@ -699,6 +728,7 @@ export function BinaryPanel() {
                 className="h-full min-h-0 w-full"
                 digitStats={digitStats}
                 currentDigit={currentDigit}
+                digitMarkerTone={digitMarkerTone}
               />
             </div>
           </div>
@@ -968,12 +998,12 @@ export function BinaryPanel() {
             <div className="bg-card border border-border rounded-xl p-3">
               <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
               <div className="mt-2 text-sm font-semibold">{payoutOver.toFixed(2)} AUD</div>
-              <div className="mt-2 text-xs text-muted-foreground">Over · {overRate.toFixed(2)}%</div>
+              <div className="mt-2 text-xs text-muted-foreground">Over · {(overRate * 100).toFixed(2)}%</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-3">
               <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
               <div className="mt-2 text-sm font-semibold">{payoutUnder.toFixed(2)} AUD</div>
-              <div className="mt-2 text-xs text-muted-foreground">Under · {underRate.toFixed(2)}%</div>
+              <div className="mt-2 text-xs text-muted-foreground">Under · {(underRate * 100).toFixed(2)}%</div>
             </div>
           </div>
 
@@ -984,14 +1014,14 @@ export function BinaryPanel() {
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
               >
                 <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Over</span>
-                <span className="text-base font-mono">{(overRate + 100).toFixed(2)}%</span>
+                <span className="text-base font-mono">{((1 + overRate) * 100).toFixed(2)}%</span>
               </button>
               <button
                 onClick={() => fireManual("UNDER")}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white font-extrabold text-lg flex items-center justify-between px-4 shadow-md hover:scale-[1.01] transition-transform"
               >
                 <span className="flex items-center gap-3"><svg className="h-4 w-4 opacity-90" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Under</span>
-                <span className="text-base font-mono">{(underRate + 100).toFixed(2)}%</span>
+                <span className="text-base font-mono">{((1 + underRate) * 100).toFixed(2)}%</span>
               </button>
             </div>
           )}
@@ -1032,7 +1062,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Center column: chart area and chart controls - appears first on mobile (order-1) */}
-        <div className="w-full md:w-auto order-1 md:order-2 bg-background p-2 overflow-hidden">
+        <div className="w-full md:w-auto order-1 md:order-2 bg-background p-2 overflow-hidden flex min-h-0 flex-col">
           <div className="hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1046,15 +1076,15 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <div className="hidden">
+          <div className="mb-2 hidden lg:grid grid-cols-4 gap-2">
             {TYPES.map((t) => (
               <button
                 key={t}
                 onClick={() => setType(t)}
                 className={
-                  "py-1.5 px-1 rounded-lg text-[10px] font-bold border transition " +
+                  "h-10 rounded-lg border text-xs font-bold transition " +
                   (type === t
-                    ? "bg-primary/20 border-primary text-primary glow-primary"
+                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_30%,transparent)]"
                     : "bg-surface border-border text-muted-foreground")
                 }
               >
@@ -1115,11 +1145,12 @@ export function BinaryPanel() {
             )}
           </div>
 
-          <div className="hidden">
+          <div className="mb-2 hidden lg:flex items-center justify-between gap-2 rounded-lg border border-border bg-surface/70 p-2">
+            <div className="flex items-center gap-1">
             <button
               onClick={() => setChartMode("line")}
               className={
-                "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+                "h-9 rounded-md border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
                 (chartMode === "line"
                   ? "bg-primary/20 text-primary border-primary/50"
                   : "bg-card border-border text-muted-foreground")
@@ -1130,7 +1161,7 @@ export function BinaryPanel() {
             <button
               onClick={() => setChartMode("candles")}
               className={
-                "py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 " +
+                "h-9 rounded-md border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
                 (chartMode === "candles"
                   ? "bg-primary/20 text-primary border-primary/50"
                   : "bg-card border-border text-muted-foreground")
@@ -1138,9 +1169,18 @@ export function BinaryPanel() {
             >
               <CandlestickChart className="h-3.5 w-3.5" /> Candles
             </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setChartOptionsOpen((prev) => !prev)}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-semibold text-foreground"
+            >
+              <span>Indicators {selectedIndicators.length}</span>
+              <ChevronDown className={"h-4 w-4 transition " + (chartOptionsOpen ? "rotate-180" : "")} />
+            </button>
           </div>
 
-          <div className="hidden">
+          <div className={(chartOptionsOpen ? "mb-2 hidden lg:block" : "hidden")}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">
@@ -1246,7 +1286,7 @@ export function BinaryPanel() {
             )}
           </div>
 
-          <div className="w-full bg-background border-x border-border relative h-full overflow-hidden">
+          <div className="w-full flex-1 min-h-0 bg-background border-x border-border relative overflow-hidden">
             <div className="hidden lg:block absolute left-4 top-4 z-30 w-[320px]">
               <button
                 onClick={() => setMarketOpen(!marketOpen)}
@@ -1328,6 +1368,7 @@ export function BinaryPanel() {
               className="h-full"
               digitStats={digitStats}
               currentDigit={currentDigit}
+              digitMarkerTone={digitMarkerTone}
             />
           </div>
 
