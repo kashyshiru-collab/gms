@@ -69,11 +69,11 @@ export function AppHeader() {
   ] as const;
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-3 px-3 lg:px-4 bg-background/95 backdrop-blur-md border-b border-border">
+    <header className="sticky top-0 z-40 flex h-[3.25rem] md:h-14 items-center gap-2.5 px-3 lg:px-4 bg-background/95 backdrop-blur-md border-b border-border">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <button className="h-9 w-9 grid place-items-center rounded-lg bg-surface border border-border lg:hidden" aria-label="Menu">
-            <Menu className="h-4 w-4" />
+          <button className="h-10 w-10 grid place-items-center rounded-lg bg-surface border border-primary/35 text-primary shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_18%,transparent)] shrink-0" aria-label="Menu">
+            <Menu className="h-5 w-5" />
           </button>
         </SheetTrigger>
         <SheetContent side="left" className="w-72 bg-background border-border p-0">
@@ -123,11 +123,11 @@ export function AppHeader() {
       </Sheet>
 
       <Link to="/binary" className="flex items-center gap-1.5 shrink-0">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground text-sm font-black">B</span>
-        <span className="hidden sm:inline lg:hidden text-xs font-extrabold tracking-wider">Beta</span>
+        <img src={LOGO_URL} alt="TronixOption" className="h-9 w-9 rounded-xl object-contain bg-primary/10 p-1 drop-shadow-[0_0_10px_color-mix(in_oklab,var(--gold)_55%,transparent)]" />
+        <span className="hidden sm:inline text-xs font-extrabold tracking-wider">TRONIX<span className="text-primary">OPTION</span></span>
       </Link>
 
-      <nav className="hidden lg:flex items-center gap-6 text-muted-foreground">
+      <nav className="hidden xl:flex items-center gap-6 text-muted-foreground">
         {desktopNav.map((m) => (
           <Link key={m.label} to={m.to} className="flex items-center gap-2 text-sm font-medium hover:text-foreground">
             <m.icon className="h-4 w-4" />
@@ -136,10 +136,10 @@ export function AppHeader() {
         ))}
       </nav>
 
-      <button className="hidden lg:flex mx-auto h-10 min-w-[220px] items-center justify-between rounded-lg border border-border bg-surface px-3 text-sm font-bold">
+      <button className="hidden lg:flex mx-auto h-10 min-w-[200px] items-center justify-between rounded-lg border border-border bg-surface px-3 text-sm font-bold">
         <span className="flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-[10px] font-black text-primary-foreground">BB</span>
-          BetaBinary Trader
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-[10px] font-black text-primary-foreground">TO</span>
+          Tronix Option Trader
         </span>
         <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>

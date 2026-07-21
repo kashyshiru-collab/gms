@@ -18,12 +18,12 @@ export function BottomNav() {
               to={to}
               activeProps={{ className: "text-primary" }}
               inactiveProps={{ className: "text-muted-foreground" }}
-              className="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition-colors"
+              className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors"
             >
               {({ isActive }) => (
                 <>
-                  <span className={"grid place-items-center h-9 w-12 rounded-full transition-all " + (isActive ? "bg-primary/10 text-primary shadow-[0_0_22px_color-mix(in_oklab,var(--gold)_28%,transparent)]" : "")}>
-                    <Icon className="h-[18px] w-[18px]" />
+                  <span className={"grid place-items-center h-8 w-11 rounded-full transition-all " + (isActive ? "bg-primary/10 text-primary shadow-[0_0_22px_color-mix(in_oklab,var(--gold)_28%,transparent)]" : "")}>
+                    <Icon className="h-4 w-4" />
                   </span>
                   <span className="leading-none">{label}</span>
                 </>

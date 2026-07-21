@@ -585,7 +585,7 @@ export function BinaryPanel() {
   }
 
   return (
-    <div className="w-full h-full pb-32 md:pb-0">
+    <div className="w-full h-full md:pb-0">
       <div className="hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -621,15 +621,15 @@ export function BinaryPanel() {
         </div>
       </div>
 
-      <div className="md:hidden space-y-3">
-        <div className="border-y border-border bg-background p-2">
-          <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground uppercase tracking-[0.15em] mb-3">
+      <div className="md:hidden h-[calc(100dvh-7rem)] overflow-hidden px-2 py-1.5">
+        <div className="flex h-full min-h-0 flex-col gap-1.5 border-y border-border bg-background">
+          <div className="grid shrink-0 grid-cols-4 gap-1 text-xs text-muted-foreground uppercase tracking-[0.1em]">
             {TYPES.map((t) => (
               <button
                 key={t}
                 onClick={() => setType(t)}
                 className={
-                  "rounded-full py-2 text-[10px] font-semibold transition " +
+                  "rounded-full py-1.5 text-[8px] font-semibold transition sm:text-[9px] " +
                   (type === t
                     ? "bg-primary text-primary-foreground"
                     : "bg-surface border border-border text-muted-foreground")
@@ -640,7 +640,7 @@ export function BinaryPanel() {
             ))}
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-3 mb-3">
+          <div className="hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Volatility</div>
@@ -654,8 +654,8 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-2 mb-3">
-            <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="min-h-0 flex-1 rounded-2xl border border-border bg-card p-1.5">
+            <div className="hidden">
               <button
                 onClick={() => setChartMode("line")}
                 className={
@@ -679,7 +679,11 @@ export function BinaryPanel() {
                 <CandlestickChart className="h-4 w-4" /> Candles
               </button>
             </div>
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-card/90 p-1">
+            <div className="relative h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-card/90 p-1">
+              <div className="absolute left-2 top-2 z-20 rounded-xl border border-border bg-card/90 px-2.5 py-1.5 backdrop-blur">
+                <div className="text-xs font-extrabold">{market.value}</div>
+                <div className="text-[10px] text-muted-foreground">{price.toFixed(2)}</div>
+              </div>
               <LiveChart
                 basePrice={market.basePrice}
                 volatility={chartVolatility}
@@ -692,7 +696,7 @@ export function BinaryPanel() {
                 noteTone={chartNote ? chartNoteTone : "neutral"}
                 indicators={selectedIndicators}
                 mode={chartMode}
-                className="h-[56vh] min-h-[330px] w-full"
+                className="h-full min-h-0 w-full"
                 digitStats={digitStats}
                 currentDigit={currentDigit}
               />
@@ -725,14 +729,14 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-2 overflow-x-auto">
-            <div className="flex items-center justify-between gap-2">
+          <div className="shrink-0 rounded-2xl border border-border bg-surface p-1 overflow-x-auto">
+            <div className="flex items-center justify-between gap-1.5">
               {Array.from({ length: 10 }).map((_, d) => (
                 <button
                   key={d}
                   onClick={() => setSelectedDigit(d)}
                   className={
-                    "min-w-[2.65rem] h-11 rounded-full text-sm font-bold border transition " +
+                    "min-w-[2rem] h-8 rounded-full text-xs font-bold border transition " +
                     (d === currentDigit
                       ? "bg-primary text-primary-foreground border-primary shadow-[0_0_24px_color-mix(in_oklab,var(--gold)_42%,transparent)]"
                       : selectedDigit === d
@@ -746,12 +750,12 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-3">
-            <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="shrink-0 rounded-2xl border border-border bg-surface p-1.5">
+            <div className="grid grid-cols-2 gap-1.5 mb-1.5">
               <button
                 onClick={() => setBotMode(false)}
                 className={
-                  "rounded-2xl py-3 font-semibold transition " +
+                  "rounded-2xl py-2 text-sm font-semibold transition " +
                   (!botMode
                     ? "bg-white text-background border border-primary"
                     : "bg-surface border border-border text-muted-foreground")
@@ -762,7 +766,7 @@ export function BinaryPanel() {
               <button
                 onClick={() => setBotMode(true)}
                 className={
-                  "rounded-2xl py-3 font-semibold transition " +
+                  "rounded-2xl py-2 text-sm font-semibold transition " +
                   (botMode
                     ? "bg-primary text-primary-foreground"
                     : "bg-surface border border-border text-muted-foreground")
@@ -771,54 +775,54 @@ export function BinaryPanel() {
                 Auto
               </button>
             </div>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 items-center mb-3">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-1.5 items-center mb-1.5">
               <button
                 onClick={() => setStake(Math.max(1, stake - 1))}
-                className="h-12 w-12 rounded-xl bg-surface border border-border text-xl font-bold"
+                className="h-9 w-9 rounded-xl bg-surface border border-border text-xl font-bold"
               >
                 -
               </button>
-              <div className="rounded-[32px] border border-primary bg-card/90 py-3 text-center">
-                <div className="text-[10px] uppercase text-muted-foreground">Stake</div>
-                <div className="text-2xl font-extrabold">{stake}</div>
+              <div className="rounded-[22px] border border-primary bg-card/90 py-1.5 text-center">
+                <div className="text-[9px] uppercase text-muted-foreground">Stake</div>
+                <div className="text-lg font-extrabold">{stake}</div>
               </div>
               <button
                 onClick={() => setStake(stake + 1)}
-                className="h-12 w-12 rounded-xl bg-surface border border-border text-xl font-bold"
+                className="h-9 w-9 rounded-xl bg-surface border border-border text-xl font-bold"
               >
                 +
               </button>
             </div>
-            <button className="w-full rounded-2xl bg-primary text-primary-foreground py-3 font-semibold">
+            <button className="w-full rounded-2xl bg-primary text-primary-foreground py-2 text-sm font-semibold">
               AI Scanner
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">
-            <div className="rounded-2xl border border-border bg-surface p-3">
+          <div className="grid shrink-0 grid-cols-3 gap-1.5 text-center text-[8px] uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="rounded-2xl border border-border bg-surface p-1.5">
               <div>Take Profit</div>
               <div className="mt-1 font-bold text-foreground">${target}</div>
             </div>
-            <div className="rounded-2xl border border-border bg-surface p-3">
+            <div className="rounded-2xl border border-border bg-surface p-1.5">
               <div>Stop Loss</div>
               <div className="mt-1 font-bold text-foreground">${stop}</div>
             </div>
-            <div className="rounded-2xl border border-border bg-surface p-3">
+            <div className="rounded-2xl border border-border bg-surface p-1.5">
               <div>Multiplier</div>
               <div className="mt-1 font-bold text-foreground">x{martingale}</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid shrink-0 grid-cols-2 gap-2">
             <button
               onClick={() => (botMode ? startBot(actions[0][0]) : fireManual(actions[0][0]))}
-              className="rounded-2xl bg-bull text-bull-foreground py-4 font-extrabold"
+              className="rounded-2xl bg-bull text-bull-foreground py-2.5 text-sm font-extrabold"
             >
               {botMode ? `BOT ${actions[0][0]}` : actions[0][0]}
             </button>
             <button
               onClick={() => (botMode ? startBot(actions[1][0]) : fireManual(actions[1][0]))}
-              className="rounded-2xl bg-bear text-bear-foreground py-4 font-extrabold"
+              className="rounded-2xl bg-bear text-bear-foreground py-2.5 text-sm font-extrabold"
             >
               {botMode ? `BOT ${actions[1][0]}` : actions[1][0]}
             </button>
@@ -827,9 +831,9 @@ export function BinaryPanel() {
       </div>
 
       {/* Mobile stacks vertically; desktop uses 3-column grid */}
-      <div className="hidden md:grid md:grid-cols-[350px_minmax(0,1fr)_372px] md:h-[calc(100vh-3.5rem)]">
+      <div className="hidden md:grid md:grid-cols-[320px_minmax(0,1fr)_320px] xl:grid-cols-[340px_minmax(0,1fr)_340px] md:h-[calc(100dvh-3.5rem)] md:overflow-hidden">
         {/* Left column - appears second on mobile (order-2), sticky on desktop */}
-        <div className="space-y-3 w-full md:w-auto md:h-full md:overflow-auto order-2 md:order-3 border-l border-border bg-surface/70 p-4">
+        <div className="space-y-2 w-full md:w-auto md:h-full md:overflow-hidden order-2 md:order-3 border-l border-border bg-surface/70 p-3">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
             <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
               {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
@@ -878,7 +882,7 @@ export function BinaryPanel() {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/80 p-3">
+          <div className="rounded-2xl border border-border bg-card/80 p-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bot status</div>
@@ -890,12 +894,12 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <button className="w-full rounded-lg border border-primary/30 bg-primary/10 px-3 py-3 text-sm font-semibold text-primary">
+          <button className="w-full rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm font-semibold text-primary">
             AI Scanner
           </button>
 
           {showDigitPicker && (
-            <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+            <div className="bg-card border border-border rounded-xl p-2.5 space-y-2">
               <div className="text-[10px] uppercase text-muted-foreground font-bold text-center">Last Digit Prediction</div>
               <div className="grid grid-cols-5 gap-2">
                 {Array.from({ length: 10 }).map((_, d) => (
@@ -953,14 +957,14 @@ export function BinaryPanel() {
           </div>
 
           {botMode && (
-            <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
               <BotField label="Target" prefix="$" value={target} onChange={setTarget} accent="text-bull" />
               <BotField label="Stop" prefix="$" value={stop} onChange={setStop} accent="text-bear" />
               <BotField label="Mult" prefix="x" value={martingale} onChange={setMartingale} accent="text-primary" />
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="hidden xl:grid grid-cols-2 gap-2">
             <div className="bg-card border border-border rounded-xl p-3">
               <div className="text-[10px] uppercase text-muted-foreground">Payout</div>
               <div className="mt-2 text-sm font-semibold">{payoutOver.toFixed(2)} AUD</div>
@@ -995,7 +999,7 @@ export function BinaryPanel() {
           {botRunning ? (
             <button
               onClick={stopBot}
-              className="w-full py-4 rounded-2xl bg-bear text-bear-foreground font-extrabold text-lg glow-bear flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-2xl bg-bear text-bear-foreground font-extrabold text-base glow-bear flex items-center justify-center gap-2"
             >
               <Square className="h-5 w-5" /> STOP BOT · session ${sessionPnLRef.current.toFixed(2)}
             </button>
@@ -1004,7 +1008,7 @@ export function BinaryPanel() {
               {botMode && (
                 <button
                   onClick={() => startBot("AUTO")}
-                  className="col-span-2 py-4 rounded-2xl bg-primary text-primary-foreground font-extrabold text-lg glow-primary"
+                  className="col-span-2 py-3 rounded-2xl bg-primary text-primary-foreground font-extrabold text-base glow-primary"
                 >
                   AUTO TRADE
                 </button>
@@ -1014,7 +1018,7 @@ export function BinaryPanel() {
                   key={label}
                   onClick={() => (botMode ? startBot(label) : fireManual(label))}
                   className={
-                    "py-4 rounded-lg font-extrabold text-lg tracking-wide " +
+                    "py-3 rounded-lg font-extrabold text-base tracking-wide " +
                     (tone === "bull"
                       ? "bg-bull text-bull-foreground glow-bull"
                       : "bg-bear text-bear-foreground glow-bear")
@@ -1028,7 +1032,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Center column: chart area and chart controls - appears first on mobile (order-1) */}
-        <div className="w-full md:w-auto order-1 md:order-2 bg-background p-3 overflow-hidden">
+        <div className="w-full md:w-auto order-1 md:order-2 bg-background p-2 overflow-hidden">
           <div className="hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1438,8 +1442,8 @@ export function BinaryPanel() {
         </div>
 
         {/* Right column: position tabs and trades history - appears third on mobile (order-3) */}
-        <div className="space-y-0 w-full md:w-auto md:h-full md:overflow-auto order-3 md:order-1 border-r border-border bg-surface/70">
-          <div className="bg-surface/80 border-b border-border p-4 space-y-4">
+        <div className="space-y-0 w-full md:w-auto md:h-full md:overflow-hidden order-3 md:order-1 border-r border-border bg-surface/70">
+          <div className="bg-surface/80 border-b border-border p-3 space-y-3">
             <div>
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-bold mb-2">Positions</div>
               <div className="text-lg font-extrabold">Binary history</div>
@@ -1454,7 +1458,7 @@ export function BinaryPanel() {
                   key={tabDef.key}
                   onClick={() => setPositionsTab(tabDef.key as "open" | "closed" | "tx")}
                   className={
-                    "rounded-2xl py-3 text-sm font-bold transition " +
+                    "rounded-2xl py-2 text-xs font-bold transition " +
                     (positionsTab === tabDef.key
                       ? "bg-primary text-primary-foreground"
                       : "bg-surface border border-border text-muted-foreground")
@@ -1470,7 +1474,7 @@ export function BinaryPanel() {
                   No {positionsTab === "open" ? "open positions" : positionsTab === "closed" ? "closed trades" : "trade history"} yet.
                 </div>
               ) : (
-                visiblePositionTrades.slice(0, 5).map((trade) => (
+                visiblePositionTrades.slice(0, 3).map((trade) => (
                   <PositionCard key={trade.id} trade={trade} />
                 ))
               )}
@@ -1515,7 +1519,7 @@ function BotField({
 function PositionCard({ trade }: { trade: PositionTrade }) {
   const positive = Number(trade.payout ?? 0) - Number(trade.stake) >= 0;
   return (
-    <div className="rounded-3xl border border-border bg-surface p-4 space-y-3">
+    <div className="rounded-2xl border border-border bg-surface p-3 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-bold">{trade.market}</div>
@@ -1526,11 +1530,11 @@ function PositionCard({ trade }: { trade: PositionTrade }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-        <div className="rounded-2xl bg-card p-3">
+        <div className="rounded-xl bg-card p-2">
           <div className="font-bold">Entry</div>
           <div>{trade.entry_price ? trade.entry_price.toFixed(5) : "-"}</div>
         </div>
-        <div className="rounded-2xl bg-card p-3">
+        <div className="rounded-xl bg-card p-2">
           <div className="font-bold">Payout</div>
           <div>{trade.payout ? `$${trade.payout.toFixed(2)}` : "-"}</div>
         </div>
