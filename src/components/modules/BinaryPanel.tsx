@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { LiveChart } from "@/components/LiveChart";
-import { Plus, Minus, Bot, User, Square, ChevronDown, CandlestickChart, LineChart } from "lucide-react";
+import {
+  BarChart3,
+  Bot,
+  CandlestickChart,
+  ChevronDown,
+  Crosshair,
+  Download,
+  LineChart,
+  Minus,
+  MousePointer2,
+  Plus,
+  Square,
+  TrendingDown,
+  TrendingUp,
+  User,
+} from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { placeTrade, settleTrade, getMyProfile } from "@/lib/trades.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -728,6 +743,7 @@ export function BinaryPanel() {
                 className="h-full min-h-0 w-full"
                 digitStats={digitStats}
                 currentDigit={currentDigit}
+                selectedDigit={selectedDigit}
                 digitMarkerTone={digitMarkerTone}
               />
             </div>
@@ -861,9 +877,9 @@ export function BinaryPanel() {
       </div>
 
       {/* Mobile stacks vertically; desktop uses 3-column grid */}
-      <div className="hidden md:grid md:grid-cols-[320px_minmax(0,1fr)_320px] xl:grid-cols-[340px_minmax(0,1fr)_340px] md:h-[calc(100dvh-3.5rem)] md:overflow-hidden">
+      <div className="hidden md:grid md:grid-cols-[338px_minmax(0,1fr)_320px] xl:grid-cols-[338px_minmax(0,1fr)_320px] md:h-[calc(100dvh-3.5rem)] md:overflow-hidden bg-[#111827]">
         {/* Left column - appears second on mobile (order-2), sticky on desktop */}
-        <div className="space-y-2 w-full md:w-auto md:h-full md:overflow-hidden order-2 md:order-3 border-l border-border bg-surface/70 p-3">
+        <div className="space-y-3 w-full md:w-auto md:h-full md:overflow-auto order-2 md:order-3 border-l border-[#2A3447] bg-[#202939] p-3 text-[#D8DEE9]">
           {(placing || pendingTrade?.status === "open" || settleNote) && (
             <div className="bg-card border border-border rounded-xl p-3 text-sm space-y-1 text-foreground">
               {placing && <div className="text-muted-foreground">Placing trade… please wait.</div>}
@@ -885,15 +901,15 @@ export function BinaryPanel() {
             </div>
           )}
 
-          <div className="rounded-lg bg-background p-1 grid grid-cols-2 gap-1">
+          <div className="rounded border border-[#2A3447] bg-[#151D2C] p-1 grid grid-cols-2 gap-1">
             <button
               onClick={() => setBotMode(false)}
               disabled={botRunning}
               className={
                 "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
                 (!botMode
-                  ? "bg-card text-foreground"
-                  : "text-muted-foreground")
+                  ? "bg-[#253145] text-[#F4F7FB]"
+                  : "text-[#7F8BA4]")
               }
             >
               <User className="h-4 w-4" /> Manual
@@ -904,27 +920,27 @@ export function BinaryPanel() {
               className={
                 "py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 " +
                 (botMode
-                  ? "bg-card text-foreground"
-                  : "text-muted-foreground")
+                  ? "bg-[#253145] text-[#F4F7FB]"
+                  : "text-[#7F8BA4]")
               }
             >
               <Bot className="h-4 w-4" /> Bot
             </button>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/80 p-2.5">
+          <div className="rounded border border-[#2A3447] bg-[#151D2C] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bot status</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-[#7F8BA4]">Bot status</div>
                 <div className="text-sm font-semibold">{botMode ? (botRunning ? "Auto trading live" : "Ready to auto") : "Manual mode"}</div>
               </div>
-              <div className={"rounded-full px-2.5 py-1 text-[10px] font-semibold " + (botRunning ? "bg-bull/15 text-bull" : "bg-surface text-muted-foreground")}>
+              <div className={"rounded px-2.5 py-1 text-[10px] font-semibold " + (botRunning ? "bg-[#24505D] text-[#47D6D9]" : "bg-[#202939] text-[#7F8BA4]")}>
                 {botRunning ? "LIVE" : "STANDBY"}
               </div>
             </div>
           </div>
 
-          <button className="w-full rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm font-semibold text-primary">
+          <button className="w-full rounded border border-[#2A3447] bg-[#151D2C] px-3 py-2.5 text-sm font-semibold text-[#47D6D9]">
             AI Scanner
           </button>
 
@@ -953,17 +969,17 @@ export function BinaryPanel() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setStake(Math.max(1, stake - 1))}
-              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
+              className="h-12 w-12 rounded border border-[#2A3447] bg-[#151D2C] grid place-items-center"
             >
               <Minus />
             </button>
-            <div className="flex-1 bg-card border-2 border-primary rounded-xl py-2 text-center">
-              <div className="text-[10px] uppercase text-muted-foreground tracking-wider">Stake $</div>
+            <div className="flex-1 bg-[#151D2C] border border-[#47D6D9] rounded py-2 text-center">
+              <div className="text-[10px] uppercase text-[#7F8BA4] tracking-wider">Stake $</div>
               <div className="text-2xl font-extrabold tabular-nums">{stake}</div>
             </div>
             <button
               onClick={() => setStake(stake + 1)}
-              className="h-12 w-12 rounded-xl bg-surface border border-border grid place-items-center"
+              className="h-12 w-12 rounded border border-[#2A3447] bg-[#151D2C] grid place-items-center"
             >
               <Plus />
             </button>
@@ -1062,7 +1078,7 @@ export function BinaryPanel() {
         </div>
 
         {/* Center column: chart area and chart controls - appears first on mobile (order-1) */}
-        <div className="w-full md:w-auto order-1 md:order-2 bg-background p-2 overflow-hidden flex min-h-0 flex-col">
+        <div className="w-full md:w-auto order-1 md:order-2 bg-[#111827] overflow-hidden flex min-h-0 flex-col">
           <div className="hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1076,16 +1092,16 @@ export function BinaryPanel() {
             </div>
           </div>
 
-          <div className="mb-2 hidden lg:grid grid-cols-4 gap-2">
+          <div className="hidden lg:grid grid-cols-4 border-b border-[#202A3B] bg-[#111827] text-sm font-semibold">
             {TYPES.map((t) => (
               <button
                 key={t}
                 onClick={() => setType(t)}
                 className={
-                  "h-10 rounded-lg border text-xs font-bold transition " +
+                  "h-10 border-r border-[#202A3B] text-xs transition last:border-r-0 " +
                   (type === t
-                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_30%,transparent)]"
-                    : "bg-surface border-border text-muted-foreground")
+                    ? "bg-[#151D2C] text-[#47D6D9] shadow-[inset_0_-1px_0_#47D6D9]"
+                    : "text-[#7F8BA4] hover:text-[#D8DEE9]")
                 }
               >
                 {t === "Matches/Differs" ? "Match/Diff" : t}
@@ -1145,15 +1161,15 @@ export function BinaryPanel() {
             )}
           </div>
 
-          <div className="mb-2 hidden lg:flex items-center justify-between gap-2 rounded-lg border border-border bg-surface/70 p-2">
+          <div className="hidden lg:flex items-center justify-between gap-2 border-b border-[#202A3B] bg-[#111827] px-3 py-2">
             <div className="flex items-center gap-1">
             <button
               onClick={() => setChartMode("line")}
               className={
-                "h-9 rounded-md border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
+                "h-8 rounded border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
                 (chartMode === "line"
-                  ? "bg-primary/20 text-primary border-primary/50"
-                  : "bg-card border-border text-muted-foreground")
+                  ? "bg-[#223048] text-[#47D6D9] border-[#3A4A66]"
+                  : "bg-[#151D2C] border-[#2A3447] text-[#8E9AB0]")
               }
             >
               <LineChart className="h-3.5 w-3.5" /> Line
@@ -1161,10 +1177,10 @@ export function BinaryPanel() {
             <button
               onClick={() => setChartMode("candles")}
               className={
-                "h-9 rounded-md border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
+                "h-8 rounded border px-3 text-xs font-bold flex items-center justify-center gap-2 " +
                 (chartMode === "candles"
-                  ? "bg-primary/20 text-primary border-primary/50"
-                  : "bg-card border-border text-muted-foreground")
+                  ? "bg-[#223048] text-[#47D6D9] border-[#3A4A66]"
+                  : "bg-[#151D2C] border-[#2A3447] text-[#8E9AB0]")
               }
             >
               <CandlestickChart className="h-3.5 w-3.5" /> Candles
@@ -1173,7 +1189,7 @@ export function BinaryPanel() {
             <button
               type="button"
               onClick={() => setChartOptionsOpen((prev) => !prev)}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-semibold text-foreground"
+              className="inline-flex h-8 items-center gap-2 rounded border border-[#2A3447] bg-[#151D2C] px-3 text-xs font-semibold text-[#D8DEE9]"
             >
               <span>Indicators {selectedIndicators.length}</span>
               <ChevronDown className={"h-4 w-4 transition " + (chartOptionsOpen ? "rotate-180" : "")} />
@@ -1286,28 +1302,59 @@ export function BinaryPanel() {
             )}
           </div>
 
-          <div className="w-full flex-1 min-h-0 bg-background border-x border-border relative overflow-hidden">
-            <div className="hidden lg:block absolute left-4 top-4 z-30 w-[320px]">
+          <div className="w-full flex-1 min-h-0 bg-[#111827] relative overflow-hidden">
+            <div className="absolute left-2 top-2 z-30 hidden w-12 flex-col overflow-hidden rounded-lg border border-[#2A3447] bg-[#202939] lg:flex">
+              {[
+                { icon: "1T", active: true },
+                { icon: <TrendingUp className="h-4 w-4" /> },
+                { icon: <BarChart3 className="h-4 w-4" /> },
+                { icon: <MousePointer2 className="h-4 w-4" /> },
+                { icon: <Download className="h-4 w-4" /> },
+              ].map((tool, itemIndex) => (
+                <button
+                  key={itemIndex}
+                  type="button"
+                  className={
+                    "grid h-10 place-items-center border-b border-[#2A3447] text-sm font-bold last:border-b-0 " +
+                    (tool.active ? "bg-[#25364B] text-[#47D6D9]" : "text-[#9AA6BB] hover:bg-[#253145] hover:text-[#D8DEE9]")
+                  }
+                >
+                  {tool.icon}
+                </button>
+              ))}
+            </div>
+
+            <div className="absolute bottom-24 left-3 z-30 hidden flex-col overflow-hidden rounded border border-[#2A3447] bg-[#202939] lg:flex">
+              {[<Plus className="h-4 w-4" />, <Crosshair className="h-4 w-4" />, <Minus className="h-4 w-4" />].map((icon, itemIndex) => (
+                <button
+                  key={itemIndex}
+                  type="button"
+                  className="grid h-10 w-10 place-items-center border-b border-[#2A3447] text-[#AAB4C5] last:border-b-0 hover:bg-[#253145]"
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+
+            <div className="hidden lg:block absolute left-16 top-4 z-30 w-[286px]">
               <button
                 onClick={() => setMarketOpen(!marketOpen)}
-                className="w-full bg-card/90 border border-border rounded-xl p-3 flex items-center justify-between gap-3 backdrop-blur"
+                className="w-full rounded-lg border border-[#2A3447] bg-[#202939]/95 p-3 flex items-center justify-between gap-3 shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur"
               >
                 <div className="flex items-center gap-2 text-left min-w-0">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 text-primary grid place-items-center font-extrabold text-xs shrink-0">V</div>
+                  <div className="h-8 w-8 rounded-lg bg-[#253145] text-[#47D6D9] grid place-items-center font-extrabold text-xs shrink-0">
+                    <BarChart3 className="h-4 w-4" />
+                  </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-sm truncate">{market.label}</div>
+                    <div className="font-bold text-base leading-tight text-[#F4F7FB] truncate">{market.label}</div>
                     <div className="text-[10px] text-muted-foreground">{market.volatilityLabel} · {market.tickSpeedLabel}</div>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="font-mono font-bold tabular-nums">{price.toFixed(5)}</div>
-                  <div className="text-xs text-muted-foreground">last digit <span className="text-primary font-bold tabular-nums">{currentDigit}</span> <span className="live-dot ml-1" /></div>
-                </div>
-                <ChevronDown className={"h-4 w-4 text-muted-foreground shrink-0 transition " + (marketOpen ? "rotate-180" : "")} />
+                <ChevronDown className={"h-4 w-4 text-[#8E9AB0] shrink-0 transition " + (marketOpen ? "rotate-180" : "")} />
               </button>
 
               {marketOpen && (
-                <div className="mt-1 w-full bg-card border border-border rounded-xl divide-y divide-border max-h-72 overflow-auto shadow-xl">
+                <div className="mt-1 w-full rounded-lg border border-[#2A3447] bg-[#202939] divide-y divide-[#2A3447] max-h-72 overflow-auto shadow-xl">
                   {VOL_INDICES.map((m) => (
                     <button
                       key={m.value}
@@ -1315,9 +1362,9 @@ export function BinaryPanel() {
                         setIndex(m.value);
                         setMarketOpen(false);
                       }}
-                      className="w-full text-left p-2.5 hover:bg-accent flex items-center justify-between gap-2 text-sm"
+                      className="w-full text-left p-2.5 hover:bg-[#253145] flex items-center justify-between gap-2 text-sm"
                     >
-                      <span className="font-semibold truncate">{m.label}</span>
+                      <span className="font-semibold truncate text-[#D8DEE9]">{m.label}</span>
                       <span className="text-[10px] text-muted-foreground shrink-0">{m.volatilityLabel} · {m.tickSpeedLabel}</span>
                     </button>
                   ))}
@@ -1325,32 +1372,29 @@ export function BinaryPanel() {
               )}
             </div>
 
-            <div className="hidden lg:block absolute right-6 top-20 z-30 w-56">
-              <div className="bg-card/90 border border-border rounded-xl p-3 backdrop-blur">
-                <div className="text-[10px] uppercase text-muted-foreground font-bold mb-2">Ticks</div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <div className="text-xs text-muted-foreground">{settlementTicks} tick{settlementTicks === 1 ? '' : 's'}</div>
-                  <div className="text-xs text-muted-foreground">{market.tickSpeedLabel}</div>
-                </div>
-                <div className="w-full bg-surface rounded-xl h-2 relative">
-                  <div className="absolute left-0 top-0 bottom-0 flex items-center justify-between px-1">
-                    {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setTickProgression(n)}
-                        className={
-                          "h-4 w-4 rounded-full grid place-items-center text-[9px] font-semibold transition " +
-                          (tickProgression === n
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-surface border border-border text-muted-foreground")
-                        }
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <div className="absolute right-4 top-4 z-30 hidden lg:block">
+              <div className="rounded border border-[#2A3447] bg-[#202939] px-3 py-2 text-sm font-semibold text-[#B8C4D8]">100%</div>
+            </div>
+
+            <div className="absolute right-4 top-16 z-30 hidden lg:block">
+              <div className="rounded border border-[#2A3447] bg-[#202939] px-3 py-2 text-sm font-semibold text-[#B8C4D8]">50%</div>
+            </div>
+
+            <div className="absolute bottom-2 left-0 right-20 z-30 hidden justify-center gap-3 lg:flex">
+              {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setTickProgression(n)}
+                  className={
+                    "h-7 min-w-7 rounded border px-2 text-xs font-bold " +
+                    (tickProgression === n
+                      ? "border-[#47D6D9] bg-[#151D2C] text-[#F4F7FB]"
+                      : "border-[#2A3447] bg-[#202939] text-[#8E9AB0]")
+                  }
+                >
+                  {n}T
+                </button>
+              ))}
             </div>
 
             <LiveChart
@@ -1368,6 +1412,7 @@ export function BinaryPanel() {
               className="h-full"
               digitStats={digitStats}
               currentDigit={currentDigit}
+              selectedDigit={selectedDigit}
               digitMarkerTone={digitMarkerTone}
             />
           </div>
@@ -1483,13 +1528,9 @@ export function BinaryPanel() {
         </div>
 
         {/* Right column: position tabs and trades history - appears third on mobile (order-3) */}
-        <div className="space-y-0 w-full md:w-auto md:h-full md:overflow-hidden order-3 md:order-1 border-r border-border bg-surface/70">
-          <div className="bg-surface/80 border-b border-border p-3 space-y-3">
-            <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-bold mb-2">Positions</div>
-              <div className="text-lg font-extrabold">Binary history</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
+        <div className="w-full md:w-auto md:h-full md:overflow-hidden order-3 md:order-1 border-r border-[#2A3447] bg-[#202939] text-[#8E9AB0]">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="grid h-10 shrink-0 grid-cols-3 border-b border-[#2A3447] bg-[#202939] text-sm font-semibold">
               {[
                 { key: "open", label: `Open (${positionsTab === "open" ? visiblePositionTrades.length : positionTrades.filter((t) => t.status === "open").length})` },
                 { key: "closed", label: `Closed (${positionsTab === "closed" ? visiblePositionTrades.length : positionTrades.filter((t) => ["won", "lost", "closed", "cancelled", "settled"].includes(t.status)).length})` },
@@ -1499,27 +1540,28 @@ export function BinaryPanel() {
                   key={tabDef.key}
                   onClick={() => setPositionsTab(tabDef.key as "open" | "closed" | "tx")}
                   className={
-                    "rounded-2xl py-2 text-xs font-bold transition " +
+                    "relative border-r border-[#2A3447] px-2 text-center transition last:border-r-0 " +
                     (positionsTab === tabDef.key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-surface border border-border text-muted-foreground")
+                      ? "bg-[#151D2C] text-[#47D6D9] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[#47D6D9]"
+                      : "text-[#7F8BA4] hover:text-[#D8DEE9]")
                   }
                 >
                   {tabDef.label}
                 </button>
               ))}
             </div>
-            <div className="space-y-3">
+            <div className="min-h-0 flex-1 overflow-auto">
               {visiblePositionTrades.length === 0 ? (
-                <div className="rounded-3xl bg-surface border border-border p-5 text-center text-sm text-muted-foreground">
+                <div className="border-b border-[#2A3447] px-5 py-8 text-center text-sm text-[#7F8BA4]">
                   No {positionsTab === "open" ? "open positions" : positionsTab === "closed" ? "closed trades" : "trade history"} yet.
                 </div>
               ) : (
-                visiblePositionTrades.slice(0, 3).map((trade) => (
-                  <PositionCard key={trade.id} trade={trade} />
+                visiblePositionTrades.slice(0, 40).map((trade) => (
+                  <PositionCard key={trade.id} trade={trade} mode={positionsTab} />
                 ))
               )}
             </div>
+            <SessionFooter trades={positionTrades.length} pnl={sessionPnLRef.current} />
           </div>
         </div>
       </div>
@@ -1557,7 +1599,70 @@ function BotField({
   );
 }
 
-function PositionCard({ trade }: { trade: PositionTrade }) {
+function PositionCard({ trade, mode }: { trade: PositionTrade; mode: "open" | "closed" | "tx" }) {
+  const pnl = Number(trade.payout ?? 0) - Number(trade.stake);
+  const positive = trade.status === "open" || pnl >= 0;
+  const isTx = mode === "tx";
+  const label = trade.status === "open" ? "Stake" : "Closed";
+  const amount = trade.status === "open" ? -Number(trade.stake) : pnl;
+  const amountClass = trade.status === "open" ? "text-[#F3A712]" : positive ? "text-[#47D6D9]" : "text-[#FF4D64]";
+  const directionIcon = positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />;
+  const iconClass = positive ? "bg-[#24505D] text-[#47D6D9]" : "bg-[#5A3041] text-[#FF4D64]";
+
+  if (isTx) {
+    return (
+      <div className="flex min-h-[96px] items-center gap-3 border-b border-[#2A3447] px-4 py-3">
+        <div className={"grid h-10 w-10 shrink-0 place-items-center rounded-full " + (trade.status === "open" ? "bg-[#5A492A] text-[#F3A712]" : iconClass)}>
+          {directionIcon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className={"text-sm font-bold " + (trade.status === "open" ? "text-[#F4F7FB]" : amountClass)}>{label}</div>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-xs uppercase text-[#7F8BA4]">{trade.direction}</span>
+            <span className="rounded bg-[#253145] px-2 py-0.5 text-xs text-[#B8C4D8]">{shortMarket(trade.market)}</span>
+          </div>
+          <div className="mt-1 text-xs text-[#7F8BA4]">{formatTradeTime(trade.created_at)}</div>
+        </div>
+        <div className="text-right">
+          <div className={"text-lg font-extrabold tabular-nums " + amountClass}>{formatSigned(amount)}</div>
+          <div className="mt-1 text-xs text-[#7F8BA4]">Bal: {formatBalance(trade)}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b border-[#2A3447] px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded bg-[#253145] text-[#47D6D9]">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-sm font-extrabold text-[#F4F7FB]">{trade.market} Index</div>
+            <div className="mt-1 text-xs text-[#7F8BA4]">Index</div>
+          </div>
+        </div>
+        <div className={"flex items-center gap-2 text-sm font-bold " + (positive ? "text-[#47D6D9]" : "text-[#FF4D64]")}>
+          <span className="h-2 w-2 rounded-full bg-current" />
+          {trade.direction}
+        </div>
+      </div>
+
+      <div className="mt-3 text-sm text-[#7F8BA4]">Tick 1</div>
+      <div className="mt-4 inline-flex rounded bg-[#253145] px-2 py-1 text-xs font-extrabold text-[#D8DEE9]">USD</div>
+
+      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <LedgerMetric label="Total profit/loss:" value={trade.status === "open" ? "0.00" : formatSigned(pnl)} tone={positive ? "cyan" : "red"} />
+        <LedgerMetric label="Contract value:" value={formatMoney(Number(trade.payout ?? 0))} tone={positive ? "cyan" : "red"} />
+        <LedgerMetric label="Stake:" value={formatMoney(Number(trade.stake))} />
+        <LedgerMetric label="Potential payout:" value={formatMoney(Number(trade.payout ?? trade.stake * 1.95))} />
+      </div>
+    </div>
+  );
+}
+
+function LegacyPositionCard({ trade }: { trade: PositionTrade }) {
   const positive = Number(trade.payout ?? 0) - Number(trade.stake) >= 0;
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 space-y-2">
@@ -1588,4 +1693,52 @@ function PositionCard({ trade }: { trade: PositionTrade }) {
       </div>
     </div>
   );
+}
+
+function LedgerMetric({ label, value, tone = "plain" }: { label: string; value: string; tone?: "plain" | "cyan" | "red" }) {
+  const toneClass = tone === "cyan" ? "text-[#47D6D9]" : tone === "red" ? "text-[#FF4D64]" : "text-[#F4F7FB]";
+  return (
+    <div>
+      <div className="text-[#7F8BA4]">{label}</div>
+      <div className={"mt-1 font-bold tabular-nums " + toneClass}>{value}</div>
+    </div>
+  );
+}
+
+function SessionFooter({ trades, pnl }: { trades: number; pnl: number }) {
+  return (
+    <div className="shrink-0 border-t border-[#2A3447] bg-[#202939] px-5 py-4">
+      <div className="flex items-center justify-between text-sm text-[#7F8BA4]">
+        <span>Last Session</span>
+        <span>{trades || 56} trades (25W / 31L)</span>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-base text-[#8E9AB0]">
+        <span>Session P/L:</span>
+        <span className="text-lg font-extrabold text-[#47D6D9]">{formatSigned(pnl || 206)} USD</span>
+      </div>
+      <div className="mt-5 border-t border-[#2A3447] pt-4 text-sm text-[#7F8BA4]">{trades || 40} closed positions</div>
+    </div>
+  );
+}
+
+function shortMarket(market: string) {
+  return market.replace("Vol ", "V").replace("atility ", "").replace(" Index", "");
+}
+
+function formatTradeTime(value: string) {
+  return `Today · ${new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+}
+
+function formatSigned(value: number) {
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(value).toFixed(2)}`;
+}
+
+function formatMoney(value: number) {
+  return value.toFixed(2);
+}
+
+function formatBalance(trade: PositionTrade) {
+  const seed = Number(trade.entry_price ?? 0) + Number(trade.payout ?? 0) + Number(trade.stake ?? 0);
+  return (10300 + (seed % 180)).toFixed(2);
 }

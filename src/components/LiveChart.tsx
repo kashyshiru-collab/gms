@@ -23,6 +23,7 @@ interface Props {
   mode?: "line" | "candles";
   digitStats?: { d: number; pct: number }[];
   currentDigit?: number;
+  selectedDigit?: number;
   digitMarkerTone?: "idle" | "active" | "win" | "loss";
 }
 
@@ -47,6 +48,7 @@ export function LiveChart({
   mode = "line",
   digitStats,
   currentDigit,
+  selectedDigit,
   digitMarkerTone = "idle",
 }: Props) {
   const buildInitialPoints = useCallback(() => {
@@ -139,19 +141,20 @@ export function LiveChart({
   const noteBg = noteTone === "bull" ? "bg-bull/10 text-bull border border-bull/30" : noteTone === "bear" ? "bg-bear/10 text-bear border border-bear/30" : "bg-surface/95 text-foreground border border-border";
 
   return (
-    <div className={"relative w-full overflow-hidden bg-[#10151f] text-slate-500 " + (className ?? "")}>
+    <div className={"relative w-full overflow-hidden bg-[#111827] text-slate-500 " + (className ?? "")}>
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full">
         <defs>
           <linearGradient id="lc-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#d8dde7" stopOpacity="0.14" />
-            <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+            <stop offset="0%" stopColor="#d8dde7" stopOpacity="0.20" />
+            <stop offset="72%" stopColor="#d8dde7" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#d8dde7" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <line key={`h-${t}`} x1="0" x2={w} y1={h * t} y2={h * t} stroke="#263143" strokeOpacity="0.55" strokeWidth="0.18" />
+          <line key={`h-${t}`} x1="0" x2={w} y1={h * t} y2={h * t} stroke="rgba(255,255,255,0.06)" strokeWidth="0.18" />
         ))}
         {Array.from({ length: 11 }, (_, i) => i * 10).map((x) => (
-          <line key={`v-${x}`} x1={x} x2={x} y1="0" y2={h} stroke="#263143" strokeOpacity="0.38" strokeWidth="0.14" />
+          <line key={`v-${x}`} x1={x} x2={x} y1="0" y2={h} stroke="rgba(255,255,255,0.045)" strokeWidth="0.14" />
         ))}
         {mode === "line" ? (
           <>
@@ -201,11 +204,11 @@ export function LiveChart({
           </>
         )}
       </svg>
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-16 border-l border-[#263143]/70 bg-[#10151f]/35">
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-20 border-l border-white/5 bg-[#111827]/45">
         {axisValues.map((value, i) => (
           <div
             key={i}
-            className="absolute right-1 translate-y-[-50%] text-[10px] font-medium tabular-nums text-slate-400"
+            className="absolute right-2 translate-y-[-50%] text-[11px] font-medium tabular-nums text-[#AAB4C5]"
             style={{ top: `${i * 25}%` }}
           >
             {value.toFixed(2)}
@@ -213,12 +216,12 @@ export function LiveChart({
         ))}
       </div>
       <div
-        className="pointer-events-none absolute right-1 rounded border border-cyan-400/70 bg-[#172230] px-2 py-0.5 text-[10px] font-extrabold text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]"
+        className="pointer-events-none absolute right-2 rounded border border-[#00C8FF] bg-[#131A2C] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-[0_0_18px_rgba(0,200,255,0.18)]"
         style={{ top: `calc(${priceY}% - 10px)` }}
       >
         {priceLabel}
       </div>
-      <div className="pointer-events-none absolute bottom-1 left-0 right-16 flex justify-between px-3 text-[10px] tabular-nums text-slate-500">
+      <div className="pointer-events-none absolute bottom-1 left-0 right-20 flex justify-between px-3 text-[10px] tabular-nums text-[#AAB4C5]">
         {timeLabels.map((label) => (
           <span key={label}>{label}</span>
         ))}
@@ -229,32 +232,55 @@ export function LiveChart({
           <g>
             {(() => {
               const total = digitStats.length;
-              const totalWidth = w * 0.7;
+              const totalWidth = w * 0.62;
               const startX = (w - totalWidth) / 2;
               const step = total <= 1 ? 0 : totalWidth / (total - 1);
               return digitStats.map((s, i) => {
                 const x = startX + i * step;
-                const y = h - 7;
+                const y = h - 7.6;
                 const isCurrent = currentDigit === s.d;
-                const r = isCurrent ? 5.2 : 3.6;
-                const active = isCurrent && digitMarkerTone === "active";
-                const win = isCurrent && digitMarkerTone === "win";
-                const loss = isCurrent && digitMarkerTone === "loss";
-                const fill = active ? "#f59e0b" : win ? "#22c55e" : loss ? "#ef4444" : "#f8fafc";
-                const strokeColor = active ? "#fbbf24" : win ? "#4ade80" : loss ? "#fb7185" : "#d9dee7";
-                const textColor = isCurrent && digitMarkerTone !== "idle" ? "#0b1018" : "#0f172a";
-                const halo = active
-                  ? "rgba(245,158,11,0.34)"
+                const isSelected = selectedDigit === s.d;
+                const r = isCurrent ? 4.7 : 4.1;
+                const active = isSelected && digitMarkerTone === "active";
+                const win = isSelected && digitMarkerTone === "win";
+                const loss = isSelected && digitMarkerTone === "loss";
+                const strokeColor = active
+                  ? "#f59e0b"
+                  : win
+                    ? "#22C55E"
+                    : loss
+                      ? "#EF4444"
+                      : isSelected || isCurrent
+                        ? "#00C8FF"
+                        : "#2b3953";
+                const glow = active
+                  ? "rgba(245,158,11,0.32)"
                   : win
                     ? "rgba(34,197,94,0.34)"
                     : loss
                       ? "rgba(239,68,68,0.34)"
-                      : "rgba(255,255,255,0.06)";
+                      : isSelected || isCurrent
+                        ? "rgba(0,200,255,0.18)"
+                        : "rgba(255,255,255,0.02)";
                 return (
                   <g key={s.d} transform={`translate(${x.toFixed(2)},${y.toFixed(2)})`}>
-                    <circle r={r + (isCurrent ? 1.6 : 0.8)} fill={halo} />
-                    <circle r={r} fill={fill} stroke={strokeColor} strokeWidth={0.28} />
-                    <text x="0" y={isCurrent ? "0.9" : "0.7"} fontSize={isCurrent ? "4" : "3"} fontWeight="800" textAnchor="middle" fill={textColor}>{s.d}</text>
+                    <circle r={r + 1.3} fill={glow} />
+                    <circle r={r} fill="#172033" stroke="#2d3b57" strokeWidth="0.62" />
+                    {(isSelected || isCurrent || active || win || loss) && (
+                      <circle
+                        r={r + 0.12}
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth="0.64"
+                        strokeDasharray={active ? "7 4" : undefined}
+                        transform={active ? "rotate(-35)" : undefined}
+                      />
+                    )}
+                    <text x="0" y="-0.35" fontSize={isCurrent ? "3.4" : "3.1"} fontWeight="850" textAnchor="middle" fill="#ffffff">{s.d}</text>
+                    <text x="0" y="2.65" fontSize="1.55" fontWeight="700" textAnchor="middle" fill="#AAB4C5">{s.pct.toFixed(1)}%</text>
+                    {(isSelected || isCurrent) && (
+                      <path d={`M -0.8 ${r + 1.4} L 0 ${r + 2.15} L 0.8 ${r + 1.4} Z`} fill={active ? "#f59e0b" : strokeColor} />
+                    )}
                   </g>
                 );
               });
@@ -265,11 +291,6 @@ export function LiveChart({
       {mode === "candles" && latestCandle && (
         <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded border border-border bg-surface/85 text-[10px] font-extrabold tabular-nums">
           {latestCandle.c.toFixed(5)}
-        </div>
-      )}
-      {badge !== undefined && (
-        <div className={"absolute right-2 bottom-2 px-2 py-1 rounded-lg text-xs font-extrabold tabular-nums shadow-lg " + badgeBg}>
-          {badge}
         </div>
       )}
       {note && (
