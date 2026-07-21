@@ -106,7 +106,15 @@ export const settleTrade = createServerFn({ method: "POST" })
     if (data.won && payout > 0) {
       const adjustedPayout = applyVolatilityToPayout(payout, settings);
       if (adjustedPayout !== payout) {
-        await adjustSettledPayout(supabase, context.userId, data.trade_id, payout, adjustedPayout);
+        try {
+          await adjustSettledPayout(supabase, context.userId, data.trade_id, payout, adjustedPayout);
+        } catch (adjustError) {
+          console.warn("[Trades] payout adjustment skipped after settlement", {
+            userId: context.userId,
+            tradeId: data.trade_id,
+            error: adjustError instanceof Error ? adjustError.message : String(adjustError),
+          });
+        }
       }
     }
 
@@ -127,6 +135,19 @@ async function enforceTradeRiskRules(
 ) {
   const accountProfile = await supabase.from("profiles").select("active_account").eq("id", userId).maybeSingle();
   const accountType = accountProfile?.data?.active_account ?? "real";
+
+  if (input.module === "binary") {
+    const { count: openBinaryCount } = await supabase
+      .from("trades")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("account_type", accountType)
+      .eq("module", "binary")
+      .eq("status", "open");
+    if ((openBinaryCount ?? 0) > 0) {
+      throw new Error("You already have one open binary contract. Wait for it to settle first.");
+    }
+  }
 
   const userStats = await getUserSegmentStats(supabase, userId, accountType);
   const { minStake, maxStake } = getEffectiveStakeLimits(settings, userStats);

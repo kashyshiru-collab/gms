@@ -254,6 +254,7 @@ export function BinaryPanel() {
     exit_price: number | null;
     payout: number | null;
     status: string;
+    meta: Record<string, unknown> | null;
     created_at: string;
   };
 
@@ -262,7 +263,7 @@ export function BinaryPanel() {
     queryFn: async () => {
       const { data } = await supabase
         .from("trades")
-        .select("id,module,market,direction,stake,entry_price,exit_price,payout,status,created_at")
+        .select("id,module,market,direction,stake,entry_price,exit_price,payout,status,meta,created_at")
         .eq("module", "binary")
         .eq("market", market.value)
         .order("created_at", { ascending: false })
@@ -277,6 +278,9 @@ export function BinaryPanel() {
     : positionsTab === "closed"
       ? positionTrades.filter((t) => ["won", "lost", "closed", "cancelled", "settled"].includes(t.status))
       : positionTrades;
+  const displayedPositionTrades = positionsTab === "open"
+    ? visiblePositionTrades.slice(0, 1)
+    : visiblePositionTrades.slice(0, 40);
 
   const hour = new Date().getHours();
   const intradayPace = 0.76 + ((Math.sin((hour / 24) * Math.PI * 2 + 0.7) + 1) / 2) * 0.72;
@@ -421,7 +425,9 @@ export function BinaryPanel() {
           },
         },
       });
-      const id = trade.id ?? `pending-${Date.now()}`;
+      const placedTrade = normalizePlacedTrade(trade);
+      const id = placedTrade?.id;
+      if (!id) throw new Error("Trade was placed but no trade id was returned");
       setPendingTrade({
         tradeId: id,
         direction,
@@ -433,7 +439,7 @@ export function BinaryPanel() {
       });
       toast.success("Contract placed and open — waiting for result");
       logDebugEvent("info", "binary.trade", "Binary trade placed", {
-        tradeId: trade.id,
+        tradeId: id,
         direction,
         stake: useStake,
       });
@@ -465,7 +471,7 @@ export function BinaryPanel() {
     try {
       await settle({
         data: {
-          trade_id: trade.id,
+          trade_id: id,
           won,
           exit_price: settlementPrice,
           multiplier: 1 + winProfitRate,
@@ -484,7 +490,7 @@ export function BinaryPanel() {
       );
       setSettleNote(won ? `WIN +$${(useStake * winProfitRate).toFixed(2)}` : `LOSS -$${useStake}`);
       logDebugEvent("info", "binary.trade", "Binary trade settled", {
-        tradeId: trade.id,
+        tradeId: id,
         won,
         finalDigit,
         exitPrice: settlementPrice,
@@ -1563,12 +1569,12 @@ export function BinaryPanel() {
               ))}
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
-              {visiblePositionTrades.length === 0 ? (
+              {displayedPositionTrades.length === 0 ? (
                 <div className="border-b border-[#2A3447] px-5 py-8 text-center text-sm text-[#7F8BA4]">
                   No {positionsTab === "open" ? "open positions" : positionsTab === "closed" ? "closed trades" : "trade history"} yet.
                 </div>
               ) : (
-                visiblePositionTrades.slice(0, 40).map((trade) => (
+                displayedPositionTrades.map((trade) => (
                   <PositionCard key={trade.id} trade={trade} mode={positionsTab} />
                 ))
               )}
@@ -1634,64 +1640,83 @@ function MultiplierField({ value, onChange }: { value: number; onChange: (n: num
   );
 }
 
+function normalizePlacedTrade(value: unknown): { id?: string } | null {
+  if (!value) return null;
+  if (Array.isArray(value)) return normalizePlacedTrade(value[0]);
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (typeof record.id === "string") return { id: record.id };
+    if (record.trade && typeof record.trade === "object") return normalizePlacedTrade(record.trade);
+    if (record.data && typeof record.data === "object") return normalizePlacedTrade(record.data);
+  }
+  return null;
+}
+
 function PositionCard({ trade, mode }: { trade: PositionTrade; mode: "open" | "closed" | "tx" }) {
   const pnl = Number(trade.payout ?? 0) - Number(trade.stake);
-  const positive = trade.status === "open" || pnl >= 0;
+  const won = trade.status === "won" || pnl > 0;
+  const lost = trade.status === "lost" || pnl < 0;
   const isTx = mode === "tx";
-  const label = trade.status === "open" ? "Stake" : "Closed";
-  const amount = trade.status === "open" ? -Number(trade.stake) : pnl;
-  const amountClass = trade.status === "open" ? "text-[#F3A712]" : positive ? "text-[#47D6D9]" : "text-[#FF4D64]";
-  const directionIcon = positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />;
-  const iconClass = positive ? "bg-[#24505D] text-[#47D6D9]" : "bg-[#5A3041] text-[#FF4D64]";
+  const direction = String(trade.direction || trade.meta?.direction || "EVEN").toUpperCase();
+  const contractLabel = shortMarket(trade.market);
+  const potentialPayout = Number(trade.payout ?? trade.stake * 1.952);
 
   if (isTx) {
+    const rows = buildTransactionRows(trade);
     return (
-      <div className="flex min-h-[96px] items-center gap-3 border-b border-[#2A3447] px-4 py-3">
-        <div className={"grid h-10 w-10 shrink-0 place-items-center rounded-full " + (trade.status === "open" ? "bg-[#5A492A] text-[#F3A712]" : iconClass)}>
-          {directionIcon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className={"text-sm font-bold " + (trade.status === "open" ? "text-[#F4F7FB]" : amountClass)}>{label}</div>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-xs uppercase text-[#7F8BA4]">{trade.direction}</span>
-            <span className="rounded bg-[#253145] px-2 py-0.5 text-xs text-[#B8C4D8]">{shortMarket(trade.market)}</span>
+      <div className="space-y-3 px-3 py-3">
+        {rows.map((row) => (
+          <div key={row.kind + row.amount} className="flex min-h-[86px] items-center gap-4 rounded-[22px] border border-[#252D3B] bg-[#141922] px-5 py-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+            <div className={"grid h-14 w-14 shrink-0 place-items-center rounded-xl " + row.iconClass}>
+              {row.icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className={"text-lg font-extrabold " + row.titleClass}>{row.title}</div>
+              <div className="mt-1 flex items-center gap-2 text-xs uppercase text-[#5D6677]">
+                <span className="rounded-md bg-[#1D2430] px-2 py-1 text-[#9AA6BA]">{contractLabel}</span>
+                <span>{direction}</span>
+              </div>
+              <div className="mt-1 text-sm text-[#5D6677]">{formatTradeTime(trade.created_at)}</div>
+            </div>
+            <div className="text-right">
+              <div className={"text-xl font-extrabold tabular-nums " + row.amountClass}>{formatSigned(row.amount)}</div>
+              <div className="mt-1 text-sm text-[#5D6677]">{formatBalance(trade)}</div>
+            </div>
           </div>
-          <div className="mt-1 text-xs text-[#7F8BA4]">{formatTradeTime(trade.created_at)}</div>
-        </div>
-        <div className="text-right">
-          <div className={"text-lg font-extrabold tabular-nums " + amountClass}>{formatSigned(amount)}</div>
-          <div className="mt-1 text-xs text-[#7F8BA4]">Bal: {formatBalance(trade)}</div>
-        </div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="border-b border-[#2A3447] px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded bg-[#253145] text-[#47D6D9]">
-            <TrendingUp className="h-4 w-4" />
+    <div className="px-3 py-3">
+      <div className="rounded-[22px] border border-[#252D3B] bg-[#141922] px-5 py-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="text-xl font-extrabold text-[#F4F7FB]">{contractLabel}</span>
+              <span className="rounded-lg bg-[#083D37] px-3 py-1 text-sm font-bold text-[#18C99A]">{titleCase(direction)}</span>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-extrabold text-[#F4F7FB]">{trade.market} Index</div>
-            <div className="mt-1 text-xs text-[#7F8BA4]">Index</div>
+          <div className="text-right">
+            {mode === "open" ? (
+              <div className="text-base font-semibold text-[#5D6677]">Tick 0/1</div>
+            ) : (
+              <div className={"text-base font-bold " + (won ? "text-[#18C99A]" : "text-[#F16488]")}>{won ? "Won" : "Lost"}</div>
+            )}
           </div>
         </div>
-        <div className={"flex items-center gap-2 text-sm font-bold " + (positive ? "text-[#47D6D9]" : "text-[#FF4D64]")}>
-          <span className="h-2 w-2 rounded-full bg-current" />
-          {trade.direction}
+
+        <div className="mt-8 grid grid-cols-[1fr_1fr_auto] gap-4">
+          <CardMetric label="Stake" value={`$${formatMoney(Number(trade.stake))}`} />
+          <CardMetric label="Payout" value={`$${formatMoney(potentialPayout)}`} />
+          <div className="text-right">
+            <div className="text-sm text-[#5D6677]">P/L</div>
+            <div className={"mt-1 text-2xl font-extrabold tabular-nums " + (won ? "text-[#18C99A]" : "text-[#F16488]")}>
+              {mode === "open" ? formatSigned(-Number(trade.stake)) : formatSigned(pnl)}
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className="mt-3 text-sm text-[#7F8BA4]">Tick 1</div>
-      <div className="mt-4 inline-flex rounded bg-[#253145] px-2 py-1 text-xs font-extrabold text-[#D8DEE9]">USD</div>
-
-      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-        <LedgerMetric label="Total profit/loss:" value={trade.status === "open" ? "0.00" : formatSigned(pnl)} tone={positive ? "cyan" : "red"} />
-        <LedgerMetric label="Contract value:" value={formatMoney(Number(trade.payout ?? 0))} tone={positive ? "cyan" : "red"} />
-        <LedgerMetric label="Stake:" value={formatMoney(Number(trade.stake))} />
-        <LedgerMetric label="Potential payout:" value={formatMoney(Number(trade.payout ?? trade.stake * 1.95))} />
       </div>
     </div>
   );
@@ -1728,6 +1753,46 @@ function LegacyPositionCard({ trade }: { trade: PositionTrade }) {
       </div>
     </div>
   );
+}
+
+function CardMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-sm text-[#5D6677]">{label}</div>
+      <div className="mt-1 text-lg font-extrabold tabular-nums text-[#F4F7FB]">{value}</div>
+    </div>
+  );
+}
+
+function buildTransactionRows(trade: PositionTrade) {
+  const stake = Number(trade.stake);
+  const pnl = Number(trade.payout ?? 0) - stake;
+  const rows = [
+    {
+      kind: "stake",
+      title: "Stake",
+      titleClass: "text-[#F4F7FB]",
+      amount: -stake,
+      amountClass: "text-[#F4F7FB]",
+      iconClass: "bg-[#1C222D] text-[#7C8799]",
+      icon: <TrendingDown className="h-6 w-6" />,
+    },
+  ];
+
+  if (trade.status !== "open") {
+    const won = pnl > 0;
+    rows.unshift({
+      kind: won ? "win" : "loss",
+      title: won ? "Win" : "Loss",
+      titleClass: won ? "text-[#18C99A]" : "text-[#F16488]",
+      amount: pnl,
+      amountClass: won ? "text-[#18C99A]" : "text-[#F16488]",
+      iconClass: won ? "bg-[#083D37] text-[#18C99A]" : "bg-[#351729] text-[#F16488]",
+      icon: won ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />,
+    });
+  }
+
+  return rows;
 }
 
 function LedgerMetric({ label, value, tone = "plain" }: { label: string; value: string; tone?: "plain" | "cyan" | "red" }) {
