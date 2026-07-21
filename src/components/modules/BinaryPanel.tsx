@@ -160,6 +160,7 @@ const INDICATOR_OPTIONS = [
 ] as const;
 type IndicatorOption = (typeof INDICATOR_OPTIONS)[number];
 const QUICK = [1, 5, 10, 25, 50, 100];
+const MULTIPLIER_OPTIONS = [1, 1.5, 2, 2.5, 3, 4, 5, 10];
 
 type Tick = { d: number; tone: "neutral" | "bull" | "bear" };
 
@@ -973,10 +974,17 @@ export function BinaryPanel() {
             >
               <Minus />
             </button>
-            <div className="flex-1 bg-[#151D2C] border border-[#47D6D9] rounded py-2 text-center">
+            <label className="flex-1 bg-[#151D2C] border border-[#47D6D9] rounded py-2 text-center">
               <div className="text-[10px] uppercase text-[#7F8BA4] tracking-wider">Stake $</div>
-              <div className="text-2xl font-extrabold tabular-nums">{stake}</div>
-            </div>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={stake}
+                onChange={(event) => setStake(Math.max(1, Number(event.target.value) || 1))}
+                className="w-full bg-transparent text-center text-2xl font-extrabold tabular-nums text-[#F4F7FB] outline-none"
+              />
+            </label>
             <button
               onClick={() => setStake(stake + 1)}
               className="h-12 w-12 rounded border border-[#2A3447] bg-[#151D2C] grid place-items-center"
@@ -1006,7 +1014,7 @@ export function BinaryPanel() {
             <div className="grid grid-cols-3 gap-2">
               <BotField label="Target" prefix="$" value={target} onChange={setTarget} accent="text-bull" />
               <BotField label="Stop" prefix="$" value={stop} onChange={setStop} accent="text-bear" />
-              <BotField label="Mult" prefix="x" value={martingale} onChange={setMartingale} accent="text-primary" />
+              <MultiplierField value={martingale} onChange={setMartingale} />
             </div>
           )}
 
@@ -1336,8 +1344,9 @@ export function BinaryPanel() {
               ))}
             </div>
 
-            <div className="hidden lg:block absolute left-16 top-4 z-30 w-[286px]">
+            <div className="hidden lg:block absolute left-16 top-4 z-[90] w-[286px]">
               <button
+                type="button"
                 onClick={() => setMarketOpen(!marketOpen)}
                 className="w-full rounded-lg border border-[#2A3447] bg-[#202939]/95 p-3 flex items-center justify-between gap-3 shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur"
               >
@@ -1346,17 +1355,20 @@ export function BinaryPanel() {
                     <BarChart3 className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-base leading-tight text-[#F4F7FB] truncate">{market.label}</div>
-                    <div className="text-[10px] text-muted-foreground">{market.volatilityLabel} · {market.tickSpeedLabel}</div>
+                    <div className="text-xs font-semibold text-[#F4F7FB]">
+                      {price.toFixed(2)}
+                      <span className="ml-2 text-[#47D6D9]">{(price - market.basePrice).toFixed(2)} ({(((price - market.basePrice) / market.basePrice) * 100).toFixed(2)}%)</span>
+                    </div>
                   </div>
                 </div>
                 <ChevronDown className={"h-4 w-4 text-[#8E9AB0] shrink-0 transition " + (marketOpen ? "rotate-180" : "")} />
               </button>
 
               {marketOpen && (
-                <div className="mt-1 w-full rounded-lg border border-[#2A3447] bg-[#202939] divide-y divide-[#2A3447] max-h-72 overflow-auto shadow-xl">
+                <div className="absolute left-0 top-[calc(100%+4px)] z-[100] w-full rounded-lg border border-[#2A3447] bg-[#202939] divide-y divide-[#2A3447] max-h-80 overflow-auto shadow-2xl">
                   {VOL_INDICES.map((m) => (
                     <button
+                      type="button"
                       key={m.value}
                       onClick={() => {
                         setIndex(m.value);
@@ -1584,18 +1596,41 @@ function BotField({
   accent: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-2">
+    <label className="block rounded border border-[#2A3447] bg-[#151D2C] p-2">
       <div className={"text-[10px] uppercase font-bold tracking-wider mb-1 " + accent}>{label}</div>
       <div className="flex items-center gap-1">
         <span className={"text-sm font-bold " + accent}>{prefix}</span>
         <input
           type="number"
+          min={0}
           value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full bg-transparent text-center font-bold text-lg outline-none tabular-nums"
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+          className="w-full bg-transparent text-center font-bold text-lg text-[#F4F7FB] outline-none tabular-nums"
         />
       </div>
-    </div>
+    </label>
+  );
+}
+
+function MultiplierField({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <label className="block rounded border border-[#2A3447] bg-[#151D2C] p-2">
+      <div className="mb-1 text-[10px] uppercase font-bold tracking-wider text-[#47D6D9]">Mult</div>
+      <div className="flex items-center gap-1">
+        <span className="text-sm font-bold text-[#47D6D9]">x</span>
+        <select
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="w-full cursor-pointer bg-transparent text-center text-lg font-bold tabular-nums text-[#F4F7FB] outline-none"
+        >
+          {MULTIPLIER_OPTIONS.map((option) => (
+            <option key={option} value={option} className="bg-[#151D2C] text-[#F4F7FB]">
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    </label>
   );
 }
 

@@ -113,13 +113,8 @@ export function LiveChart({
   const smaPath = sma.length ? buildLinePath(sma, w, h, min, range) : "";
   const emaPath = ema.length ? buildLinePath(ema, w, h, min, range) : "";
   const bollFill = boll && typeof boll === "object" ? buildBandPath(boll as { upper: Array<number | null>; lower: Array<number | null> }, w, h, min, range) : "";
-  const path = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * w;
-      const y = h - ((p - min) / range) * h;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const smoothedPoints = smoothPriceSeries(points);
+  const path = buildSmoothPricePath(smoothedPoints, w, h, min, range);
   const area = `${path} L${w},${h} L0,${h} Z`;
   const last = points[points.length - 1];
   const first = points[0];
@@ -294,7 +289,7 @@ export function LiveChart({
         </div>
       )}
       {note && (
-        <div className={"absolute left-2 bottom-2 px-2 py-1 rounded-lg text-xs font-semibold tabular-nums shadow-lg " + noteBg}>
+        <div className={"pointer-events-none absolute left-16 top-24 z-20 rounded border px-2 py-1 text-xs font-semibold tabular-nums shadow-lg " + noteBg}>
           {note}
         </div>
       )}
@@ -307,6 +302,42 @@ function seededRandom(seed: number) {
   x ^= x >>> 13;
   x = Math.imul(x, 0xc2b2ae35);
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+
+function smoothPriceSeries(values: number[]) {
+  if (values.length < 4) return values;
+  return values.map((value, index) => {
+    if (index === 0 || index === values.length - 1) return value;
+    const prev = values[index - 1] ?? value;
+    const next = values[index + 1] ?? value;
+    const widerPrev = values[index - 2] ?? prev;
+    const widerNext = values[index + 2] ?? next;
+    return value * 0.45 + (prev + next) * 0.2 + (widerPrev + widerNext) * 0.075;
+  });
+}
+
+function buildSmoothPricePath(values: number[], width: number, height: number, min: number, range: number) {
+  if (values.length === 0) return "";
+  const points = values.map((value, index) => ({
+    x: (index / Math.max(values.length - 1, 1)) * width,
+    y: height - ((value - min) / range) * height,
+  }));
+  if (points.length === 1) return `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+
+  let path = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[Math.max(0, index - 1)];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[Math.min(points.length - 1, index + 2)];
+    const tension = 0.18;
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+    path += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  return path;
 }
 
 function buildLinePath(values: Array<number | null>, width: number, height: number, min: number, range: number) {
