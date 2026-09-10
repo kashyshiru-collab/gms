@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const SignUpInput = z.object({
   email: z.string().email(),
@@ -20,6 +21,21 @@ const AdminSetupInput = z.object({
 const AdminSetupPasswordInput = z.object({
   setupPassword: z.string().min(1),
 });
+
+export const getMyAdminStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (error) throw error;
+    return Boolean(data);
+  });
 
 export async function createAdminUser(data: {
   email: string;

@@ -53,6 +53,7 @@ import {
   runScheduledLedgerReconciliation,
 } from "@/lib/admin.functions";
 import { toast } from "sonner";
+import { getMyAdminStatus } from "@/lib/auth.functions";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 import { AccountsReportPanel } from "@/components/AccountsReportPanel";
 import { SupportPanel } from "@/components/SupportPanel";
@@ -68,8 +69,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
-    if (!data?.some((r) => r.role === "admin")) throw redirect({ to: "/binary" });
+    if (!(await getMyAdminStatus())) throw redirect({ to: "/binary" });
   },
   errorComponent: RouteError,
   notFoundComponent: RouteNotFound,

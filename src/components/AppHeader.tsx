@@ -30,9 +30,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { applyTheme, getInitialTheme, type Theme } from "@/lib/theme";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { LOGO_URL } from "@/lib/brand";
+import { getMyAdminStatus } from "@/lib/auth.functions";
 
 export function AppHeader() {
   const fetchProfile = useServerFn(getMyProfile);
+  const fetchAdminStatus = useServerFn(getMyAdminStatus);
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: () => fetchProfile(),
@@ -52,15 +54,17 @@ export function AppHeader() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
-      if (!cancelled) setIsAdmin(!!data?.some((r) => r.role === "admin"));
+      try {
+        const admin = await fetchAdminStatus();
+        if (!cancelled) setIsAdmin(admin);
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [profile?.id]);
+  }, [fetchAdminStatus, profile?.id]);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
