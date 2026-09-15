@@ -35,15 +35,15 @@ export function DebugConsole() {
       });
     };
 
-    window.addEventListener("megaflip-debug-log", onLog);
-    window.addEventListener("megaflip-debug-log-cleared", onLog);
+    window.addEventListener("tronix-option-debug-log", onLog);
+    window.addEventListener("tronix-option-debug-log-cleared", onLog);
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onUnhandled);
     document.addEventListener("click", onClick, true);
 
     return () => {
-      window.removeEventListener("megaflip-debug-log", onLog);
-      window.removeEventListener("megaflip-debug-log-cleared", onLog);
+      window.removeEventListener("tronix-option-debug-log", onLog);
+      window.removeEventListener("tronix-option-debug-log-cleared", onLog);
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onUnhandled);
       document.removeEventListener("click", onClick, true);

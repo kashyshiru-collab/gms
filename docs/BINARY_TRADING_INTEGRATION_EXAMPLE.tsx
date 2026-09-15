@@ -27,7 +27,7 @@ type Duration = "1tick" | "5ticks" | "1min" | "5min" | "15min" | "1hour";
  */
 
 export const Route = createFileRoute("/_authenticated/binary")({
-  head: () => ({ meta: [{ title: "Binary Trading - Megaflip" }] }),
+  head: () => ({ meta: [{ title: "Binary Trading - Tronix Option" }] }),
   component: BinaryTradingPage,
 });
 

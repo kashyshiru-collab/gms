@@ -51,7 +51,7 @@ function ScannerPage() {
       return;
     }
     window.sessionStorage.setItem(
-      "megaflip-scanner-bot",
+      "tronix-option-scanner-bot",
       JSON.stringify({
         source: "scanner",
         category: cat,

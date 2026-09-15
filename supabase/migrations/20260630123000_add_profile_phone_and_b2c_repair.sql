@@ -38,8 +38,8 @@ begin
     _occasion := _cb.payload #>> '{Result,ReferenceData,ReferenceItem,Value}';
     _tx_ref := null;
 
-    if _occasion like 'MEGAFLIP-%' then
-      _tx_ref := lower(replace(_occasion, 'MEGAFLIP-', ''));
+    if _occasion ~ '^[A-Z0-9]+-[0-9a-f]{8}$' then
+      _tx_ref := lower(split_part(_occasion, '-', 2));
     end if;
 
     if _tx_id is null then

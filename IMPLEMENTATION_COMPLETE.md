@@ -2,7 +2,7 @@
 
 ## Summary
 
-Your Megaflip trading platform now has a **production-ready tick-based charting system** that implements the exact Deriv-style architecture described in your requirements.
+Your Tronix Option trading platform now has a **production-ready tick-based charting system** that implements the exact Deriv-style architecture described in your requirements.
 
 ## What Was Implemented
 

@@ -474,7 +474,7 @@ export function BinaryPanel() {
     setAutoTrading(false);
     setAutoBot(null);
     setMode("manual");
-    window.sessionStorage.removeItem("megaflip-scanner-bot");
+    window.sessionStorage.removeItem("tronix-option-scanner-bot");
 
     const cancelIds = new Set<string>(openTrades.map((trade: any) => trade.id).filter(Boolean));
     if (pendingTrade?.id) cancelIds.add(pendingTrade.id);
@@ -913,7 +913,7 @@ function normalizePlacedTradeId(value: unknown): string | null {
 
 function readLoadedAutoBot(): LoadedAutoBot | null {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem("megaflip-scanner-bot");
+  const raw = window.sessionStorage.getItem("tronix-option-scanner-bot");
   if (!raw) return null;
 
   try {
@@ -949,7 +949,7 @@ function readLoadedAutoBot(): LoadedAutoBot | null {
       ticks: getAutoTradeTicks(market),
     };
   } catch {
-    window.sessionStorage.removeItem("megaflip-scanner-bot");
+  window.sessionStorage.removeItem("tronix-option-scanner-bot");
     return null;
   }
 }

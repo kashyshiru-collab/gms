@@ -85,7 +85,7 @@ import { AdminCurrencyProvider, formatAdminMoney, useAdminCurrency } from "@/com
 import { verifyAdminSetupPassword } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — MEGAFLIP" }] }),
+  head: () => ({ meta: [{ title: "Admin — Tronix Option" }] }),
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });

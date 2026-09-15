@@ -60,7 +60,7 @@ function BotBuilderPage() {
     setIsRunning(true);
     setStatus("Starting trade page...");
     window.sessionStorage.setItem(
-      "megaflip-scanner-bot",
+      "tronix-option-scanner-bot",
       JSON.stringify({
         source: "builder",
         name: botName,

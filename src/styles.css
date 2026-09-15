@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark, .dark *));
 @custom-variant light (&:is(.light, .light *));
 
-/* Megaflip Design System — Obsidian + Champagne Gold
+/* Tronix Option Design System — Obsidian + Champagne Gold
  * Premium fintech feel. Gold accent, mint bull, crimson bear.
  * Supports light + dark themes via .light / .dark class on <html>.
  */
