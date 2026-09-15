@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
-import { LOGO_URL } from "@/lib/brand";
+import { APP_NAME, LOGO_URL } from "@/lib/brand";
 import { useServerFn } from "@tanstack/react-start";
 import { signUpWithoutEmailVerification } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — MEGAFLIP" }] }),
+  head: () => ({ meta: [{ title: `Sign in — ${APP_NAME}` }] }),
   component: AuthPage,
 });
 
@@ -113,10 +113,10 @@ function AuthPage() {
           <div className="inline-flex items-center gap-2.5 mb-2">
             <img
               src={LOGO_URL}
-              alt="MEGAFLIP"
+              alt={APP_NAME}
               className="h-11 w-11 object-contain drop-shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_55%,transparent)]"
             />
-            <span className="text-xl font-extrabold tracking-wider">MEGAFLIP</span>
+            <span className="text-xl font-extrabold tracking-wider">{APP_NAME}</span>
           </div>
           <p className="text-xs text-muted-foreground">
             Forex · Crypto · Binaries · Polymarket · Aviator

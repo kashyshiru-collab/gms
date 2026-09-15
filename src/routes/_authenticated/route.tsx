@@ -113,6 +113,7 @@ function AuthedLayout() {
   const isAdminConsole = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
   const isPositionsPage =
     location.pathname === "/positions" || location.pathname.startsWith("/positions/");
+  const isScannerPage = location.pathname === "/scanner" || location.pathname.startsWith("/scanner/");
 
   useEffect(() => {
     setIsFullWidth(
@@ -124,7 +125,7 @@ function AuthedLayout() {
 
   const shellHeightClass = isAdminConsole ? "min-h-[100dvh]" : "h-[100dvh]";
   const shellOverflowClass = isAdminConsole ? "overflow-x-hidden" : "overflow-hidden";
-  const mainOverflowClass = isPositionsPage
+  const mainOverflowClass = isPositionsPage || isScannerPage
     ? "overflow-hidden"
     : isFullWidth
       ? "overflow-y-auto overflow-x-hidden lg:overflow-hidden"
@@ -133,6 +134,8 @@ function AuthedLayout() {
         : "overflow-y-auto overflow-x-hidden";
   const contentOverflowClass = isPositionsPage
     ? "overflow-hidden"
+    : isScannerPage
+      ? "h-full overflow-hidden"
     : isFullWidth
       ? "overflow-visible lg:overflow-hidden"
       : "overflow-visible";

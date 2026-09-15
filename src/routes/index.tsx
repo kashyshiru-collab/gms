@@ -38,8 +38,8 @@ function LandingPage() {
       <header className="fixed inset-x-0 top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" onClick={handleLogoClick} className="flex items-center gap-2.5">
-            <img src={LOGO_URL} alt="MEGAFLIP" className="h-10 w-10 object-contain" />
-            <span className="text-base font-extrabold tracking-wider">MEGAFLIP</span>
+            <img src={LOGO_URL} alt={APP_NAME} className="h-10 w-10 object-contain" />
+            <span className="text-base font-extrabold tracking-wider">{APP_NAME}</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link
@@ -66,7 +66,7 @@ function LandingPage() {
               <button
                 type="button"
                 onClick={handleLogoClick}
-                aria-label="MEGAFLIP logo"
+            aria-label={`${APP_NAME} logo`}
                 className="rounded-xl"
               >
                 <img
@@ -80,7 +80,7 @@ function LandingPage() {
               </div>
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.95] tracking-normal sm:text-6xl lg:text-7xl">
-              MEGAFLIP
+              {APP_NAME}
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
               Trade binary markets, Forex, crypto, prediction events, and synced Aviator rounds from
