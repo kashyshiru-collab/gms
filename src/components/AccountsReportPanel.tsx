@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CalendarDays, DollarSign, Search, TrendingUp, Users, Wallet } from "lucide-react";
 import { getAccountsReport } from "@/lib/admin.functions";
+import { formatAdminMoney, useAdminCurrency } from "@/components/AdminCurrency";
 
 type Scope = "admin" | "agent";
 type Mode = "current" | "all_time";
@@ -19,17 +20,24 @@ export function AccountsReportPanel({
   scope,
   mode = "current",
   title,
+  initialView = "summary",
+  presentation = "compact",
+  onNavigateToClients,
 }: {
   scope: Scope;
   mode?: Mode;
   title?: string;
+  initialView?: View;
+  presentation?: "compact" | "dashboard";
+  onNavigateToClients?: () => void;
 }) {
   const reportFn = useServerFn(getAccountsReport);
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(mode === "all_time" ? "" : today);
   const [endDate, setEndDate] = useState(mode === "all_time" ? "" : today);
   const [clientId, setClientId] = useState("");
-  const [view, setView] = useState<View>("summary");
+  const [view, setView] = useState<View>(initialView);
+  const { currency, setCurrency } = useAdminCurrency();
 
   const { data, isLoading } = useQuery({
     queryKey: ["accounts-report", scope, mode, startDate, endDate, clientId],
@@ -50,9 +58,96 @@ export function AccountsReportPanel({
     if (view === "deposits") return data?.deposits ?? [];
     if (view === "withdrawals") return data?.withdrawals ?? [];
     if (view === "trades") return data?.trades ?? [];
-    if (view === "clients") return data?.by_client ?? [];
+    if (view === "clients") {
+      return (data?.by_client ?? []).filter(
+        (row: Record<string, unknown>) => Number(row.balance_usd ?? 0) > 0,
+      );
+    }
     return [];
   }, [data, view]);
+
+  const summary = data?.summary;
+  const money = (value: unknown) => formatAdminMoney(value, currency);
+  const houseBalance =
+    Number(summary?.deposits_usd ?? 0) +
+    Number(summary?.fees_usd ?? 0) -
+    Number(summary?.withdrawals_usd ?? 0);
+  const liability = Number(summary?.user_balances_usd ?? 0);
+  const coverage = liability > 0 ? Math.max(0, Math.min(100, (houseBalance / liability) * 100)) : 0;
+
+  if (presentation === "dashboard") {
+    return (
+      <div className="space-y-6">
+        <DashboardGroup title="House">
+          <DashboardCard label="House balance" value={money(houseBalance)} tone="gold" note="Deposits + fees - withdrawals paid" />
+          <DashboardCard label="Coverage ratio" value={`${coverage.toFixed(1)}%`} tone="gold" note="House cash vs total client balances" />
+          <DashboardCard
+            label="Client balances"
+            value={money(liability)}
+            note={`Across ${summary?.clients_with_balance ?? 0} funded clients · click to view`}
+            onClick={() => {
+              setView("clients");
+              onNavigateToClients?.();
+            }}
+          />
+          <DashboardCard label="Balance status" value={houseBalance >= 0 ? "Positive" : "Negative"} note="Current treasury less completed withdrawals" />
+        </DashboardGroup>
+        <DashboardGroup title="Trading exposure">
+          <DashboardCard label="Total stakes" value={money(summary?.stakes_usd)} tone="gold" note="All recorded real-account stakes" />
+          <DashboardCard label="Trading profit" value={money(summary?.profit_usd)} note="Based on completed trades and fees" />
+          <DashboardCard label="Recorded trades" value={String(summary?.trades ?? 0)} note="Real-account trades" />
+          <DashboardCard label="House retained" value={money(summary?.retained_usd)} tone="green" note="Current retained trading value" />
+        </DashboardGroup>
+        <DashboardGroup title="Account activity">
+          <DashboardCard label="Daily accrual" value="USD 0" />
+          <DashboardCard label="7-day projection" value="USD 0" />
+          <DashboardCard label="30-day projection" value="USD 0" />
+        </DashboardGroup>
+        <DashboardGroup title="Cash flow (all-time)">
+          <DashboardCard label="Total deposits" value={money(summary?.deposits_usd)} tone="green" />
+          <DashboardCard label="Total withdrawn" value={money(summary?.withdrawals_usd)} tone="red" />
+          <DashboardCard label="Paid out to clients" value={money(summary?.withdrawals_usd)} note="Completed withdrawals" />
+          <DashboardCard label="Total earnings" value={money(Math.max(0, Number(summary?.profit_usd ?? 0)))} />
+        </DashboardGroup>
+        <div className="rounded-2xl border border-[#afdbe3] bg-white/55 p-5">
+          <div className="mb-4 text-sm font-bold uppercase tracking-wide text-[#315c72]">Detailed account reporting</div>
+          <div className="grid grid-cols-2 gap-3">{(["summary", "deposits", "withdrawals", "trades", "clients"] as const).map((item) => <button key={item} onClick={() => setView(item)} className={`rounded-xl px-3 py-2 text-sm font-bold capitalize ${view === item ? "bg-[#bcebf7] text-[#009fe3]" : "bg-white text-[#315c72]"}`}>{item}</button>)}</div>
+        </div>
+        {view !== "summary" && (
+          <div className="divide-y divide-[#d7edf0] overflow-hidden rounded-2xl border border-[#afdbe3] bg-white/70">
+            {isLoading && <div className="p-6 text-center text-sm text-[#315c72]">Loading report...</div>}
+            {!isLoading && rows.length === 0 && <div className="p-6 text-center text-sm text-[#315c72]">No records match.</div>}
+            {!isLoading && (rows as ReportRow[]).map((row) =>
+              view === "trades" ? (
+                <Row
+                  key={String(row.id)}
+                  title={`${row.module} - ${row.market}`}
+                  meta={`${row.status} - ${date(String(row.created_at))}`}
+                  value={`${money(row.stake)} stake / ${money(row.payout)} payout`}
+                />
+              ) : view === "clients" ? (
+                <Row
+                  key={String(row.client_id)}
+                  title={String(row.name ?? "")}
+                  meta={`${row.trades} trades - retained ${money(row.retained_usd)}`}
+                  value={`${money(row.balance_usd)} balance`}
+                />
+              ) : (
+                <Row
+                  key={String(row.id)}
+                  title={`${row.kind} - ${row.method ?? "system"}`}
+                  meta={`${row.status} - ${date(String(row.created_at))}`}
+                  value={money(row.amount_usd)}
+                />
+              ),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const displayMoney = (value: unknown) => formatAdminMoney(value, currency);
 
   return (
     <div className="space-y-2">
@@ -118,46 +213,46 @@ export function AccountsReportPanel({
           <ReportStat
             icon={<DollarSign className="h-3.5 w-3.5" />}
             label="Deposits"
-            value={money(data?.summary.deposits_usd)}
+            value={displayMoney(data?.summary.deposits_usd)}
             bull
           />
           <ReportStat
             icon={<Wallet className="h-3.5 w-3.5" />}
             label="Withdrawals"
-            value={money(data?.summary.withdrawals_usd)}
+            value={displayMoney(data?.summary.withdrawals_usd)}
             bear
           />
           <ReportStat
             icon={<Wallet className="h-3.5 w-3.5" />}
             label="User Balances"
-            value={money(data?.summary.user_balances_usd)}
+            value={displayMoney(data?.summary.user_balances_usd)}
           />
           <ReportStat
             icon={<TrendingUp className="h-3.5 w-3.5" />}
             label="Stakes"
-            value={money(data?.summary.stakes_usd)}
+            value={displayMoney(data?.summary.stakes_usd)}
           />
           <ReportStat
             icon={<DollarSign className="h-3.5 w-3.5" />}
             label="Retained"
-            value={money(data?.summary.retained_usd)}
+            value={displayMoney(data?.summary.retained_usd)}
             bull
           />
           <ReportStat
             icon={<DollarSign className="h-3.5 w-3.5" />}
             label="Fees earned"
-            value={money(data?.summary.fees_usd)}
+            value={displayMoney(data?.summary.fees_usd)}
             bull
           />
           <ReportStat
             icon={<TrendingUp className="h-3.5 w-3.5" />}
             label="Net cash flow"
-            value={money(data?.summary.net_cashflow_usd)}
+            value={displayMoney(data?.summary.net_cashflow_usd)}
           />
           <ReportStat
             icon={<TrendingUp className="h-3.5 w-3.5" />}
             label="System profit"
-            value={money(data?.summary.profit_usd)}
+            value={displayMoney(data?.summary.profit_usd)}
             bull
           />
           <ReportStat
@@ -184,21 +279,21 @@ export function AccountsReportPanel({
                 key={String(row.id)}
                 title={`${row.module} - ${row.market}`}
                 meta={`${row.status} - ${date(String(row.created_at))}`}
-                value={`${money(row.stake)} stake / ${money(row.payout)} payout`}
+                value={`${displayMoney(row.stake)} stake / ${displayMoney(row.payout)} payout`}
               />
             ) : view === "clients" ? (
               <Row
                 key={String(row.client_id)}
                 title={String(row.name ?? "")}
-                meta={`${row.trades} trades - retained ${money(row.retained_usd)}`}
-                value={`${money(row.deposits_usd)} in / ${money(row.withdrawals_usd)} out`}
+                meta={`${row.trades} trades - retained ${displayMoney(row.retained_usd)}`}
+                value={`${displayMoney(row.balance_usd)} balance`}
               />
             ) : (
               <Row
                 key={String(row.id)}
                 title={`${row.kind} - ${row.method ?? "system"}`}
                 meta={`${row.status} - ${date(String(row.created_at))}`}
-                value={money(row.amount_usd)}
+                value={displayMoney(row.amount_usd)}
               />
             ),
           )}
@@ -206,6 +301,16 @@ export function AccountsReportPanel({
       )}
     </div>
   );
+}
+
+function DashboardGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="space-y-3"><h2 className="text-base font-bold uppercase text-[#315c72]">{title}</h2><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{children}</div></section>;
+}
+
+function DashboardCard({ label, value, note, tone, onClick }: { label: string; value: string; note?: string; tone?: "gold" | "green" | "red"; onClick?: () => void }) {
+  const toneClass = tone === "gold" ? "text-[#f1bd1b]" : tone === "green" ? "text-[#00b969]" : tone === "red" ? "text-[#ec3038]" : "text-[#0b1930]";
+  const content = <><div className="text-xs uppercase text-[#315c72]">{label}</div><div className={`mt-3 text-2xl font-bold ${toneClass}`}>{value}</div>{note && <div className="mt-2 text-xs leading-5 text-[#315c72]">{note}</div>}</>;
+  return onClick ? <button type="button" onClick={onClick} aria-label={`View ${label}`} className="min-h-[126px] cursor-pointer rounded-[22px] border border-[#afdbe3] bg-white/55 p-4 text-left shadow-[0_12px_24px_rgba(35,79,92,0.08)] transition hover:bg-white hover:shadow-[0_16px_30px_rgba(35,79,92,0.14)] focus:outline-none focus:ring-2 focus:ring-[#009fe3]">{content}</button> : <div className="min-h-[126px] rounded-[22px] border border-[#afdbe3] bg-white/55 p-4 shadow-[0_12px_24px_rgba(35,79,92,0.08)]">{content}</div>;
 }
 
 function DateField({
@@ -275,10 +380,6 @@ function Row({ title, meta, value }: { title: string; meta: string; value: strin
       <div className="shrink-0 text-right text-xs font-bold tabular-nums">{value}</div>
     </div>
   );
-}
-
-function money(value: unknown) {
-  return `$${Number(value ?? 0).toFixed(2)}`;
 }
 
 function date(value: string) {

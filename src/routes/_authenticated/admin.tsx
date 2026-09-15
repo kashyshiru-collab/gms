@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -20,6 +20,14 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Zap,
+  ArrowLeft,
+  Building2,
+  ClipboardCheck,
+  Download,
+  Headset,
+  Network,
+  Settings2,
+  Upload,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,11 +40,19 @@ import {
   approveWithdrawalApprovalRequest,
   listAccountMetricAdjustments,
   listAdmins,
+  listAuditEvents,
   listAgents,
   adjustAgentBalance,
   setAgentWithdrawalsEnabled,
   listClients,
+  resetClientPassword,
   listWithdrawalApprovalRequests,
+  listAdminDeposits,
+  approveAdminDeposit,
+  rejectAdminDeposit,
+  listAdminWithdrawals,
+  rejectAdminWithdrawal,
+  getAccountsReport,
   moderateClientAccount,
   promoteUserRole,
   reconcileSuccessfulB2cCallbacks,
@@ -53,23 +69,28 @@ import {
   runScheduledLedgerReconciliation,
 } from "@/lib/admin.functions";
 import { toast } from "sonner";
-import { getMyAdminStatus } from "@/lib/auth.functions";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 import { AccountsReportPanel } from "@/components/AccountsReportPanel";
 import { SupportPanel } from "@/components/SupportPanel";
 import {
   calculateHouseEdgePercent,
+  calculatePlayerRoiPercent,
   DEFAULT_SYSTEM_SETTINGS,
   getSystemSettings,
   updateSystemSettings,
 } from "@/lib/system-settings";
+import { LOGO_URL } from "@/lib/brand";
+import { applyTheme, getInitialTheme, type Theme } from "@/lib/theme";
+import { AdminCurrencyProvider, formatAdminMoney, useAdminCurrency } from "@/components/AdminCurrency";
+import { verifyAdminSetupPassword } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — MEGAFLIP" }] }),
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });
-    if (!(await getMyAdminStatus())) throw redirect({ to: "/binary" });
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    if (!data?.some((r) => r.role === "admin")) throw redirect({ to: "/binary" });
   },
   errorComponent: RouteError,
   notFoundComponent: RouteNotFound,
@@ -124,10 +145,24 @@ type AdminRow = {
   created_at: string;
 };
 
+function promptPrivilegedPassword() {
+  const password = window.prompt("Enter the privileged admin password to continue:");
+  if (!password) throw new Error("Privileged password required");
+  return password;
+}
+
 function AdminPage() {
+  return <AdminCurrencyProvider><AdminWorkspace /></AdminCurrencyProvider>;
+}
+
+function AdminWorkspace() {
+  const [theme] = useState<Theme>(() => getInitialTheme());
+  const { currency, setCurrency } = useAdminCurrency();
+  useEffect(() => applyTheme(theme), [theme]);
   const [tab, setTab] = useState<
     | "accounts"
     | "users"
+    | "deposits"
     | "trades"
     | "agents"
     | "withdrawals"
@@ -136,15 +171,19 @@ function AdminPage() {
     | "ledger"
     | "admins"
   >("accounts");
-  const [adminVaultPage, setAdminVaultPage] = useState<"tools" | "admins">("tools");
-  const [titleClicks, setTitleClicks] = useState(0);
-  const [showAdminVault, setShowAdminVault] = useState(false);
   const repairWithdrawals = useServerFn(failStaleMpesaWithdrawals);
   const reconcileB2c = useServerFn(reconcileSuccessfulB2cCallbacks);
+  const listApprovals = useServerFn(listWithdrawalApprovalRequests);
   const qc = useQueryClient();
+  const { data: approvalData } = useQuery({
+    queryKey: ["withdrawal-approval-requests"],
+    queryFn: () => listApprovals(),
+    refetchInterval: 10000,
+  });
+  const pendingWithdrawalCount = approvalData?.requests?.length ?? 0;
 
   const repairMut = useMutation({
-    mutationFn: () => repairWithdrawals({ data: { older_than_minutes: 2 } }),
+    mutationFn: () => repairWithdrawals({ data: { older_than_minutes: 15 } }),
     onSuccess: (r) => {
       const count = Array.isArray(r.repaired) ? r.repaired.length : 0;
       toast.success(
@@ -173,98 +212,152 @@ function AdminPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Reconcile failed"),
   });
 
+  const nav = [
+    ["users", "Clients", Users, "clients"],
+    ["accounts", "Accounts", Building2, "accounts"],
+    ["ledger", "Treasury", Wallet, "treasury"],
+    ["deposits", "Deposits", Download, "deposits"],
+    ["withdrawals", "Withdrawals", Upload, "withdrawals"],
+    ["settings", "KYC Approval", ClipboardCheck, "kyc"],
+    ["settings", "Settings", Settings2, "settings"],
+    ["agents", "Teams", Network, "teams"],
+    ["support", "Support", Headset, "support"],
+    ["trades", "Trades", SlidersHorizontal, "trades"],
+    ["admins", "Admin access", Shield, "admin-access"],
+  ] as const;
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 px-3 py-3 pb-28 lg:px-4 lg:pb-6">
-      <div className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary grid place-items-center glow-primary">
-          <Shield className="h-5 w-5" />
+    <div className={`admin-console ${theme} min-h-[100dvh] bg-[#effcfc] text-[#0b1930] lg:flex`}>
+      <aside className="hidden w-[294px] shrink-0 border-r border-[#c3e4e9] bg-[#e7f8fa] lg:flex lg:flex-col">
+        <div className="flex h-16 items-center gap-3 border-b border-[#c3e4e9] px-6">
+          <img src={LOGO_URL} alt="MineHub" className="h-10 w-10 rounded-full bg-[#ffc81c] p-1" />
+          <span className="text-xl font-bold">MineHub - Admin</span>
         </div>
-        <div>
-          <button
-            onClick={() => {
-              const next = titleClicks + 1;
-              setTitleClicks(next);
-              if (next >= 5) {
-                setShowAdminVault(true);
-                setTab("admins");
-                setAdminVaultPage("tools");
-              }
-            }}
-            className="text-left font-bold text-base"
-          >
-            Admin Console
-          </button>
-          <p className="text-[10px] text-muted-foreground">
-            Operator view · clients, trades, agents, virtual credits
-          </p>
+        <nav className="space-y-1 p-4">
+            {nav.map(([key, label, Icon, short]) => (
+              <button key={label} type="button" onClick={() => setTab(key as typeof tab)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base transition ${tab === key ? "bg-[#bcebf7] text-[#009fe3]" : "text-[#315c72] hover:bg-[#d8f1f5]"}`}>
+                <Icon className="h-5 w-5" />
+                <span className="flex-1">{label}</span>
+                {short === "withdrawals" && pendingWithdrawalCount > 0 && (
+                  <span className="flex h-6 min-w-6 animate-pulse items-center justify-center rounded-full bg-[#e32635] px-1.5 text-xs font-extrabold text-white" aria-label={`${pendingWithdrawalCount} pending withdrawal requests`}>
+                    {pendingWithdrawalCount}
+                  </span>
+                )}
+              </button>
+            ))}
+        </nav>
+      </aside>
+      <main className="min-w-0 flex-1">
+        <header className="flex h-16 items-center justify-between border-b border-[#c3e4e9] px-5 lg:px-8">
+          <h1 className="text-xl font-bold">{nav.find(([key]) => key === tab)?.[1] ?? "Admin Console"}</h1>
+          <div className="flex items-center gap-4"><div className="flex items-center gap-1 rounded-lg border border-[#c3e4e9] bg-white/70 p-1"><span className="px-2 text-xs text-[#315c72]">Currency</span>{(["USD", "KES"] as const).map((item) => <button key={item} onClick={() => setCurrency(item)} className={`rounded-md px-2.5 py-1 text-xs font-bold ${currency === item ? "bg-[#bcebf7] text-[#009fe3]" : "text-[#315c72]"}`}>{item}</button>)}</div><Link to="/binary" className="flex items-center gap-2 text-[#315c72] hover:text-[#009fe3]"><ArrowLeft className="h-4 w-4" /> Client view</Link></div>
+        </header>
+        <div className="space-y-5 p-5 lg:p-8">
+          <div className="flex flex-wrap gap-2 lg:hidden">
+            {nav.map(([key, label, , short]) => <button key={label} onClick={() => setTab(key as typeof tab)} className={`relative rounded-full px-3 py-2 text-xs font-bold ${tab === key ? "bg-[#bcebf7] text-[#009fe3]" : "bg-white text-[#315c72]"}`}>{label}{short === "withdrawals" && pendingWithdrawalCount > 0 && <span className="ml-1.5 inline-flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full bg-[#e32635] px-1 text-[10px] font-extrabold text-white">{pendingWithdrawalCount}</span>}</button>)}
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button onClick={() => reconcileMut.mutate()} disabled={reconcileMut.isPending} className="rounded-xl bg-[#bcebf7] px-3 py-2 text-xs font-bold text-[#009fe3]"><RotateCcw className="mr-1 inline h-4 w-4" />{reconcileMut.isPending ? "Checking..." : "Sync paid M-Pesa"}</button>
+            <button onClick={() => repairMut.mutate()} disabled={repairMut.isPending} className="rounded-xl bg-[#ffdfe1] px-3 py-2 text-xs font-bold text-[#e32635]"><RotateCcw className="mr-1 inline h-4 w-4" />{repairMut.isPending ? "Checking..." : "Refund stale B2C (15m)"}</button>
+          </div>
+          {tab === "accounts" && <AccountsReportPanel scope="admin" mode="all_time" presentation="dashboard" />}
+          {tab === "users" && <UsersTab />}
+          {tab === "deposits" && <AdminDepositsTab />}
+          {tab === "trades" && <TradesTab />}
+          {tab === "agents" && <AgentsTab />}
+          {tab === "withdrawals" && <AdminWithdrawalsTab />}
+          {tab === "support" && <SupportPanel adminMode />}
+          {tab === "settings" && <SettingsTab />}
+          {tab === "ledger" && <TreasuryDashboard />}
+          {tab === "admins" && <HiddenAdminVault page="tools" onPageChange={() => undefined} />}
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => reconcileMut.mutate()}
-          disabled={reconcileMut.isPending}
-          className="rounded-xl border border-bull/30 bg-bull/10 px-3 py-2 text-xs font-bold text-bull disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          <RotateCcw className="h-4 w-4" />
-          {reconcileMut.isPending ? "Checking paid..." : "Sync paid M-Pesa"}
-        </button>
-        <button
-          onClick={() => repairMut.mutate()}
-          disabled={repairMut.isPending}
-          className="rounded-xl border border-bear/30 bg-bear/10 px-3 py-2 text-xs font-bold text-bear disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          <RotateCcw className="h-4 w-4" />
-          {repairMut.isPending ? "Checking stale..." : "Refund stale B2C"}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-4 gap-1 bg-card border border-border rounded-xl p-1 lg:grid-cols-8">
-        {(
-          [
-            "accounts",
-            "users",
-            "trades",
-            "agents",
-            "withdrawals",
-            "support",
-            "settings",
-            "ledger",
-            ...(showAdminVault ? (["admins"] as const) : []),
-          ] as const
-        ).map((k) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={
-              "py-2 rounded-lg text-[10px] font-semibold " +
-              (tab === k ? "bg-primary/15 text-primary" : "text-muted-foreground")
-            }
-          >
-            {k === "accounts"
-              ? "Accounts"
-              : k === "withdrawals"
-                ? "Withdraws"
-                : k === "ledger"
-                  ? "Ledger"
-                  : k[0].toUpperCase() + k.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {tab === "accounts" && <AccountsReportPanel scope="admin" mode="all_time" />}
-      {tab === "users" && <UsersTab />}
-      {tab === "trades" && <TradesTab />}
-      {tab === "agents" && <AgentsTab />}
-      {tab === "withdrawals" && <WithdrawalApprovalsTab />}
-      {tab === "support" && <SupportPanel adminMode />}
-      {tab === "settings" && <SettingsTab />}
-      {tab === "ledger" && <LedgerReconciliationTab />}
-      {tab === "admins" && showAdminVault && (
-        <HiddenAdminVault page={adminVaultPage} onPageChange={setAdminVaultPage} />
-      )}
+      </main>
     </div>
   );
+}
+
+function TreasuryDashboard() {
+  const { currency } = useAdminCurrency();
+  const report = useServerFn(getAccountsReport);
+  const sync = useServerFn(reconcileSuccessfulB2cCallbacks);
+  const reconcile = useServerFn(runScheduledLedgerReconciliation);
+  const { data } = useQuery({ queryKey: ["treasury-report"], queryFn: () => report({ data: { scope: "admin", mode: "all_time" } }), refetchInterval: 15000 });
+  const syncMut = useMutation({ mutationFn: () => sync(), onSuccess: () => toast.success("Payouts synchronized"), onError: (e) => toast.error(e instanceof Error ? e.message : "Payout sync failed") });
+  const reconcileMut = useMutation({ mutationFn: () => reconcile(), onSuccess: () => toast.success("Treasury reconciliation complete"), onError: (e) => toast.error(e instanceof Error ? e.message : "Reconciliation failed") });
+  const s = data?.summary;
+  const money = (v: unknown) => formatAdminMoney(v, currency);
+  return <div className="space-y-5">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><AdminDashboardCard label="Current treasury balance" value={money(Number(s?.deposits_usd ?? 0) - Number(s?.withdrawals_usd ?? 0) + Number(s?.fees_usd ?? 0))} tone="red" /><AdminDashboardCard label="Available balance" value={money(s?.user_balances_usd)} tone="green" /><AdminDashboardCard label="Trading liability" value={money(s?.stakes_usd)} tone="red" /><AdminDashboardCard label="Active clients" value={String(s?.clients ?? 0)} /></div>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]"><div className="overflow-hidden rounded-[28px] border border-[#afdbe3] bg-white/55 shadow-[0_14px_30px_rgba(35,79,92,0.08)]"><div className="border-b border-[#c5e4e8] p-5"><div className="text-base font-bold">Trading liability matrix</div><div className="text-sm text-[#315c72]">Open trades, stakes, payouts, and house exposure</div></div><div className="grid grid-cols-6 gap-3 border-b border-[#c5e4e8] px-5 py-4 text-xs font-bold uppercase text-[#315c72]"><span>Trade type</span><span>Open trades</span><span>Stakes</span><span>Payouts</span><span>House retained</span><span>Total exposure</span></div><div className="p-12 text-center text-[#315c72]">No open trade liabilities.</div></div><div className="space-y-5"><div className="rounded-[28px] border border-[#afdbe3] bg-white/55 p-5"><div className="text-sm uppercase text-[#315c72]">Liquidity status</div><div className="mt-3 text-2xl font-bold text-[#00b969]">Healthy</div><div className="mt-5 grid grid-cols-3 gap-2">{[["Deposits", money(s?.deposits_usd)], ["Earnings", money(s?.profit_usd)], ["Withdrawals", money(s?.withdrawals_usd)]].map(([k, v]) => <div key={k} className="rounded-2xl bg-[#e4f6f7] p-3"><div className="text-xs uppercase text-[#315c72]">{k}</div><div className="mt-2 text-sm font-bold">{v}</div></div>)}</div></div><div className="rounded-[28px] border border-[#afdbe3] bg-white/55 p-5"><div className="text-sm uppercase text-[#315c72]">Treasury controls</div><div className="mt-4 grid gap-3"><button onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="rounded-xl bg-[#bcebf7] px-4 py-3 text-sm font-semibold text-[#009fe3]">{syncMut.isPending ? "Syncing payouts…" : "Sync paid payouts"}</button><button onClick={() => reconcileMut.mutate()} disabled={reconcileMut.isPending} className="rounded-xl bg-[#b9f0df] px-4 py-3 text-sm font-semibold text-[#00a968]">{reconcileMut.isPending ? "Reconciling…" : "Run reconciliation"}</button></div></div></div></div>
+  </div>;
+}
+
+function AdminDashboardCard({ label, value, tone }: { label: string; value: string; tone?: "gold" | "green" | "red" }) {
+  const toneClass = tone === "gold" ? "text-[#f1bd1b]" : tone === "green" ? "text-[#00b969]" : tone === "red" ? "text-[#ec3038]" : "text-[#0b1930]";
+  return <div className="min-h-[126px] rounded-[24px] border border-[#afdbe3] bg-white/55 p-4 shadow-[0_12px_24px_rgba(35,79,92,0.08)]"><div className="text-xs uppercase text-[#315c72]">{label}</div><div className={`mt-3 text-2xl font-bold ${toneClass}`}>{value}</div></div>;
+}
+
+function AdminTableShell({ title, children }: { title: string; children: React.ReactNode }) {
+  const withdrawals = title === "Withdrawals";
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-[#afdbe3] bg-white/55 shadow-[0_14px_30px_rgba(35,79,92,0.08)]">
+      <div className={`grid ${withdrawals ? "grid-cols-[minmax(230px,2fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(120px,1fr)_minmax(145px,1fr)_minmax(100px,0.8fr)_minmax(235px,1.8fr)]" : "grid-cols-[minmax(230px,2fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_minmax(220px,1.3fr)]"} gap-4 border-b border-[#c5e4e8] bg-white/35 px-5 py-4 text-xs font-bold uppercase tracking-wide text-[#315c72]`}>
+        {withdrawals ? <><span>User</span><span>Requested</span><span>Fee</span><span>Payout</span><span>Phone</span><span>Status</span><span>Actions</span></> : <><span>User</span><span>Amount</span><span>Receipt</span><span>Status</span><span>Actions</span></>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AdminDepositsTab() {
+  const { currency } = useAdminCurrency();
+  const list = useServerFn(listAdminDeposits);
+  const approve = useServerFn(approveAdminDeposit);
+  const reject = useServerFn(rejectAdminDeposit);
+  const qc = useQueryClient();
+  const { data: rows = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-deposits"], queryFn: () => list(), refetchInterval: 10000 });
+  const approveMut = useMutation({ mutationFn: (id: string) => approve({ data: { transaction_id: id } }), onSuccess: () => { toast.success("Deposit approved"); qc.invalidateQueries({ queryKey: ["admin-deposits"] }); qc.invalidateQueries({ queryKey: ["accounts-report"] }); }, onError: (e) => toast.error(e instanceof Error ? e.message : "Deposit approval failed") });
+  const rejectMut = useMutation({ mutationFn: (id: string) => reject({ data: { transaction_id: id } }), onSuccess: () => { toast.success("Deposit rejected"); qc.invalidateQueries({ queryKey: ["admin-deposits"] }); }, onError: (e) => toast.error(e instanceof Error ? e.message : "Deposit rejection failed") });
+  return (
+    <div className="space-y-5">
+      <AdminTableShell title="Deposits">
+        {isLoading && <div className="p-8 text-center text-[#315c72]">Loading deposits…</div>}
+        {isError && <div className="p-8 text-center text-[#e52e3b]">Unable to load deposits: {error instanceof Error ? error.message : "Please retry"}</div>}
+        {!isLoading && rows.length === 0 && <div className="p-8 text-center text-[#315c72]">No deposits found.</div>}
+        {rows.map((row) => {
+          const pending = !["completed", "success", "successful"].includes(String(row.status).toLowerCase());
+          return <div key={row.id} className="grid grid-cols-[minmax(230px,2fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)_minmax(220px,1.3fr)] items-center gap-4 border-b border-[#c5e4e8] px-5 py-4 last:border-0">
+            <div><div className="font-semibold">{row.user_name}</div><div className="text-sm text-[#315c72]">{row.phone ?? row.user_id} · {new Date(row.created_at).toLocaleString()}</div></div>
+            <div className="font-medium">{formatAdminMoney(row.amount_usd ?? Number(row.amount ?? 0) / 130, currency)}</div><div className="text-[#315c72]">{row.meta?.receipt ?? "—"}</div>
+            <StatusPill status={pending ? "Pending" : "Success"} />
+            <div className="flex gap-2">{pending ? <><button onClick={() => approveMut.mutate(row.id)} disabled={approveMut.isPending || rejectMut.isPending} className="rounded-full bg-[#b9f0df] px-4 py-2 text-sm font-semibold text-[#00a968]">Approve</button><button onClick={() => rejectMut.mutate(row.id)} disabled={approveMut.isPending || rejectMut.isPending} className="rounded-full bg-[#f8d9dc] px-4 py-2 text-sm font-semibold text-[#e52e3b]">Reject</button></> : <span className="text-sm text-[#315c72]">Completed</span>}</div>
+          </div>;
+        })}
+      </AdminTableShell>
+    </div>
+  );
+}
+
+function AdminWithdrawalsTab() {
+  const { currency } = useAdminCurrency();
+  const list = useServerFn(listAdminWithdrawals);
+  const approve = useServerFn(approveWithdrawalApprovalRequest);
+  const reject = useServerFn(rejectAdminWithdrawal);
+  const qc = useQueryClient();
+  const { data: rows = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-withdrawals"], queryFn: () => list(), refetchInterval: 10000 });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }); qc.invalidateQueries({ queryKey: ["accounts-report"] }); qc.invalidateQueries({ queryKey: ["admin-clients"] }); };
+  const action = useMutation({ mutationFn: async ({ id, type }: { id: string; type: "approve" | "reject" }) => type === "approve" ? approve({ data: { transaction_id: id } }) : reject({ data: { transaction_id: id } }), onSuccess: (_, vars) => { toast.success(vars.type === "reject" ? "Withdrawal rejected" : "Withdrawal approved; awaiting provider confirmation"); refresh(); }, onError: (e) => toast.error(e instanceof Error ? e.message : "Withdrawal action failed") });
+  return <AdminTableShell title="Withdrawals">
+    {isLoading && <div className="p-8 text-center text-[#315c72]">Loading withdrawals…</div>}
+    {isError && <div className="p-8 text-center text-[#e52e3b]">Unable to load withdrawals: {error instanceof Error ? error.message : "Please retry"}</div>}
+    {!isLoading && rows.length === 0 && <div className="p-8 text-center text-[#315c72]">No withdrawals found.</div>}
+    {rows.map((row) => { const status = String(row.status).toLowerCase(); const paidStatus = status === "completed"; const active = status === "pending"; const awaitingProvider = status === "processing"; return <div key={row.id} className="grid grid-cols-[minmax(230px,2fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(120px,1fr)_minmax(145px,1fr)_minmax(100px,0.8fr)_minmax(235px,1.8fr)] items-center gap-4 border-b border-[#c5e4e8] px-5 py-4 text-sm last:border-0"><div><div className="font-semibold">{row.user_name}</div><div className="text-xs text-[#315c72]">{new Date(row.created_at).toLocaleString()}</div></div><div className="font-medium">{formatAdminMoney(row.amount_usd ?? Number(row.amount ?? 0) / 130, currency)}</div><div className="text-[#315c72]">{formatAdminMoney(Number(row.fee ?? 0) / 130, currency)}</div><div className="font-medium">{formatAdminMoney(Number(row.payout ?? 0) / 130, currency)}</div><div className="text-xs text-[#315c72]">{row.phone ?? "—"}</div><StatusPill status={paidStatus ? "Paid" : status === "failed" ? "Failed" : awaitingProvider ? "Awaiting provider" : "Pending approval"} /><div className="flex gap-1.5">{active && <><button onClick={() => action.mutate({ id: row.id, type: "approve" })} disabled={action.isPending} className="rounded-full bg-[#bcebf7] px-3 py-1.5 text-sm font-semibold text-[#009fe3]">Approve</button><button onClick={() => action.mutate({ id: row.id, type: "reject" })} disabled={action.isPending} className="rounded-full bg-[#f8d9dc] px-3 py-1.5 text-sm font-semibold text-[#e52e3b]">Reject</button></>}{awaitingProvider && <span className="text-xs text-[#315c72]">Paid status is callback-controlled</span>}</div></div>; })}
+  </AdminTableShell>;
+}
+
+function StatusPill({ status }: { status: string }) {
+  const lower = status.toLowerCase();
+  const cls = lower === "success" || lower === "paid" ? "bg-[#dcecef] text-[#0b1930]" : lower === "failed" ? "bg-[#e3edf0] text-[#0b1930]" : "bg-[#fff1c7] text-[#eeb300]";
+  return <span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${cls}`}>{status}</span>;
 }
 
 type WithdrawalApproval = {
@@ -325,7 +418,7 @@ function WithdrawalApprovalsTab() {
           <div>
             <div className="font-bold">Withdrawal requests</div>
             <div className="text-[11px] text-muted-foreground">
-              Above-deposit withdrawals wait here until an admin releases them.
+              Withdrawal requests needing attention appear here for review.
             </div>
           </div>
           <div className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-bold">
@@ -406,6 +499,28 @@ function HiddenAdminVault({
   page: "tools" | "admins";
   onPageChange: (page: "tools" | "admins") => void;
 }) {
+  const verify = useServerFn(verifyAdminSetupPassword);
+  const [unlocked, setUnlocked] = useState(false);
+  const [password, setPassword] = useState("");
+  const unlock = async () => {
+    try {
+      await verify({ data: { setupPassword: password } });
+      setPassword("");
+      setUnlocked(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Incorrect password");
+    }
+  };
+  if (!unlocked) {
+    return (
+      <div className="mx-auto max-w-md space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center gap-2 text-sm font-bold"><Shield className="h-4 w-4" /> Admin access verification</div>
+        <p className="text-xs text-muted-foreground">Enter the server-side privileged password to open this area.</p>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void unlock(); }} className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" autoFocus />
+        <button type="button" onClick={() => void unlock()} className="w-full rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground">Unlock admin access</button>
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-card p-1">
@@ -436,9 +551,40 @@ function HiddenAdminVault({
           <HiddenPermanentSummary />
           <AccountAdjustments />
           <CreateAdminForm />
+          <AuditLog />
         </>
       ) : (
         <AdminsList />
+      )}
+    </div>
+  );
+}
+
+function AuditLog() {
+  const list = useServerFn(listAuditEvents);
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ["admin-audit-events"],
+    queryFn: () => list(),
+  });
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <ClipboardCheck className="h-4 w-4 text-primary" /> System audit log
+      </div>
+      {isLoading ? <div className="text-xs text-muted-foreground">Loading...</div> : (
+        <div className="max-h-[420px] divide-y divide-border overflow-auto rounded-lg border border-border">
+          {(events as Array<{ id: string; event_type: string; entity_type?: string; entity_id?: string; details?: unknown; created_at: string }>).map((event) => (
+            <div key={event.id} className="space-y-1 p-2 text-xs">
+              <div className="flex items-center justify-between gap-2 font-semibold">
+                <span>{event.event_type}</span>
+                <span className="text-[10px] text-muted-foreground">{new Date(event.created_at).toLocaleString()}</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground">{event.entity_type ?? "system"} · {event.entity_id ?? "—"}</div>
+              <pre className="whitespace-pre-wrap break-words text-[10px] text-muted-foreground">{JSON.stringify(event.details ?? {}, null, 2)}</pre>
+            </div>
+          ))}
+          {events.length === 0 && <div className="p-3 text-xs text-muted-foreground">No audit events yet.</div>}
+        </div>
       )}
     </div>
   );
@@ -492,6 +638,7 @@ function SettingsTab() {
   const [depositFeePct, setDepositFeePct] = useState("5");
   const [withdrawalFeePct, setWithdrawalFeePct] = useState("5");
   const [rtp, setRtp] = useState("95");
+  const [winRate, setWinRate] = useState("50");
   const [minStake, setMinStake] = useState("1");
   const [maxStake, setMaxStake] = useState("1000");
   const [volatilityModel, setVolatilityModel] = useState("standard");
@@ -522,6 +669,7 @@ function SettingsTab() {
       String(Number(settings.withdrawal_fee_pct ?? settings.withdrawal_tax_pct ?? 5)),
     );
     setRtp(String(Number(settings.rtp_percent ?? 95)));
+    setWinRate(String(Number(settings.win_rate_percent ?? 50)));
     setMinStake(String(Number(settings.limits_min_stake_usd ?? 1)));
     setMaxStake(String(Number(settings.limits_max_stake_usd ?? 1000)));
     setVolatilityModel(String(settings.volatility_model_variant ?? "standard"));
@@ -570,6 +718,9 @@ function SettingsTab() {
               : DEFAULT_SYSTEM_SETTINGS.withdrawal_tax_pct,
           ),
           rtp_percent: Number(coreSettingsEnabled ? rtp || 0 : DEFAULT_SYSTEM_SETTINGS.rtp_percent),
+          win_rate_percent: Number(
+            coreSettingsEnabled ? winRate || 0 : DEFAULT_SYSTEM_SETTINGS.win_rate_percent,
+          ),
           limits_min_stake_usd: Number(
             limitsEnabled ? minStake || 0 : DEFAULT_SYSTEM_SETTINGS.limits_min_stake_usd,
           ),
@@ -618,6 +769,7 @@ function SettingsTab() {
   });
 
   const houseEdge = calculateHouseEdgePercent(Number(rtp || 95));
+  const playerRoi = calculatePlayerRoiPercent(Number(rtp || 95));
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-3">
@@ -690,12 +842,24 @@ function SettingsTab() {
                   onChange={setRtp}
                   type="number"
                 />
+                <LabeledInput
+                  label="Win rate target (%)"
+                  value={coreSettingsEnabled ? winRate : DEFAULT_SYSTEM_SETTINGS.win_rate_percent}
+                  onChange={setWinRate}
+                  type="number"
+                />
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
               <div className="font-semibold">House edge</div>
               <div className="text-muted-foreground">
                 {houseEdge.toFixed(2)}% ({(100 - houseEdge).toFixed(2)}% RTP)
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
+              <div className="font-semibold">Expected player ROI</div>
+              <div className="text-muted-foreground">
+                {playerRoi.toFixed(2)}% · derived from RTP, before fees and variance
               </div>
             </div>
           </div>
@@ -974,6 +1138,7 @@ function SettingsTab() {
 }
 
 function AccountAdjustments() {
+  const { currency } = useAdminCurrency();
   const list = useServerFn(listAccountMetricAdjustments);
   const create = useServerFn(createAccountMetricAdjustment);
   const qc = useQueryClient();
@@ -1036,9 +1201,7 @@ function AccountAdjustments() {
           <div key={String(row.id)} className="flex items-center justify-between p-2 text-xs">
             <div className="font-semibold">{String(row.label)}</div>
             <div className="text-right tabular-nums text-muted-foreground">
-              D ${Number(row.deposits_usd ?? 0).toFixed(2)} · W $
-              {Number(row.withdrawals_usd ?? 0).toFixed(2)} · R $
-              {Number(row.retained_usd ?? 0).toFixed(2)}
+              D {formatAdminMoney(row.deposits_usd ?? 0, currency)} · W {formatAdminMoney(row.withdrawals_usd ?? 0, currency)} · R {formatAdminMoney(row.retained_usd ?? 0, currency)}
             </div>
           </div>
         ))}
@@ -1073,10 +1236,12 @@ function MetricInput({
 }
 
 function UsersTab() {
+  const { currency } = useAdminCurrency();
   const list = useServerFn(listClients);
   const promote = useServerFn(promoteUserRole);
   const resetBalances = useServerFn(resetUserBalances);
   const moderate = useServerFn(moderateClientAccount);
+  const resetPassword = useServerFn(resetClientPassword);
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<string | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -1087,14 +1252,14 @@ function UsersTab() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-clients", search, agentFilter],
     queryFn: () =>
-      list({ data: { search: search || undefined, agent_id: agentFilter, limit: 200 } }),
+      list({ data: { search: search || undefined, agent_id: agentFilter, limit: 500 } }),
   });
   const agentRows = agents as AgentRow[];
   const userRows = users as ClientRow[];
   const selectedClient = userRows.find((user) => user.id === selectedClientId) ?? null;
   const promoteMut = useMutation({
     mutationFn: (vars: { user_id: string; role: "admin" | "agent" }) =>
-      promote({ data: { ...vars, commission_pct: 10 } }),
+      promote({ data: { ...vars, commission_pct: 10, security_password: promptPrivilegedPassword() } }),
     onSuccess: (_, vars) => {
       toast.success(`User promoted to ${vars.role}`);
       qc.invalidateQueries({ queryKey: ["admin-clients"] });
@@ -1135,6 +1300,14 @@ function UsersTab() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Account action failed"),
   });
+  const resetPasswordMut = useMutation({
+    mutationFn: (user_id: string) =>
+      resetPassword({ data: { user_id, security_password: promptPrivilegedPassword() } }),
+    onSuccess: (result) => {
+      toast.success(`Password reset. Temporary password: ${result.temporary_password}`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Password reset failed"),
+  });
 
   const totalReal = userRows.reduce((s, u) => s + Number(u.balance_usd), 0);
   const totalDemo = userRows.reduce((s, u) => s + Number(u.demo_balance_usd ?? 0), 0);
@@ -1149,13 +1322,13 @@ function UsersTab() {
         />
         <Stat
           icon={<DollarSign className="h-3.5 w-3.5" />}
-          label="Real $"
-          value={`$${totalReal.toFixed(0)}`}
+          label="Real balance"
+          value={formatAdminMoney(totalReal, currency)}
         />
         <Stat
           icon={<DollarSign className="h-3.5 w-3.5" />}
-          label="Demo $"
-          value={`$${totalDemo.toFixed(0)}`}
+          label="Demo balance"
+          value={formatAdminMoney(totalDemo, currency)}
         />
       </div>
 
@@ -1215,10 +1388,10 @@ function UsersTab() {
                 </button>
                 <div className="text-right ml-4">
                   <div className="font-bold tabular-nums text-bull text-xs">
-                    🇺🇸 ${Number(u.balance_usd).toFixed(2)}
+                    {formatAdminMoney(u.balance_usd, currency)}
                   </div>
                   <div className="font-bold tabular-nums text-primary text-[10px]">
-                    D ${Number(u.demo_balance_usd ?? 0).toFixed(2)}
+                    D {formatAdminMoney(u.demo_balance_usd ?? 0, currency)}
                   </div>
                 </div>
               </div>
@@ -1262,6 +1435,17 @@ function UsersTab() {
                     className="rounded border border-bull/40 px-1.5 py-0.5 text-[9px] font-bold text-bull disabled:opacity-50"
                   >
                     <ShieldPlus className="mr-0.5 inline h-2.5 w-2.5" /> Admin
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Reset this user's password to their 07 phone number and require a new password at next login?")) {
+                        resetPasswordMut.mutate(u.id);
+                      }
+                    }}
+                    disabled={resetPasswordMut.isPending}
+                    className="rounded border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-500 disabled:opacity-50"
+                  >
+                    Reset password
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -1340,6 +1524,11 @@ function UsersTab() {
         })}
       </div>
 
+      <div className="rounded-2xl border border-[#b9dfe5] bg-white/70 p-4">
+        <div className="mb-3 text-sm font-bold uppercase tracking-wide text-[#315c72]">Admin accounts visible in clients</div>
+        <AdminsList />
+      </div>
+
       {selectedClient && (
         <ClientDetailsDrawer client={selectedClient} onClose={() => setSelectedClientId(null)} />
       )}
@@ -1348,6 +1537,7 @@ function UsersTab() {
 }
 
 function ClientDetailsDrawer({ client, onClose }: { client: ClientRow; onClose: () => void }) {
+  const { currency } = useAdminCurrency();
   const [details, setDetails] = useState<{
     profile?: Record<string, unknown> | null;
     trades: Array<Record<string, unknown>>;
@@ -1440,11 +1630,11 @@ function ClientDetailsDrawer({ client, onClose }: { client: ClientRow; onClose: 
             />
             <Row
               label="Real balance"
-              value={`$${Number(details.profile?.balance_usd ?? client.balance_usd ?? 0).toFixed(2)}`}
+              value={formatAdminMoney(details.profile?.balance_usd ?? client.balance_usd ?? 0, currency)}
             />
             <Row
               label="Demo balance"
-              value={`$${Number(details.profile?.demo_balance_usd ?? client.demo_balance_usd ?? 0).toFixed(2)}`}
+              value={formatAdminMoney(details.profile?.demo_balance_usd ?? client.demo_balance_usd ?? 0, currency)}
             />
             <Row
               label="Joined"
@@ -1584,6 +1774,7 @@ function LabeledSelect({
 }
 
 function TradesTab() {
+  const { currency } = useAdminCurrency();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [moduleFilter, setModuleFilter] = useState<string | undefined>(undefined);
   const [accountFilter, setAccountFilter] = useState<"all" | "real" | "demo">("all");
@@ -1616,12 +1807,12 @@ function TradesTab() {
         <Stat
           icon={<DollarSign className="h-3.5 w-3.5" />}
           label="Volume"
-          value={`$${trades.reduce((s, t) => s + Number(t.stake), 0).toFixed(0)}`}
+          value={formatAdminMoney(trades.reduce((s, t) => s + Number(t.stake), 0), currency)}
         />
         <Stat
           icon={<DollarSign className="h-3.5 w-3.5" />}
           label="House"
-          value={`$${houseRetained.toFixed(0)}`}
+          value={formatAdminMoney(houseRetained, currency)}
           bull
         />
       </div>
@@ -1656,7 +1847,7 @@ function TradesTab() {
               </div>
             </div>
             <div className="text-right">
-              <div className="font-bold tabular-nums text-xs">${Number(t.stake).toFixed(2)}</div>
+              <div className="font-bold tabular-nums text-xs">{formatAdminMoney(Number(t.stake), currency)}</div>
               <div
                 className={
                   "text-[10px] font-bold " +
@@ -1667,7 +1858,7 @@ function TradesTab() {
                       : "text-muted-foreground")
                 }
               >
-                {t.status} {t.status === "won" && `+$${Number(t.payout).toFixed(2)}`}
+                {t.status} {t.status === "won" && `+${formatAdminMoney(Number(t.payout), currency)}`}
               </div>
             </div>
           </div>
@@ -1681,6 +1872,7 @@ function TradesTab() {
 }
 
 function AgentsTab() {
+  const { currency } = useAdminCurrency();
   const agentsFn = useServerFn(listAgents);
   const create = useServerFn(createAgent);
   const adjustBalance = useServerFn(adjustAgentBalance);
@@ -1704,7 +1896,7 @@ function AgentsTab() {
   const agentRows = agents as AgentRow[];
 
   const createMut = useMutation({
-    mutationFn: (vars: { email: string; commission_pct: number }) => create({ data: vars }),
+    mutationFn: (vars: { email: string; commission_pct: number }) => create({ data: { ...vars, security_password: promptPrivilegedPassword() } }),
     onSuccess: (r) => {
       toast.success(`Agent created · code ${r.agent.referral_code}`);
       setShowCreate(false);
@@ -1722,6 +1914,7 @@ function AgentsTab() {
           amount_usd: vars.amount_usd,
           action: balanceAction,
           account: balanceAccount,
+          security_password: promptPrivilegedPassword(),
         },
       }),
     onSuccess: () => {
@@ -1742,7 +1935,7 @@ function AgentsTab() {
   });
   const demoteMut = useMutation({
     mutationFn: (vars: { user_id: string }) =>
-      demote({ data: { user_id: vars.user_id, role: "agent", reset_agent_balances: true } }),
+      demote({ data: { user_id: vars.user_id, role: "agent", reset_agent_balances: true, security_password: promptPrivilegedPassword() } }),
     onSuccess: () => {
       toast.success("Agent demoted to user and balances reset");
       qc.invalidateQueries({ queryKey: ["admin-agents"] });
@@ -1827,13 +2020,13 @@ function AgentsTab() {
           </div>
           <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
             <Cell label="Clients" v={a.client_count} />
-            <Cell label="Deposits" v={`$${Number(a.total_deposits).toFixed(0)}`} bull />
-            <Cell label="Withdraws" v={`$${Number(a.total_withdrawals).toFixed(0)}`} bear />
-            <Cell label="House" v={`$${Number(a.house_retained).toFixed(0)}`} bull />
+            <Cell label="Deposits" v={formatAdminMoney(a.total_deposits, currency)} bull />
+            <Cell label="Withdraws" v={formatAdminMoney(a.total_withdrawals, currency)} bear />
+            <Cell label="House" v={formatAdminMoney(a.house_retained, currency)} bull />
           </div>
           <div className="grid grid-cols-2 gap-1 text-center text-[10px]">
-            <Cell label="Real balance" v={`$${Number(a.balance_usd ?? 0).toFixed(2)}`} />
-            <Cell label="Demo balance" v={`$${Number(a.demo_balance_usd ?? 0).toFixed(2)}`} />
+            <Cell label="Real balance" v={formatAdminMoney(a.balance_usd ?? 0, currency)} />
+            <Cell label="Demo balance" v={formatAdminMoney(a.demo_balance_usd ?? 0, currency)} />
           </div>
           <button
             onClick={() =>
@@ -1958,7 +2151,7 @@ function CreateAdminForm() {
 
   const createMut = useMutation({
     mutationFn: (vars: { fullName: string; email: string; password: string }) =>
-      create({ data: vars }),
+      create({ data: { ...vars, security_password: promptPrivilegedPassword() } }),
     onSuccess: (r) => {
       toast.success(
         r.promotedExisting ? "Existing user promoted to admin" : "Admin account created",
@@ -2055,10 +2248,10 @@ function AdminsList() {
   const adminRows = admins as AdminRow[];
   const demoteMut = useMutation({
     mutationFn: (vars: { user_id: string; next_role: "agent" | "client" }) =>
-      demote({ data: { user_id: vars.user_id, role: "admin", reset_agent_balances: false } }).then(
+      demote({ data: { user_id: vars.user_id, role: "admin", reset_agent_balances: false, security_password: promptPrivilegedPassword() } }).then(
         () =>
           vars.next_role === "agent"
-            ? promote({ data: { user_id: vars.user_id, role: "agent", commission_pct: 10 } })
+            ? promote({ data: { user_id: vars.user_id, role: "agent", commission_pct: 10, security_password: promptPrivilegedPassword() } })
             : { ok: true },
       ),
     onSuccess: (_, vars) => {
@@ -2120,6 +2313,7 @@ function AdminsList() {
 }
 
 function LedgerReconciliationTab() {
+  const { currency } = useAdminCurrency();
   const reconcileAll = useServerFn(reconcileAllBalances);
   const auditBalance = useServerFn(auditUserBalance);
   const getStatus = useServerFn(getReconciliationStatus);

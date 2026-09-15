@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Activity, BarChart3, Plane, ShieldCheck, Smartphone, Zap } from "lucide-react";
 import { useRef, useState } from "react";
-import { LOGO_URL } from "@/lib/brand";
+import { APP_NAME, LOGO_URL } from "@/lib/brand";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "tronix option - Trading workspace" }] }),
+  head: () => ({ meta: [{ title: `${APP_NAME} - Trading workspace` }] }),
   component: LandingPage,
 });
 
@@ -38,8 +38,8 @@ function LandingPage() {
       <header className="fixed inset-x-0 top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" onClick={handleLogoClick} className="flex items-center gap-2.5">
-            <img src={LOGO_URL} alt="tronix option" className="h-10 w-10 object-contain" />
-            <span className="text-base font-extrabold tracking-wider">tronix option</span>
+            <img src={LOGO_URL} alt="MEGAFLIP" className="h-10 w-10 object-contain" />
+            <span className="text-base font-extrabold tracking-wider">MEGAFLIP</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link
@@ -66,7 +66,7 @@ function LandingPage() {
               <button
                 type="button"
                 onClick={handleLogoClick}
-                aria-label="tronix option logo"
+                aria-label="MEGAFLIP logo"
                 className="rounded-xl"
               >
                 <img
@@ -80,7 +80,7 @@ function LandingPage() {
               </div>
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.95] tracking-normal sm:text-6xl lg:text-7xl">
-              tronix option
+              MEGAFLIP
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
               Trade binary markets, Forex, crypto, prediction events, and synced Aviator rounds from

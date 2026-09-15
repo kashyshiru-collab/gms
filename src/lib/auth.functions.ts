@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const SignUpInput = z.object({
   email: z.string().email(),
@@ -22,20 +21,18 @@ const AdminSetupPasswordInput = z.object({
   setupPassword: z.string().min(1),
 });
 
-export const getMyAdminStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (error) throw error;
-    return Boolean(data);
-  });
+/**
+ * Server-only step-up authentication for high-risk admin actions.
+ *
+ * Keep ADMIN_SETUP_PASSWORD in the server environment. Never put this value
+ * in client code or source control; fail closed if deployment is misconfigured.
+ */
+export function assertPrivilegedPassword(password: string) {
+  const expected = process.env.ADMIN_SETUP_PASSWORD;
+  if (!expected || !password || password !== expected) {
+    throw new Error("Incorrect privileged action password");
+  }
+}
 
 export async function createAdminUser(data: {
   email: string;
@@ -182,8 +179,7 @@ export const createAdminWithSetupPassword = createServerFn({ method: "POST" })
 export const verifyAdminSetupPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => AdminSetupPasswordInput.parse(d))
   .handler(async ({ data }) => {
-    const expected = process.env.ADMIN_SETUP_PASSWORD ?? "@12Incorrect";
-    if (data.setupPassword !== expected) throw new Error("Incorrect admin setup password");
+    assertPrivilegedPassword(data.setupPassword);
     return { ok: true };
   });
 

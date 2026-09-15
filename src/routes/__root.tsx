@@ -77,14 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0f1014" },
-      { title: "tronix option — Premium trading workspace" },
+      { title: "MEGAFLIP — Premium trading workspace" },
       {
         name: "description",
         content:
-          "tronix option: Real Forex, in-house binaries, Polymarket-style predictions, Aviator, and an AI Market Scanner — one premium trading workspace.",
+          "MEGAFLIP: Real Forex, in-house binaries, Polymarket-style predictions, Aviator, and an AI Market Scanner — one premium trading workspace.",
       },
-      { name: "author", content: "tronix option" },
-      { property: "og:title", content: "tronix option — Premium trading workspace" },
+      { name: "author", content: "MEGAFLIP" },
+      { property: "og:title", content: "MEGAFLIP — Premium trading workspace" },
       {
         property: "og:description",
         content: "Trade Forex, Binaries, Predict markets, and Aviator with an AI Market Scanner.",

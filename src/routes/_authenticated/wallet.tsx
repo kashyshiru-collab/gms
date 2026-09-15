@@ -99,7 +99,7 @@ function WalletPage() {
         .catch(() => {
           qc.invalidateQueries({ queryKey: ["profile"] });
         });
-    }, 5000);
+    }, 15000);
     return () => window.clearInterval(id);
   }, [loadHistory, qc, syncDeposits]);
 
@@ -188,7 +188,7 @@ function WalletPage() {
       logDebugEvent("info", "wallet.withdraw", "Withdraw request succeeded", result);
       toast.success(
         result.approval_required
-          ? "Withdrawal processing. Admin approval required before release."
+          ? "Kindly hold on while an admin reviews your withdrawal."
           : method === "mpesa"
             ? "Withdrawal pending. Waiting for Safaricom approval."
             : "Withdrawal submitted.",

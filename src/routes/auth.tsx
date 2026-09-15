@@ -9,7 +9,7 @@ import { signUpWithoutEmailVerification } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — tronix option" }] }),
+  head: () => ({ meta: [{ title: "Sign in — MEGAFLIP" }] }),
   component: AuthPage,
 });
 
@@ -29,7 +29,9 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/binary" });
+      if (data.session) {
+        navigate({ to: data.session.user.user_metadata?.must_change_password ? "/change-password" : "/binary" });
+      }
     });
   }, [navigate]);
 
@@ -91,6 +93,10 @@ function AuthPage() {
             .update({ account_state: "active", freeze_until: null })
             .eq("id", signInData.user.id);
         }
+        if (signInData.user.user_metadata?.must_change_password) {
+          navigate({ to: "/change-password" });
+          return;
+        }
       }
       navigate({ to: "/binary" });
     } catch (err) {
@@ -107,10 +113,10 @@ function AuthPage() {
           <div className="inline-flex items-center gap-2.5 mb-2">
             <img
               src={LOGO_URL}
-              alt="tronix option"
+              alt="MEGAFLIP"
               className="h-11 w-11 object-contain drop-shadow-[0_0_18px_color-mix(in_oklab,var(--gold)_55%,transparent)]"
             />
-            <span className="text-xl font-extrabold tracking-wider">tronix option</span>
+            <span className="text-xl font-extrabold tracking-wider">MEGAFLIP</span>
           </div>
           <p className="text-xs text-muted-foreground">
             Forex · Crypto · Binaries · Polymarket · Aviator

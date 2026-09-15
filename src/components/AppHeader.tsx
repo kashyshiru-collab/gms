@@ -29,12 +29,10 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/co
 import { supabase } from "@/integrations/supabase/client";
 import { applyTheme, getInitialTheme, type Theme } from "@/lib/theme";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
-import { LOGO_URL } from "@/lib/brand";
-import { getMyAdminStatus } from "@/lib/auth.functions";
+import { APP_NAME, LOGO_URL } from "@/lib/brand";
 
 export function AppHeader() {
   const fetchProfile = useServerFn(getMyProfile);
-  const fetchAdminStatus = useServerFn(getMyAdminStatus);
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: () => fetchProfile(),
@@ -54,17 +52,15 @@ export function AppHeader() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const admin = await fetchAdminStatus();
-        if (!cancelled) setIsAdmin(admin);
-      } catch {
-        if (!cancelled) setIsAdmin(false);
-      }
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+      if (!cancelled) setIsAdmin(!!data?.some((r) => r.role === "admin"));
     })();
     return () => {
       cancelled = true;
     };
-  }, [fetchAdminStatus, profile?.id]);
+  }, [profile?.id]);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -109,8 +105,8 @@ export function AppHeader() {
         <SheetContent side="left" className="w-72 bg-background border-border p-0">
           <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
             <SheetTitle className="flex items-center gap-2">
-              <img src={LOGO_URL} alt="tronix option" className="h-8 w-8 object-contain" />
-              <span className="text-base font-extrabold tracking-tight">tronix option</span>
+              <img src={LOGO_URL} alt="Megaflip" className="h-8 w-8 object-contain" />
+              <span className="text-base font-extrabold tracking-tight">{APP_NAME}</span>
             </SheetTitle>
           </SheetHeader>
           <nav className="p-2">
@@ -178,20 +174,19 @@ export function AppHeader() {
       <Link to="/binary" className="flex items-center gap-1.5 shrink-0">
         <img
           src={LOGO_URL}
-          alt="tronix option"
+          alt="Megaflip"
           className="h-9 w-9 rounded-xl object-contain bg-primary/10 p-1 drop-shadow-[0_0_10px_color-mix(in_oklab,var(--gold)_55%,transparent)]"
         />
-        <span className="hidden sm:inline text-xs font-extrabold tracking-wider">tronix option</span>
+        <span className="hidden sm:inline text-xs font-extrabold tracking-wider">{APP_NAME}</span>
       </Link>
 
       <Link
         to="/wallet"
         aria-label="Wallet"
         title="Wallet"
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-surface text-primary transition-colors hover:bg-primary/10"
       >
         <Wallet className="h-5 w-5" />
-        <span>Wallet</span>
       </Link>
 
       <nav className="hidden xl:flex items-center gap-6 text-muted-foreground">
@@ -210,9 +205,9 @@ export function AppHeader() {
       <button className="hidden lg:flex mx-auto h-10 min-w-[200px] items-center justify-between rounded-lg border border-border bg-surface px-3 text-sm font-bold">
         <span className="flex items-center gap-2">
           <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-[10px] font-black text-primary-foreground">
-            TO
+            MF
           </span>
-          tronix option Trader
+          Megaflip Trader
         </span>
         <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>

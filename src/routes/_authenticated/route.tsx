@@ -7,7 +7,6 @@ import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { DebugConsole } from "@/components/DebugConsole";
 import { getAdminSupportUnreadCount } from "@/lib/support.functions";
-import { getMyAdminStatus } from "@/lib/auth.functions";
 import { releaseStaleBinaryTrades } from "@/lib/trades.functions";
 import { toast } from "sonner";
 
@@ -63,12 +62,10 @@ function AuthedLayout() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const admin = await getMyAdminStatus();
-        if (!cancelled) setIsAdmin(admin);
-      } catch {
-        if (!cancelled) setIsAdmin(false);
-      }
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.user.id);
+      if (!cancelled) setIsAdmin(!!data?.some((row) => row.role === "admin"));
     })();
     return () => {
       cancelled = true;
@@ -146,7 +143,7 @@ function AuthedLayout() {
     <div
       className={`flex ${shellHeightClass} w-full max-w-full flex-col ${shellOverflowClass} bg-background ${shellPaddingClass}`}
     >
-      {!isPositionsPage && <AppHeader />}
+      {!isPositionsPage && !isAdminConsole && <AppHeader />}
       <main className={`min-h-0 flex-1 w-full max-w-full px-0 py-0 ${mainOverflowClass}`}>
         {isAdmin && (supportUnread?.count ?? 0) > 0 && (
           <div className="border-b border-primary/30 bg-primary/10 px-4 py-2 text-xs font-bold text-primary">
@@ -158,8 +155,8 @@ function AuthedLayout() {
           <Outlet />
         </div>
       </main>
-      {isAdmin && <DebugConsole />}
-      {!isPositionsPage && (
+      {isAdmin && !isAdminConsole && <DebugConsole />}
+      {!isPositionsPage && !isAdminConsole && (
         <div className="lg:hidden">
           <BottomNav />
         </div>

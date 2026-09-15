@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createAdminUser } from "@/lib/auth.functions";
+import { assertPrivilegedPassword } from "@/lib/auth.functions";
 import { releaseApprovedWithdrawalTransaction } from "@/lib/wallet.functions";
 import { z } from "zod";
 
@@ -147,11 +148,13 @@ export const createAgent = createServerFn({ method: "POST" })
       .object({
         email: z.string().email(),
         commission_pct: z.number().min(0).max(50).default(10),
+        security_password: z.string().min(1),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Find user by email via auth admin
@@ -248,11 +251,13 @@ export const adjustAgentBalance = createServerFn({ method: "POST" })
         account: z.enum(["real", "demo"]).default("real"),
         action: z.enum(["credit", "debit"] satisfies [AgentBalanceAction, AgentBalanceAction]),
         reason: z.string().trim().max(240).optional(),
+        security_password: z.string().min(1),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: agent, error: agentError } = await supabaseAdmin
       .from("agents")
@@ -476,11 +481,13 @@ export const promoteUserRole = createServerFn({ method: "POST" })
         user_id: z.string().uuid(),
         role: z.enum(["admin", "agent"]),
         commission_pct: z.number().min(0).max(100).default(10),
+        security_password: z.string().min(1),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     await supabaseAdmin
@@ -510,6 +517,58 @@ export const promoteUserRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const resetClientPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ user_id: z.string().uuid(), security_password: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id,phone")
+      .eq("id", data.user_id)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    if (!profile?.phone) throw new Error("This user has no phone number on their profile");
+
+    const temporaryPassword = temporaryPasswordFromPhone(profile.phone);
+    const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    if (authUserError || !authUser.user) throw new Error(authUserError?.message ?? "User account not found");
+
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      password: temporaryPassword,
+      user_metadata: {
+        ...(authUser.user.user_metadata ?? {}),
+        must_change_password: true,
+        password_reset_at: new Date().toISOString(),
+      },
+    });
+    if (updateError) throw new Error(updateError.message);
+
+    const { error: auditError } = await supabaseAdmin.from("audit_events").insert({
+      actor_user_id: context.userId,
+      event_type: "client_password_reset",
+      entity_type: "user",
+      entity_id: data.user_id,
+      details: { method: "phone_temporary_password", must_change_password: true },
+    });
+    if (auditError) throw new Error(auditError.message);
+
+    return { ok: true, temporary_password: temporaryPassword };
+  });
+
+function temporaryPasswordFromPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("254") && digits.length === 12) return `0${digits.slice(3)}`;
+  if (digits.startsWith("0") && digits.length === 10) return digits;
+  if (digits.length === 9) return `0${digits}`;
+  throw new Error("The user's phone number is not a valid Kenyan mobile number");
+}
+
 export const demoteUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -518,11 +577,13 @@ export const demoteUserRole = createServerFn({ method: "POST" })
         user_id: z.string().uuid(),
         role: z.enum(["admin", "agent"]),
         reset_agent_balances: z.boolean().default(true),
+        security_password: z.string().min(1),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     if (data.role === "admin") {
@@ -818,6 +879,7 @@ export const getAccountsReport = createServerFn({ method: "POST" })
         client_id: id,
         name: profile?.full_name || profile?.username || profile?.email || id.slice(0, 8),
         email: profile?.email ?? null,
+        balance_usd: Number(profile?.balance_usd ?? 0),
         deposits_usd: sumUsd(
           clientTx.filter((t) => t.kind === "deposit" && t.status === "completed"),
         ),
@@ -834,6 +896,8 @@ export const getAccountsReport = createServerFn({ method: "POST" })
       clients: filteredClients,
       summary: {
         clients: filteredIds.length,
+        clients_with_balance: reportClients.filter((client) => Number(client.balance_usd ?? 0) > 0)
+          .length,
         deposits_usd: sumUsd(completedDeposits) + manual.deposits_usd,
         withdrawals_usd: sumUsd(completedWithdrawals) + manual.withdrawals_usd,
         fees_usd: feeTotal,
@@ -899,12 +963,7 @@ export const reconcileSuccessfulB2cCallbacks = createServerFn({ method: "POST" }
     );
     if (error) throw new Error(error.message);
 
-    const { data: acceptedRows, error: acceptedError } = await (
-      supabaseAdmin as unknown as RpcAdminClient
-    ).rpc("complete_accepted_b2c_withdrawals");
-    if (acceptedError) throw new Error(acceptedError.message);
-
-    return { ok: true, repaired: [...(callbackRows ?? []), ...(acceptedRows ?? [])] };
+    return { ok: true, repaired: callbackRows ?? [] };
   });
 
 export const listWithdrawalApprovalRequests = createServerFn({ method: "GET" })
@@ -945,6 +1004,111 @@ export const listWithdrawalApprovalRequests = createServerFn({ method: "GET" })
         created_at: row.created_at,
       })),
     };
+  });
+
+export const listAdminDeposits = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("transactions")
+      .select("id,user_id,amount,amount_usd,currency,status,method,meta,created_at")
+      .eq("kind", "deposit")
+      .eq("account_type", "real")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const ids = (data ?? []).map((row) => row.user_id).filter(Boolean);
+    const { data: roles } = ids.length ? await supabaseAdmin.from("user_roles").select("user_id,role").in("user_id", ids) : { data: [] };
+    const internalIds = new Set((roles ?? []).filter((role) => role.role === "admin" || role.role === "agent").map((role) => role.user_id));
+    const { data: profiles } = ids.length ? await supabaseAdmin.from("profiles").select("id,email,full_name,username,phone").in("id", ids) : { data: [] };
+    const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    return (data ?? []).filter((row) => !internalIds.has(row.user_id)).map((row) => ({
+      ...row,
+      user_name: profileMap.get(row.user_id)?.full_name ?? profileMap.get(row.user_id)?.username ?? profileMap.get(row.user_id)?.email ?? "Client",
+      phone: profileMap.get(row.user_id)?.phone ?? row.meta?.phone ?? null,
+    }));
+  });
+
+export const approveAdminDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ transaction_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: transaction, error } = await (supabaseAdmin as unknown as RpcAdminClient).rpc(
+      "apply_transaction",
+      { _transaction_id: data.transaction_id, _status: "completed", _meta: { approved_by: context.userId, approved_at: new Date().toISOString() } },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true, transaction };
+  });
+
+export const rejectAdminDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ transaction_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await (supabaseAdmin as unknown as RpcAdminClient).rpc("apply_transaction", {
+      _transaction_id: data.transaction_id,
+      _status: "cancelled",
+      _meta: { rejected_by: context.userId, rejected_at: new Date().toISOString() },
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listAdminWithdrawals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("transactions")
+      .select("id,user_id,amount,amount_usd,currency,status,method,meta,created_at")
+      .eq("kind", "withdraw")
+      .eq("account_type", "real")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const ids = (data ?? []).map((row) => row.user_id).filter(Boolean);
+    const { data: roles } = ids.length ? await supabaseAdmin.from("user_roles").select("user_id,role").in("user_id", ids) : { data: [] };
+    const internalIds = new Set((roles ?? []).filter((role) => role.role === "admin" || role.role === "agent").map((role) => role.user_id));
+    const { data: profiles } = ids.length ? await supabaseAdmin.from("profiles").select("id,email,full_name,username,phone").in("id", ids) : { data: [] };
+    const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    return (data ?? []).filter((row) => !internalIds.has(row.user_id)).map((row) => ({
+      ...row,
+      user_name: profileMap.get(row.user_id)?.full_name ?? profileMap.get(row.user_id)?.username ?? profileMap.get(row.user_id)?.email ?? "Client",
+      phone: profileMap.get(row.user_id)?.phone ?? row.meta?.phone ?? null,
+      fee: Number(row.meta?.fee_amount ?? 0),
+      payout: Number(row.meta?.net_amount ?? row.amount ?? 0),
+    }));
+  });
+
+export const markAdminWithdrawalPaid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ transaction_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    void data;
+    throw new Error("Withdrawals are marked paid only by the provider callback");
+  });
+
+export const rejectAdminWithdrawal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ transaction_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await (supabaseAdmin as unknown as RpcAdminClient).rpc("apply_transaction", {
+      _transaction_id: data.transaction_id,
+      _status: "cancelled",
+      _meta: { rejected_by: context.userId, rejected_at: new Date().toISOString() },
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const approveWithdrawalApprovalRequest = createServerFn({ method: "POST" })
@@ -996,11 +1160,13 @@ export const createAdminAccount = createServerFn({ method: "POST" })
         email: z.string().email(),
         password: z.string().min(8),
         fullName: z.string().min(2).max(120),
+        security_password: z.string().min(1),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    assertPrivilegedPassword(data.security_password);
     return createAdminUser(data);
   });
 
@@ -1049,6 +1215,19 @@ export const listAdmins = createServerFn({ method: "GET" })
         };
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  });
+
+export const listAuditEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { data, error } = await (context.supabase as any)
+      .from("audit_events")
+      .select("id,actor_user_id,event_type,entity_type,entity_id,details,created_at")
+      .order("created_at", { ascending: false })
+      .limit(250);
+    if (error) throw new Error(error.message);
+    return data ?? [];
   });
 
 export const changePassword = createServerFn({ method: "POST" })
