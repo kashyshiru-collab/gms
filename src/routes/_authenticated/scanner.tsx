@@ -83,8 +83,8 @@ function ScannerPage() {
         bias: result.bias,
         edge: result.edge,
         ...normalizedSetup,
-        // Load the filled parameters for review; do not start trading yet.
-        autotrade: false,
+        // The first Load only opens the tile; this confirmation starts the bot.
+        autotrade: true,
       }),
     );
     toast.success("Scanner bot loaded with your trade settings");
@@ -258,7 +258,7 @@ function ScannerPage() {
             onClick={loadBot}
             className="w-full py-3 rounded-xl bg-bull text-bull-foreground font-bold"
           >
-            Load with these settings
+            Confirm and start auto trading
           </button>
         </div>
       )}
