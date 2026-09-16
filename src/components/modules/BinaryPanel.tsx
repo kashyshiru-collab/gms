@@ -79,6 +79,7 @@ type TickOutcome = { tickIndex: number; digit: number; won: boolean; final: bool
 
 type LoadedAutoBot = {
   source: "builder" | "scanner";
+  autotrade: boolean;
   label: string;
   market: MarketId;
   contractType: ContractType;
@@ -216,8 +217,8 @@ export function BinaryPanel() {
     if (!loaded) return;
 
     setAutoBot(loaded);
-    setAutoTrading(true);
-    setMode("auto");
+    setAutoTrading(loaded.autotrade);
+    setMode(loaded.autotrade ? "auto" : "manual");
     setMarketId(loaded.market);
     setContractType(loaded.contractType);
     setDirection(loaded.direction);
@@ -848,14 +849,19 @@ export function BinaryPanel() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 font-extrabold">
                     <span className="live-dot" />
-                    {autoBot.source === "scanner" ? "AI position loaded" : "Bot loaded"}
+                    {autoBot.source === "scanner"
+                      ? autoBot.autotrade
+                        ? "AI position loaded"
+                        : "AI parameters loaded"
+                      : "Bot loaded"}
                   </div>
                   <div className="mt-1 truncate text-muted-foreground">
                     {autoBot.label} / {MARKETS[autoBot.market].label} / {autoBot.direction}
                   </div>
                   <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                    Auto trades:{" "}
-                    {((autoBot.ticks * MARKETS[autoBot.market].intervalMs) / 1000).toFixed(1)}s each
+                    {autoBot.autotrade
+                      ? `Auto trades: ${((autoBot.ticks * MARKETS[autoBot.market].intervalMs) / 1000).toFixed(1)}s each`
+                      : "Auto trading is off — review the parameters before selecting Auto"}
                   </div>
                 </div>
                 <button
@@ -945,8 +951,6 @@ function readLoadedAutoBot(): LoadedAutoBot | null {
 
   try {
     const data = JSON.parse(raw) as Record<string, unknown>;
-    if (!data.autotrade) return null;
-
     const market = mapLoadedMarket(data.market, data.volatility);
     const contractType = mapLoadedContract(data.category);
     const contract = contractFor(contractType);
@@ -964,6 +968,7 @@ function readLoadedAutoBot(): LoadedAutoBot | null {
 
     return {
       source,
+      autotrade: data.autotrade === true,
       label:
         typeof data.name === "string" && data.name.trim()
           ? data.name.trim()

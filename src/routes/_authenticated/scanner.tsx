@@ -14,18 +14,20 @@ const CATEGORIES = ["Buy/Sell", "Even/Odd", "Matches/Differs", "Over/Under"] as 
 type Cat = (typeof CATEGORIES)[number];
 
 const DEFAULT_SCANNER_SETUP = {
-  stake: 10,
-  ticks: 1,
-  targetProfit: 200,
-  targetLoss: 999,
-  lossMultiple: 2,
-  digit: 5,
+  stake: "10",
+  ticks: "1",
+  targetProfit: "200",
+  targetLoss: "999",
+  lossMultiple: "2",
+  digit: "5",
 };
 
 function ScannerPage() {
   const [cat, setCat] = useState<Cat>("Buy/Sell");
   const [progress, setProgress] = useState(0);
   const [scanning, setScanning] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setup, setSetup] = useState(DEFAULT_SCANNER_SETUP);
   const [result, setResult] = useState<Awaited<
     ReturnType<ReturnType<typeof useServerFn<typeof deepScanMarket>>>
   > | null>(null);
@@ -36,6 +38,7 @@ function ScannerPage() {
     logDebugEvent("info", "scanner", "AI scanner started", { category: cat });
     setScanning(true);
     setResult(null);
+    setSetupOpen(false);
     setProgress(0);
     const tick = setInterval(() => setProgress((p) => Math.min(11, p + 1)), 250);
     try {
@@ -54,11 +57,21 @@ function ScannerPage() {
     }
   }
 
+  function openSetup() {
+    if (!result) {
+      toast.error("Run a scan first");
+      return;
+    }
+    setSetupOpen(true);
+  }
+
   function loadBot() {
     if (!result) {
       toast.error("Run a scan first");
       return;
     }
+
+    const normalizedSetup = normalizeSetup(setup);
     window.sessionStorage.setItem(
       "tronix-option-scanner-bot",
       JSON.stringify({
@@ -69,11 +82,12 @@ function ScannerPage() {
         direction: result.bias,
         bias: result.bias,
         edge: result.edge,
-        ...DEFAULT_SCANNER_SETUP,
-        autotrade: true,
+        ...normalizedSetup,
+        // Load the filled parameters for review; do not start trading yet.
+        autotrade: false,
       }),
     );
-    toast.success("Scanner bot loaded with default trade settings");
+    toast.success("Scanner bot loaded with your trade settings");
     navigate({ to: "/binary" });
   }
 
@@ -102,7 +116,10 @@ function ScannerPage() {
         </div>
         <select
           value={cat}
-          onChange={(e) => setCat(e.target.value as Cat)}
+          onChange={(e) => {
+            setCat(e.target.value as Cat);
+            setSetupOpen(false);
+          }}
           className="w-full bg-card border border-border rounded-xl px-4 py-3 font-bold outline-none"
         >
           {CATEGORIES.map((c) => (
@@ -138,11 +155,11 @@ function ScannerPage() {
         <Search className="h-4 w-4" /> {scanning ? "Scanning…" : "Deep scan for best market"}
       </button>
       <button
-        onClick={loadBot}
+        onClick={openSetup}
         disabled={!result || scanning}
         className="w-full py-3 rounded-xl border border-primary text-primary font-bold disabled:opacity-50"
       >
-        Load and start auto bot
+        Load trade parameters
       </button>
 
       {result && (
@@ -166,13 +183,151 @@ function ScannerPage() {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{result.rationale}</p>
           <button
-            onClick={loadBot}
+            onClick={openSetup}
             className="w-full py-3 rounded-xl bg-bull/15 border border-bull text-bull font-bold"
           >
-            Apply and start auto bot
+            Set parameters
+          </button>
+        </div>
+      )}
+
+      {result && setupOpen && (
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider font-bold text-primary">
+              Trade parameters
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Defaults are ready. Change only what you want before loading the bot.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ScannerField
+              label="Stake"
+              prefix="$"
+              value={setup.stake}
+              min={0.35}
+              step={0.5}
+              onChange={(stake) => setSetup((current) => ({ ...current, stake }))}
+            />
+            <ScannerField
+              label="Ticks"
+              value={setup.ticks}
+              min={1}
+              step={1}
+              onChange={(ticks) => setSetup((current) => ({ ...current, ticks }))}
+            />
+            <ScannerField
+              label="Take profit"
+              prefix="$"
+              value={setup.targetProfit}
+              min={1}
+              step={1}
+              onChange={(targetProfit) => setSetup((current) => ({ ...current, targetProfit }))}
+            />
+            <ScannerField
+              label="Stop loss"
+              prefix="$"
+              value={setup.targetLoss}
+              min={1}
+              step={1}
+              onChange={(targetLoss) => setSetup((current) => ({ ...current, targetLoss }))}
+            />
+            <ScannerField
+              label="Loss multiple"
+              prefix="x"
+              value={setup.lossMultiple}
+              min={1}
+              step={0.1}
+              onChange={(lossMultiple) => setSetup((current) => ({ ...current, lossMultiple }))}
+            />
+            {(cat === "Over/Under" || cat === "Matches/Differs") && (
+              <ScannerField
+                label="Digit"
+                value={setup.digit}
+                min={0}
+                max={9}
+                step={1}
+                onChange={(digit) => setSetup((current) => ({ ...current, digit }))}
+              />
+            )}
+          </div>
+
+          <button
+            onClick={loadBot}
+            className="w-full py-3 rounded-xl bg-bull text-bull-foreground font-bold"
+          >
+            Load with these settings
           </button>
         </div>
       )}
     </div>
   );
+}
+
+function ScannerField({
+  label,
+  prefix,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  prefix?: string;
+  value: string;
+  min: number;
+  max?: number;
+  step: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+        {label}
+      </span>
+      <span className="relative block">
+        {prefix && (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+            {prefix}
+          </span>
+        )}
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(event) => onChange(event.target.value)}
+          className={`w-full rounded-xl border border-border bg-background py-3 text-sm font-bold outline-none focus:border-primary ${
+            prefix ? "pl-7 pr-3" : "px-3"
+          }`}
+        />
+      </span>
+    </label>
+  );
+}
+
+function normalizeSetup(setup: typeof DEFAULT_SCANNER_SETUP) {
+  return {
+    stake: normalizeNumber(setup.stake, 10, 0.35),
+    ticks: Math.round(normalizeNumber(setup.ticks, 1, 1, 10)),
+    targetProfit: normalizeNumber(setup.targetProfit, 200, 1),
+    targetLoss: normalizeNumber(setup.targetLoss, 999, 1),
+    lossMultiple: normalizeNumber(setup.lossMultiple, 2, 1),
+    digit: Math.round(normalizeNumber(setup.digit, 5, 0, 9)),
+  };
+}
+
+function normalizeNumber(
+  value: string,
+  fallback: number,
+  min: number,
+  max = Number.MAX_SAFE_INTEGER,
+) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
