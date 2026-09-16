@@ -1,35 +1,21 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
+import { isDynamicImportFetchFailure, recoverDynamicImportFailure } from "@/lib/error-capture";
 
 export function RouteError({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
+  const isDynamicImportFailure = isDynamicImportFetchFailure(error);
+
   useEffect(() => {
     console.error(error);
-  }, [error]);
+    if (isDynamicImportFailure) recoverDynamicImportFailure(error);
+  }, [error, isDynamicImportFailure]);
 
   function doHardReload() {
-    try {
-      if (typeof window !== "undefined") {
-        if (navigator && "serviceWorker" in navigator) {
-          navigator.serviceWorker
-            .getRegistrations()
-            .then((regs) => regs.forEach((r) => r.unregister()))
-            .catch(() => {});
-        }
-        const u = new URL(window.location.href);
-        u.searchParams.set("_tbust", String(Date.now()));
-        window.location.replace(u.toString());
-      }
-    } catch (e) {
-      console.error(e);
-      window.location.reload();
-    }
+    if (recoverDynamicImportFailure(error, { force: true })) return;
+    window.location.reload();
   }
-
-  const isDynamicImportFailure = error?.message?.includes?.(
-    "Failed to fetch dynamically imported module",
-  );
 
   return (
     <div className="min-h-[60vh] grid place-items-center px-4">

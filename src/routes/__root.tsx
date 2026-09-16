@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { FAVICON_URL } from "@/lib/brand";
+import { isDynamicImportFetchFailure, recoverDynamicImportFailure } from "@/lib/error-capture";
 
 import appCss from "../styles.css?url";
 
@@ -39,6 +40,11 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const isDynamicImportFailure = isDynamicImportFetchFailure(error);
+
+  useEffect(() => {
+    if (isDynamicImportFailure) recoverDynamicImportFailure(error);
+  }, [error, isDynamicImportFailure]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -52,12 +58,16 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
+              if (isDynamicImportFailure) {
+                recoverDynamicImportFailure(error, { force: true });
+                return;
+              }
               router.invalidate();
               reset();
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {isDynamicImportFailure ? "Hard reload" : "Try again"}
           </button>
           <a
             href="/"
@@ -87,7 +97,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Tronix Option — Premium trading workspace" },
       {
         property: "og:description",
-        content: "Trade Forex, Binaries, Predict markets, and Aviator with an AI Market Scanner on Tronix Option.",
+        content:
+          "Trade Forex, Binaries, Predict markets, and Aviator with an AI Market Scanner on Tronix Option.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

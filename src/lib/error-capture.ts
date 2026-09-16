@@ -3,6 +3,7 @@
 
 let lastCapturedError: { error: unknown; at: number } | undefined;
 const TTL_MS = 5_000;
+const RELOAD_KEY = "tronix-option-dynamic-import-reload";
 
 function record(error: unknown) {
   lastCapturedError = { error, at: Date.now() };
@@ -12,50 +13,54 @@ if (typeof globalThis.addEventListener === "function") {
   globalThis.addEventListener("error", (event) => {
     const err = (event as ErrorEvent).error ?? event;
     record(err);
-    // Client-side: attempt recovery for dynamic import fetch failures
-    tryRecoverDynamicImport(err);
+    recoverDynamicImportFailure(err);
   });
   globalThis.addEventListener("unhandledrejection", (event) => {
     const reason = (event as PromiseRejectionEvent).reason;
     record(reason);
-    tryRecoverDynamicImport(reason);
+    recoverDynamicImportFailure(reason);
   });
 }
 
-function tryRecoverDynamicImport(error: unknown) {
-  if (typeof window === "undefined") return;
+export function isDynamicImportFetchFailure(error: unknown) {
+  const msg = String((error && (error as { message?: unknown }).message) ?? error ?? "");
+  return (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Importing a module script failed") ||
+    msg.includes("error loading dynamically imported module")
+  );
+}
+
+export function recoverDynamicImportFailure(error: unknown, options: { force?: boolean } = {}) {
+  if (typeof window === "undefined" || !isDynamicImportFetchFailure(error)) return false;
+
   try {
-    const msg = String((error && (error as any).message) ?? error ?? "");
-    if (!msg.includes("Failed to fetch dynamically imported module")) return;
-
-    // Avoid reload loops: only attempt once every 5 minutes per tab
-    const last = Number(window.sessionStorage.getItem("tronix-option-dynamic-import-reload") ?? "0");
-    if (Date.now() - last < 1000 * 60 * 5) {
-      // already tried recently — notify user
+    const last = Number(window.sessionStorage.getItem(RELOAD_KEY) ?? "0");
+    if (!options.force && Date.now() - last < 1000 * 60 * 5) {
       try {
-        // eslint-disable-next-line no-alert
-        alert("App resources out of sync. Please hard reload (Shift+Refresh) to update.");
-      } catch {}
-      return;
+        alert("App resources are out of sync. Please hard reload to update.");
+      } catch (alertError) {
+        console.warn("Could not show dynamic import recovery alert", alertError);
+      }
+      return true;
     }
-    window.sessionStorage.setItem("tronix-option-dynamic-import-reload", String(Date.now()));
 
-    // Unregister service workers to avoid stale cached HTML/manifest
+    window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+
     if (navigator && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .getRegistrations()
-        .then((regs) => regs.forEach((r) => r.unregister()))
+        .then((regs) => regs.forEach((registration) => registration.unregister()))
         .catch(() => {});
     }
 
-    // Reload with a cache-busting query param so clients request fresh assets
-    const u = new URL(window.location.href);
-    u.searchParams.set("_tbust", String(Date.now()));
-    // Use replace to avoid polluting history
-    window.location.replace(u.toString());
+    const url = new URL(window.location.href);
+    url.searchParams.set("_tbust", String(Date.now()));
+    window.location.replace(url.toString());
+    return true;
   } catch (e) {
-    // swallow errors here — we don't want to make failures worse
     console.error("Dynamic import recovery failed", e);
+    return false;
   }
 }
 
